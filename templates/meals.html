@@ -42,9 +42,20 @@
   <div class="card">
     <div class="card-header">
       <span class="card-title" style="margin-bottom:0">🛒 Shopping list</span>
-      <div style="display:flex;gap:6px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-secondary btn-sm" data-modal="add-item-modal">+ Add</button>
         <button class="btn btn-secondary btn-sm" onclick="clearChecked()">Clear ticked</button>
+        {% if is_admin %}
+          {% if alexa_connected %}
+          <button class="btn btn-secondary btn-sm" id="alexa-sync-btn" onclick="syncAlexa()">
+            📣 Sync to Alexa
+          </button>
+          {% else %}
+          <a href="{{ url_for('alexa_auth') }}" class="btn btn-secondary btn-sm">
+            🔗 Connect Alexa
+          </a>
+          {% endif %}
+        {% endif %}
       </div>
     </div>
 
@@ -175,6 +186,14 @@ async function clearChecked() {
   fd.append("week_start", weekStart);
   await postAction("/shopping/clear_checked", fd, "Cleared ticked items");
   setTimeout(() => location.reload(), 400);
+}
+
+async function syncAlexa() {
+  const btn = document.getElementById("alexa-sync-btn");
+  if (btn) btn.textContent = "⏳ Syncing…";
+  const r = await adminPost("/shopping/sync_alexa", null, null);
+  if (r) showToast(`${r.pushed} item(s) pushed to Alexa`);
+  if (btn) btn.textContent = "📣 Sync to Alexa";
 }
 </script>
 {% endblock %}

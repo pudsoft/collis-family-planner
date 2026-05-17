@@ -79,6 +79,12 @@ MANAGED_WLANS = [n.strip() for n in os.getenv("MANAGED_WLANS", "TCN_Junior").spl
 WEATHER_LAT = 52.617
 WEATHER_LON = 1.469
 
+# ── Alexa Shopping List ───────────────────────────────────────────────────────
+# Create a Security Profile at developer.amazon.com → Security Profiles,
+# then add the OAuth2 redirect URI: {APP_BASE_URL}/alexa/oauth2callback
+ALEXA_CLIENT_ID     = os.getenv("ALEXA_CLIENT_ID", "")
+ALEXA_CLIENT_SECRET = os.getenv("ALEXA_CLIENT_SECRET", "")
+
 # ── Admin PIN ─────────────────────────────────────────────────────────────────
 ADMIN_PIN = os.getenv("ADMIN_PIN", "1234")  # Katie & Paul set this in .env
 

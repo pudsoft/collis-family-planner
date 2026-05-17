@@ -15,7 +15,7 @@ from flask import (
 
 import config
 from modules import (
-    calendar_sync, meals, medicines, ntfy, school_terms, tasks, unifi, weather,
+    alexa, calendar_sync, meals, medicines, ntfy, school_terms, tasks, unifi, weather,
 )
 
 # ── App setup ─────────────────────────────────────────────────────────────────
@@ -474,6 +474,7 @@ def meals_view():
         people=config.PEOPLE,
         person_display=config.PERSON_DISPLAY,
         is_admin=person in config.ADMINS,
+        alexa_connected=alexa.is_connected(db),
     )
 
 
@@ -519,6 +520,46 @@ def shopping_delete(item_id: int):
 def shopping_clear_checked():
     meals.clear_checked_items(get_db(), request.form.get("week_start"))
     return jsonify({"ok": True})
+
+
+# ── Alexa Shopping List ───────────────────────────────────────────────────────
+
+@app.route("/alexa/auth")
+def alexa_auth():
+    if current_person() not in config.ADMINS:
+        return "Admin only", 403
+    if not config.ALEXA_CLIENT_ID:
+        return "ALEXA_CLIENT_ID not set in .env — see .env.example", 400
+    return redirect(alexa.get_auth_url())
+
+
+@app.route("/alexa/oauth2callback")
+def alexa_oauth_callback():
+    code = request.args.get("code")
+    if not code:
+        error = request.args.get("error", "unknown")
+        log.warning("Alexa OAuth callback error: %s", error)
+        return f"Alexa auth failed: {error}", 400
+    ok = alexa.exchange_code(code, get_db())
+    if ok:
+        return redirect(url_for("meals_view"))
+    return "Alexa auth failed — check server logs", 500
+
+
+@app.route("/shopping/sync_alexa", methods=["POST"])
+@require_admin
+def shopping_sync_alexa():
+    if not config.ALEXA_CLIENT_ID:
+        return jsonify({"error": "Alexa not configured"}), 400
+    pushed = alexa.sync_shopping_list_to_alexa(get_db())
+    return jsonify({"ok": True, "pushed": pushed})
+
+
+@app.route("/shopping/alexa_items")
+def shopping_alexa_items():
+    if not alexa.is_connected(get_db()):
+        return jsonify([])
+    return jsonify(alexa.get_alexa_shopping_items(get_db()))
 
 
 # ── Medicines ─────────────────────────────────────────────────────────────────
