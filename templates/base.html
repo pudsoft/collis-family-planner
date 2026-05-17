@@ -61,6 +61,20 @@
 </nav>
 
 <div class="toast-container" id="toast-container"></div>
+
+<!-- ── Admin PIN prompt (global, used by any page with admin actions) ── -->
+<div class="modal-backdrop" id="pin-prompt-modal">
+  <div class="modal-sheet" style="max-width:320px">
+    <div class="modal-title">🔐 Enter admin PIN</div>
+    <input class="form-input" id="pin-prompt-input" type="password"
+           placeholder="PIN" autocomplete="current-password" style="margin-bottom:12px">
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-secondary" style="flex:1" onclick="_cancelPin()">Cancel</button>
+      <button class="btn btn-primary"   style="flex:1" onclick="_confirmPin()">Confirm</button>
+    </div>
+  </div>
+</div>
+
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 {% block extra_js %}{% endblock %}
 </body>

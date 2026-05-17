@@ -177,15 +177,43 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// ── Admin PIN helper ───────────────────────────────────────────────────────── //
-function getAdminPin() {
-  return document.getElementById("admin-pin-input")?.value || "";
+// ── Admin PIN prompt ──────────────────────────────────────────────────────── //
+let _pinResolve = null;
+
+function _showPinModal() {
+  return new Promise(resolve => {
+    _pinResolve = resolve;
+    const modal = document.getElementById("pin-prompt-modal");
+    if (!modal) { resolve(""); return; }
+    modal.classList.add("open");
+    const inp = document.getElementById("pin-prompt-input");
+    inp.value = "";
+    setTimeout(() => inp.focus(), 80);
+  });
 }
 
-async function adminPost(url, formData = null) {
+window._confirmPin = function() {
+  const pin = document.getElementById("pin-prompt-input").value;
+  document.getElementById("pin-prompt-modal").classList.remove("open");
+  if (_pinResolve) { _pinResolve(pin); _pinResolve = null; }
+};
+
+window._cancelPin = function() {
+  document.getElementById("pin-prompt-modal").classList.remove("open");
+  if (_pinResolve) { _pinResolve(null); _pinResolve = null; }
+};
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && document.getElementById("pin-prompt-modal")?.classList.contains("open"))
+    window._confirmPin();
+});
+
+async function adminPost(url, formData = null, successMsg = null) {
+  const pin = await _showPinModal();
+  if (pin === null) return null; // cancelled
   const fd = formData || new FormData();
-  fd.append("admin_pin", getAdminPin());
-  return postAction(url, fd);
+  fd.append("admin_pin", pin);
+  return postAction(url, fd, successMsg);
 }
 
 // ── UniFi WLAN toggle ─────────────────────────────────────────────────────── //

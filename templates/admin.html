@@ -9,15 +9,6 @@
     <div style="font-size:.8rem;color:var(--text-muted)">Katie & Paul only</div>
   </div>
 
-  <!-- Admin PIN entry (sent with every write action) -->
-  <div class="card" style="padding:12px 16px">
-    <div class="form-group" style="margin:0">
-      <label class="form-label">Admin PIN</label>
-      <input class="form-input" id="admin-pin-input" type="password"
-             placeholder="Enter PIN to make changes" autocomplete="current-password">
-    </div>
-  </div>
-
   <!-- ── House chores ──────────────────────────────────────────────────────── -->
   <div class="card admin-section">
     <div class="card-header">
@@ -261,6 +252,8 @@
 </div>
 {% endblock %}
 
+{% endblock %}
+
 {% block extra_js %}
 <script>
 function editChore(id, title, interval, assignee, active) {
@@ -273,19 +266,17 @@ function editChore(id, title, interval, assignee, active) {
 }
 async function saveChore() {
   const fd = new FormData();
-  fd.append("admin_pin",     getAdminPin());
   fd.append("id",            document.getElementById("chore-id").value);
   fd.append("title",         document.getElementById("chore-title").value.trim());
   fd.append("interval_days", document.getElementById("chore-interval").value);
   fd.append("assignee",      document.getElementById("chore-assignee").value);
   fd.append("active",        document.getElementById("chore-active").value);
-  const r = await postAction("/admin/chore", fd, "Chore saved");
+  const r = await adminPost("/admin/chore", fd, "Chore saved");
   if (r) { document.getElementById("add-chore-modal").classList.remove("open"); setTimeout(() => location.reload(), 400); }
 }
 async function deleteChore(id) {
   if (!confirm("Delete this chore?")) return;
-  const fd = new FormData(); fd.append("admin_pin", getAdminPin());
-  const r = await adminPost(`/admin/chore/${id}/delete`);
+  const r = await adminPost(`/admin/chore/${id}/delete`, null, "Chore deleted");
   if (r) setTimeout(() => location.reload(), 400);
 }
 
@@ -301,7 +292,6 @@ function editMed(id, name, person, dose, stock, threshold, notes) {
 }
 async function saveMed() {
   const fd = new FormData();
-  fd.append("admin_pin",              getAdminPin());
   fd.append("id",                     document.getElementById("med-id").value);
   fd.append("name",                   document.getElementById("med-name").value.trim());
   fd.append("person",                 document.getElementById("med-person").value);
@@ -309,44 +299,42 @@ async function saveMed() {
   fd.append("stock_count",            document.getElementById("med-stock").value);
   fd.append("reorder_threshold_days", document.getElementById("med-threshold").value);
   fd.append("notes",                  document.getElementById("med-notes").value);
-  const r = await postAction("/admin/medicine", fd, "Medicine saved");
+  const r = await adminPost("/admin/medicine", fd, "Medicine saved");
   if (r) { document.getElementById("add-med-modal").classList.remove("open"); setTimeout(() => location.reload(), 400); }
 }
 async function deleteMed(id) {
   if (!confirm("Delete this medicine?")) return;
-  const r = await adminPost(`/admin/medicine/${id}/delete`);
+  const r = await adminPost(`/admin/medicine/${id}/delete`, null, "Medicine deleted");
   if (r) setTimeout(() => location.reload(), 400);
 }
 
 async function saveDevice() {
   const fd = new FormData();
-  fd.append("admin_pin",    getAdminPin());
   fd.append("display_name", document.getElementById("dev-name").value.trim());
   fd.append("mac",          document.getElementById("dev-mac").value.trim());
   fd.append("person",       document.getElementById("dev-person").value);
   fd.append("notes",        document.getElementById("dev-notes").value);
-  const r = await postAction("/admin/device", fd, "Device saved");
+  const r = await adminPost("/admin/device", fd, "Device saved");
   if (r) { document.getElementById("add-device-modal").classList.remove("open"); setTimeout(() => location.reload(), 400); }
 }
 async function deleteDevice(id) {
   if (!confirm("Remove this device?")) return;
-  const r = await adminPost(`/admin/device/${id}/delete`);
+  const r = await adminPost(`/admin/device/${id}/delete`, null, "Device removed");
   if (r) setTimeout(() => location.reload(), 400);
 }
 
 async function sendBroadcast() {
+  const msg = document.getElementById("broadcast-msg").value.trim();
+  if (!msg) { showToast("Enter a message", "error"); return; }
   const fd = new FormData();
-  fd.append("admin_pin", getAdminPin());
   fd.append("title",   document.getElementById("broadcast-title").value);
-  fd.append("message", document.getElementById("broadcast-msg").value.trim());
-  if (!fd.get("message")) { showToast("Enter a message", "error"); return; }
-  const r = await postAction("/admin/broadcast", fd);
+  fd.append("message", msg);
+  const r = await adminPost("/admin/broadcast", fd);
   if (r) showToast(`Sent to ${r.sent} channel(s)`);
 }
 
 async function adminAction(url, successMsg) {
-  const fd = new FormData(); fd.append("admin_pin", getAdminPin());
-  await postAction(url, fd, successMsg);
+  await adminPost(url, null, successMsg);
 }
 </script>
 {% endblock %}
