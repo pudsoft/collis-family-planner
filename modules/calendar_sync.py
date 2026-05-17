@@ -1,4 +1,5 @@
 """Google Calendar OAuth2 integration + work-meetings cache."""
+from __future__ import annotations
 
 import json
 import logging

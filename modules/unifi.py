@@ -1,6 +1,7 @@
 """UniFi Network control — WiFi toggle and device block/kick.
 Extends the pattern from C:\Rythm\unifi_portforward.py.
 """
+from __future__ import annotations
 
 import logging
 import urllib3

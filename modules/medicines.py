@@ -1,4 +1,5 @@
 """Medicine inventory, daily dose tracking, and reorder alerts."""
+from __future__ import annotations
 
 import logging
 from datetime import date, datetime

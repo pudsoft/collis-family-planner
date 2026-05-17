@@ -1,4 +1,5 @@
 """Norfolk County Council school term dates scraper with monthly cache."""
+from __future__ import annotations
 
 import json
 import logging

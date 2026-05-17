@@ -1,4 +1,5 @@
 """Task management — CRUD, recurring chores, executive-function transfer, defer."""
+from __future__ import annotations
 
 import logging
 from datetime import datetime, date, timedelta

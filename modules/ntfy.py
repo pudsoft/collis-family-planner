@@ -1,4 +1,5 @@
 """NTFY push notifications — ported from C:\Rythm\app.py."""
+from __future__ import annotations
 
 import logging
 import requests

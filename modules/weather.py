@@ -1,4 +1,5 @@
 """Open-Meteo weather for Brundall, Norfolk. No API key required."""
+from __future__ import annotations
 
 import time
 import logging
