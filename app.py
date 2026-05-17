@@ -321,8 +321,9 @@ def push_work_calendar():
 
 
 @app.route("/calendar/auth")
-@require_admin
 def calendar_auth():
+    if current_person() not in config.ADMINS:
+        return "Admin only (switch to Katie or Paul first)", 403
     url = calendar_sync.get_auth_url()
     return redirect(url)
 
