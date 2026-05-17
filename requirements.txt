@@ -1,4 +1,4 @@
-flask>=2.3,<3.0
+flask>=2.2,<2.3
 python-dotenv
 requests
 google-auth
