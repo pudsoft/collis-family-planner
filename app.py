@@ -324,7 +324,8 @@ def push_work_calendar():
 def calendar_auth():
     if current_person() not in config.ADMINS:
         return "Admin only (switch to Katie or Paul first)", 403
-    url = calendar_sync.get_auth_url()
+    url, code_verifier = calendar_sync.get_auth_url()
+    session["oauth_code_verifier"] = code_verifier
     return redirect(url)
 
 
@@ -333,7 +334,8 @@ def calendar_oauth_callback():
     code = request.args.get("code")
     if not code:
         return "Missing code", 400
-    ok = calendar_sync.exchange_code(code, get_db())
+    code_verifier = session.pop("oauth_code_verifier", None)
+    ok = calendar_sync.exchange_code(code, get_db(), code_verifier=code_verifier)
     if ok:
         calendar_sync.fetch_events(get_db())
         return redirect(url_for("calendar_view"))

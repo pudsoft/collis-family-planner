@@ -42,18 +42,21 @@ def _client_config() -> dict:
     }
 
 
-def get_auth_url(state: str = "calendar") -> str:
+def get_auth_url(state: str = "calendar") -> tuple:
+    """Return (auth_url, code_verifier) — caller must store code_verifier in session."""
     flow = Flow.from_client_config(_client_config(), scopes=SCOPES, state=state)
     flow.redirect_uri = REDIRECT_URI
     url, _ = flow.authorization_url(access_type="offline", prompt="consent")
-    return url
+    return url, flow.code_verifier
 
 
-def exchange_code(code: str, db_conn) -> bool:
+def exchange_code(code: str, db_conn, code_verifier: str = None) -> bool:
     """Exchange auth code for tokens and persist in DB."""
     try:
         flow = Flow.from_client_config(_client_config(), scopes=SCOPES)
         flow.redirect_uri = REDIRECT_URI
+        if code_verifier:
+            flow.code_verifier = code_verifier
         flow.fetch_token(code=code)
         creds = flow.credentials
         _save_token(db_conn, creds)
