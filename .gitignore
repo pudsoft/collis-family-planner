@@ -1,0 +1,10 @@
+*.db
+*.env
+.env
+__pycache__/
+*.pyc
+*.pyo
+token.json
+term_dates.json
+logs/
+*.log

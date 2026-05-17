@@ -1,0 +1,8 @@
+flask>=3.0
+python-dotenv
+requests
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client
+urllib3

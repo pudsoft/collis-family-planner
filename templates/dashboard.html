@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Home — {{ person_display[person].label if person in person_display else person.title() }}{% endblock %}
+
+{% block content %}
+<div class="page">
+
+  <!-- ── Weather ──────────────────────────────────────────────────────────── -->
+  {% if weather and weather.current %}
+  {% set wx = weather.current %}
+  <div class="weather-strip">
+    <div class="weather-main">{{ wx.emoji }}</div>
+    <div class="weather-info">
+      <div class="weather-temp">{{ wx.temp }}°C</div>
+      <div class="weather-desc">{{ wx.desc }} · Wind {{ wx.wind }} km/h
+        {% if in_term %}<span class="term-badge" style="margin-left:8px">📚 Term time</span>{% endif %}
+      </div>
+      {% if weather.forecast %}
+      <div class="weather-forecast">
+        {% for day in weather.forecast[:6] %}
+        <div class="forecast-day">
+          <div class="day-name">{{ day.date[5:] }}</div>
+          <div class="day-emoji">{{ day.emoji }}</div>
+          <div class="day-temp">{{ day.max }}° / {{ day.min }}°</div>
+          {% if day.rain_pct %}
+          <div class="day-temp" style="font-size:.65rem">💧{{ day.rain_pct }}%</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── Before you leave ─────────────────────────────────────────────────── -->
+  {% if leave_checklist %}
+  <div class="card">
+    <div class="card-title">🎒 Before you leave</div>
+    <ul class="checklist">
+      {% for item in leave_checklist %}
+      <li>{{ item }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <!-- ── Today's calendar events ──────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title" style="margin-bottom:0">📅 Today</span>
+      <a href="{{ url_for('calendar_view') }}?person={{ person }}" class="btn btn-secondary btn-sm">See all</a>
+    </div>
+    {% if today_events or work_meetings %}
+    <div class="event-list">
+      {% for e in today_events %}
+      <div class="event-card colour-{{ e.colour }}">
+        <div class="event-time">
+          {% if e.all_day %}All day
+          {% else %}{{ e.start_dt[11:16] }}{% endif %}
+        </div>
+        <div class="event-body">
+          <div class="event-title">{{ e.title }}</div>
+          {% if e.attendees %}
+          <div class="event-attendees">{{ e.attendees | join(', ') | title }}</div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+      {% for m in work_meetings %}
+      {% set status = m._status if m._status is defined else 'LATER' %}
+      <div class="event-card colour-peacock">
+        <div class="event-time">{{ m.start[11:16] if m.start else '' }}</div>
+        <div class="event-body">
+          <div class="event-title">💼 {{ m.title }}</div>
+          {% if m.agenda %}<div class="event-attendees">{{ m.agenda }}</div>{% endif %}
+        </div>
+        <span class="event-badge badge-{{ status | lower }}">{{ status }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:16px 0">
+      <div class="empty-state-icon">☀️</div>
+      <div class="empty-state-text">Nothing in the calendar today</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── Today's tasks ────────────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title" style="margin-bottom:0">✅ Tasks</span>
+      <a href="{{ url_for('tasks_view') }}?person={{ person }}" class="btn btn-secondary btn-sm">See all</a>
+    </div>
+    {% set active_tasks = today_tasks | selectattr('completed_at', 'none') | list %}
+    {% if active_tasks %}
+    <div class="task-list">
+      {% for t in active_tasks[:5] %}
+      <div class="task-item" data-task-id="{{ t.id }}">
+        <button class="task-check" aria-label="Complete task"></button>
+        <div class="task-body">
+          <div class="task-title">{{ t.title }}</div>
+          {% if t.due_date %}<div class="task-meta">Due {{ t.due_date }}</div>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+      {% if active_tasks | length > 5 %}
+      <a href="{{ url_for('tasks_view') }}?person={{ person }}" class="completed-count" style="display:block">
+        +{{ active_tasks | length - 5 }} more tasks
+      </a>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:16px 0">
+      <div class="empty-state-icon">🎉</div>
+      <div class="empty-state-text">All clear!</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── Medicine check-in ────────────────────────────────────────────────── -->
+  {% if today_meds %}
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title" style="margin-bottom:0">💊 Medicines</span>
+      <a href="{{ url_for('medicines_view') }}?person={{ person }}" class="btn btn-secondary btn-sm">See all</a>
+    </div>
+    <div class="med-list">
+      {% for med in today_meds %}
+      <div class="med-item {% if med.needs_reorder %}needs-reorder{% endif %}">
+        <div class="med-pill-icon">💊</div>
+        <div class="med-info">
+          <div class="med-name">{{ med.name }}</div>
+          <div class="med-stock {% if med.needs_reorder %}low{% endif %}">
+            {% if med.days_remaining is not none %}
+              {{ med.days_remaining }} days remaining
+              {% if med.needs_reorder %} — ⚠️ Reorder soon{% endif %}
+            {% endif %}
+          </div>
+        </div>
+        <button class="take-btn {% if med.taken_today %}taken{% endif %}"
+                data-med-id="{{ med.id }}">
+          {% if med.taken_today %}✓ Taken{% else %}Take{% endif %}
+        </button>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

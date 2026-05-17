@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Calendar — {{ person_display[person].label if person in person_display else person.title() }}{% endblock %}
+
+{% block content %}
+<div class="page">
+
+  {% if work_meetings and person in ['paul','family'] %}
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title" style="margin-bottom:0">💼 Work meetings today</span>
+      <span id="live-clock" style="font-size:.85rem;color:var(--text-muted);font-weight:600"></span>
+    </div>
+    <div class="event-list">
+      {% for m in work_meetings %}
+      <div class="event-card colour-peacock {% if m._status == 'NOW' %}highlight{% endif %}">
+        <div class="event-time">{{ m.start[11:16] if m.start else '' }}</div>
+        <div class="event-body">
+          <div class="event-title">{{ m.title }}</div>
+          {% if m.agenda %}<div class="event-attendees">{{ m.agenda }}</div>{% endif %}
+          {% if m.jira_ref %}<div class="event-attendees">Jira: {{ m.jira_ref }}</div>{% endif %}
+        </div>
+        <span class="event-badge badge-{{ m._status | lower }}">{{ m._status }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if events %}
+    {% set ns = namespace(current_date='') %}
+    {% for e in events %}
+      {% set event_date = e.start_dt[:10] %}
+      {% if event_date != ns.current_date %}
+        {% set ns.current_date = event_date %}
+        <div class="section-label">{{ event_date }}</div>
+      {% endif %}
+      <div class="event-card colour-{{ e.colour }} {% if highlight_event == e.id %}highlight{% endif %}"
+           id="event-{{ e.id }}">
+        <div class="event-time">
+          {% if e.all_day %}All day
+          {% else %}{{ e.start_dt[11:16] }}–{{ e.end_dt[11:16] }}{% endif %}
+        </div>
+        <div class="event-body">
+          <div class="event-title">{{ e.title }}</div>
+          {% if e.attendees %}
+          <div class="event-attendees">
+            {% for p in e.attendees %}
+            <span class="chip chip-{{ p }}">{{ p | title }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">📅</div>
+      <div class="empty-state-text">
+        No upcoming events
+        {% if not google_connected %}
+        — <a href="{{ url_for('calendar_auth') }}?admin_pin={{ admin_pin }}" style="color:var(--person-colour,var(--family));font-weight:600">Connect Google Calendar</a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

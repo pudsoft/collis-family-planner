@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#7B5BA6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>{% block title %}Family Planner{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body class="person-{{ person }}" data-completed-style="{{ prefs.completed_style }}">
+
+<!-- ── Person / top bar ─────────────────────────────────────────────────────── -->
+<nav class="top-bar">
+  <div class="top-bar-inner">
+    <span class="top-bar-title">🏠</span>
+    {% for p in ['family'] + people %}
+    {% set pd = person_display.get(p, {}) %}
+    <a href="{{ url_for('set_person', person=p) }}?next={{ request.path }}"
+       class="person-tab person-{{ p }} {% if person == p %}active{% endif %}">
+      {{ pd.get('emoji', '') }} {{ pd.get('label', p.title()) }}
+    </a>
+    {% endfor %}
+  </div>
+</nav>
+
+<!-- ── Page content ──────────────────────────────────────────────────────────── -->
+<main>
+  {% block content %}{% endblock %}
+</main>
+
+<!-- ── Bottom nav ───────────────────────────────────────────────────────────── -->
+<nav class="bottom-nav">
+  <a href="{{ url_for('dashboard') }}?person={{ person }}"
+     class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+    <span class="nav-icon">🏠</span>Home
+  </a>
+  <a href="{{ url_for('calendar_view') }}?person={{ person }}"
+     class="nav-item {% if request.endpoint == 'calendar_view' %}active{% endif %}">
+    <span class="nav-icon">📅</span>Calendar
+  </a>
+  <a href="{{ url_for('tasks_view') }}?person={{ person }}"
+     class="nav-item {% if request.endpoint == 'tasks_view' %}active{% endif %}">
+    <span class="nav-icon">✅</span>Tasks
+  </a>
+  <a href="{{ url_for('meals_view') }}?person={{ person }}"
+     class="nav-item {% if request.endpoint == 'meals_view' %}active{% endif %}">
+    <span class="nav-icon">🍽️</span>Meals
+  </a>
+  <a href="{{ url_for('medicines_view') }}?person={{ person }}"
+     class="nav-item {% if request.endpoint == 'medicines_view' %}active{% endif %}">
+    <span class="nav-icon">💊</span>Meds
+  </a>
+  <a href="{{ url_for('settings_view') }}"
+     class="nav-item {% if request.endpoint in ('settings_view','admin_view') %}active{% endif %}">
+    <span class="nav-icon">⚙️</span>Settings
+  </a>
+</nav>
+
+<div class="toast-container" id="toast-container"></div>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

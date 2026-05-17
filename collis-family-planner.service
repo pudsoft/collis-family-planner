@@ -1,0 +1,16 @@
+[Unit]
+Description=Collis Family Planner
+After=network.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/collis-family-planner
+EnvironmentFile=/home/pi/collis-family-planner/.env
+ExecStart=/home/pi/collis-family-planner/venv/bin/python app.py
+Restart=always
+RestartSec=5
+StandardOutput=append:/home/pi/data/family-planner.log
+StandardError=append:/home/pi/data/family-planner.log
+
+[Install]
+WantedBy=multi-user.target

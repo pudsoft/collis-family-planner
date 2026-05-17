@@ -1,0 +1,352 @@
+{% extends "base.html" %}
+{% block title %}Family Admin{% endblock %}
+
+{% block content %}
+<div class="page">
+
+  <div style="margin-bottom:14px">
+    <div style="font-size:1.1rem;font-weight:700">🔐 Family Admin</div>
+    <div style="font-size:.8rem;color:var(--text-muted)">Katie & Paul only</div>
+  </div>
+
+  <!-- Admin PIN entry (sent with every write action) -->
+  <div class="card" style="padding:12px 16px">
+    <div class="form-group" style="margin:0">
+      <label class="form-label">Admin PIN</label>
+      <input class="form-input" id="admin-pin-input" type="password"
+             placeholder="Enter PIN to make changes" autocomplete="current-password">
+    </div>
+  </div>
+
+  <!-- ── House chores ──────────────────────────────────────────────────────── -->
+  <div class="card admin-section">
+    <div class="card-header">
+      <span class="admin-section-title" style="border:none;margin:0">🏠 House chores</span>
+      <button class="btn btn-primary btn-sm" data-modal="add-chore-modal">+ Add</button>
+    </div>
+    {% for chore in chore_templates %}
+    <div class="device-item">
+      <div style="flex:1">
+        <div class="device-name">{{ chore.title }}</div>
+        <div class="device-mac">Every {{ chore.interval_days }} days · {{ chore.default_assignee | title }}
+          {% if not chore.active %} · <span style="color:#EF4444">Inactive</span>{% endif %}
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-sm"
+              onclick="editChore({{ chore.id }},'{{ chore.title|replace("'","\\'")|e }}',{{ chore.interval_days }},'{{ chore.default_assignee }}',{{ chore.active }})">
+        Edit
+      </button>
+      <button class="btn btn-danger btn-sm"
+              onclick="deleteChore({{ chore.id }})">✕</button>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- ── Medicines ─────────────────────────────────────────────────────────── -->
+  <div class="card admin-section">
+    <div class="card-header">
+      <span class="admin-section-title" style="border:none;margin:0">💊 Medicines</span>
+      <button class="btn btn-primary btn-sm" data-modal="add-med-modal">+ Add</button>
+    </div>
+    {% for med in all_meds %}
+    <div class="device-item">
+      <div class="med-pill-icon">{% if med.person == 'cookie' %}🐾{% else %}💊{% endif %}</div>
+      <div style="flex:1">
+        <div class="device-name">{{ med.name }}
+          <span class="chip chip-{{ med.person }}">{{ med.person | title }}</span>
+        </div>
+        <div class="device-mac">
+          {{ med.stock_count }} doses · {{ med.daily_dose }}/day ·
+          Reorder at {{ med.reorder_threshold_days }} days
+        </div>
+        {% if med.notes %}<div class="device-mac" style="font-style:italic">{{ med.notes }}</div>{% endif %}
+      </div>
+      <button class="btn btn-secondary btn-sm"
+              onclick="editMed({{ med.id }},'{{ med.name|replace("'","\\'")|e }}','{{ med.person }}',{{ med.daily_dose }},{{ med.stock_count }},{{ med.reorder_threshold_days }},'{{ (med.notes or '')|replace("'","\\'")|e }}')">
+        Edit
+      </button>
+      <button class="btn btn-danger btn-sm" onclick="deleteMed({{ med.id }})">✕</button>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- ── Known devices ─────────────────────────────────────────────────────── -->
+  <div class="card admin-section">
+    <div class="card-header">
+      <span class="admin-section-title" style="border:none;margin:0">📱 Known devices</span>
+      <button class="btn btn-primary btn-sm" data-modal="add-device-modal">+ Add</button>
+    </div>
+    {% for dev in known_devices %}
+    <div class="device-item">
+      <div style="flex:1">
+        <div class="device-name">{{ dev.display_name }}
+          {% if dev.person %}<span class="chip chip-{{ dev.person }}">{{ dev.person | title }}</span>{% endif %}
+        </div>
+        <div class="device-mac">{{ dev.mac }}</div>
+        {% if dev.notes %}<div class="device-mac" style="font-style:italic">{{ dev.notes }}</div>{% endif %}
+      </div>
+      <button class="btn btn-secondary btn-sm" data-device-action="block" data-device-id="{{ dev.id }}">Block</button>
+      <button class="btn btn-secondary btn-sm" data-device-action="kick"  data-device-id="{{ dev.id }}">Kick</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteDevice({{ dev.id }})">✕</button>
+    </div>
+    {% endfor %}
+
+    {% if connected_clients %}
+    <div style="margin-top:12px">
+      <div class="card-title">Currently connected</div>
+      {% for client in connected_clients %}
+      <div class="device-item" style="font-size:.8rem">
+        <div style="flex:1">
+          <div class="device-name">{{ client.hostname or client.mac }}</div>
+          <div class="device-mac">{{ client.mac }} · {{ client.ip }}</div>
+        </div>
+        {% if client.blocked %}
+        <span class="chip" style="background:#FEE2E2;color:#EF4444">Blocked</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── WiFi networks ─────────────────────────────────────────────────────── -->
+  {% if wlans %}
+  <div class="card admin-section">
+    <div class="admin-section-title">📶 WiFi networks</div>
+    {% for wlan in wlans %}
+    {% if wlan.name in managed_wlans %}
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">{{ wlan.name }}</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" class="wlan-toggle" data-ssid="{{ wlan.name }}"
+               {% if wlan.enabled %}checked{% endif %}>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ── Broadcast ─────────────────────────────────────────────────────────── -->
+  <div class="card admin-section">
+    <div class="admin-section-title">📢 Send family broadcast</div>
+    <div class="form-group">
+      <label class="form-label">Title</label>
+      <input class="form-input" id="broadcast-title" value="📢 Family Notice">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Message</label>
+      <textarea class="form-textarea" id="broadcast-msg" placeholder="Message to everyone…"></textarea>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="sendBroadcast()">Send to all</button>
+  </div>
+
+  <!-- ── Data refresh ───────────────────────────────────────────────────────── -->
+  <div class="card admin-section">
+    <div class="admin-section-title">🔄 Data</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-secondary" onclick="adminAction('/admin/refresh_calendar','Calendar refreshed')">
+        Refresh calendar
+      </button>
+      <button class="btn btn-secondary" onclick="adminAction('/admin/refresh_terms','Term dates refreshed')">
+        Refresh term dates
+      </button>
+      {% if not google_connected %}
+      <a href="{{ url_for('calendar_auth') }}" class="btn btn-primary">Connect Google Calendar</a>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Add/edit chore modal ──────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="add-chore-modal">
+  <div class="modal-sheet">
+    <span class="modal-close">✕</span>
+    <div class="modal-title">Chore</div>
+    <input type="hidden" id="chore-id">
+    <div class="form-group">
+      <label class="form-label">Title</label>
+      <input class="form-input" id="chore-title" placeholder="e.g. Hoover downstairs">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Repeat every (days)</label>
+      <input class="form-input" id="chore-interval" type="number" min="1" value="7">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Default assignee</label>
+      <select class="form-select" id="chore-assignee">
+        <option value="anyone">Anyone</option>
+        <option value="katie">Katie</option>
+        <option value="paul">Paul</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Active</label>
+      <select class="form-select" id="chore-active">
+        <option value="1">Yes</option>
+        <option value="0">No</option>
+      </select>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="saveChore()">Save chore</button>
+  </div>
+</div>
+
+<!-- ── Add/edit medicine modal ──────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="add-med-modal">
+  <div class="modal-sheet">
+    <span class="modal-close">✕</span>
+    <div class="modal-title">Medicine</div>
+    <input type="hidden" id="med-id">
+    <div class="form-group">
+      <label class="form-label">Name</label>
+      <input class="form-input" id="med-name" placeholder="e.g. Elvanse 50mg">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Person</label>
+      <select class="form-select" id="med-person">
+        {% for p in people %}<option value="{{ p }}">{{ p | title }}</option>{% endfor %}
+        <option value="cookie">Cookie (dog)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Daily dose (tablets/units)</label>
+      <input class="form-input" id="med-dose" type="number" min="0.5" step="0.5" value="1">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Current stock (doses)</label>
+      <input class="form-input" id="med-stock" type="number" min="0" step="0.5" value="0">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Reorder when X days remain</label>
+      <input class="form-input" id="med-threshold" type="number" min="1" value="14">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes (optional)</label>
+      <input class="form-input" id="med-notes" placeholder="e.g. Take with food">
+    </div>
+    <button class="btn btn-primary btn-full" onclick="saveMed()">Save medicine</button>
+  </div>
+</div>
+
+<!-- ── Add device modal ──────────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="add-device-modal">
+  <div class="modal-sheet">
+    <span class="modal-close">✕</span>
+    <div class="modal-title">Known device</div>
+    <div class="form-group">
+      <label class="form-label">Display name</label>
+      <input class="form-input" id="dev-name" placeholder="e.g. Joshua's iPad">
+    </div>
+    <div class="form-group">
+      <label class="form-label">MAC address</label>
+      <input class="form-input" id="dev-mac" placeholder="aa:bb:cc:dd:ee:ff">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Person</label>
+      <select class="form-select" id="dev-person">
+        <option value="">— None —</option>
+        {% for p in people %}<option value="{{ p }}">{{ p | title }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes (optional)</label>
+      <input class="form-input" id="dev-notes">
+    </div>
+    <button class="btn btn-primary btn-full" onclick="saveDevice()">Save device</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function editChore(id, title, interval, assignee, active) {
+  document.getElementById("chore-id").value       = id;
+  document.getElementById("chore-title").value    = title;
+  document.getElementById("chore-interval").value = interval;
+  document.getElementById("chore-assignee").value = assignee;
+  document.getElementById("chore-active").value   = active;
+  document.getElementById("add-chore-modal").classList.add("open");
+}
+async function saveChore() {
+  const fd = new FormData();
+  fd.append("admin_pin",     getAdminPin());
+  fd.append("id",            document.getElementById("chore-id").value);
+  fd.append("title",         document.getElementById("chore-title").value.trim());
+  fd.append("interval_days", document.getElementById("chore-interval").value);
+  fd.append("assignee",      document.getElementById("chore-assignee").value);
+  fd.append("active",        document.getElementById("chore-active").value);
+  const r = await postAction("/admin/chore", fd, "Chore saved");
+  if (r) { document.getElementById("add-chore-modal").classList.remove("open"); setTimeout(() => location.reload(), 400); }
+}
+async function deleteChore(id) {
+  if (!confirm("Delete this chore?")) return;
+  const fd = new FormData(); fd.append("admin_pin", getAdminPin());
+  const r = await adminPost(`/admin/chore/${id}/delete`);
+  if (r) setTimeout(() => location.reload(), 400);
+}
+
+function editMed(id, name, person, dose, stock, threshold, notes) {
+  document.getElementById("med-id").value        = id;
+  document.getElementById("med-name").value      = name;
+  document.getElementById("med-person").value    = person;
+  document.getElementById("med-dose").value      = dose;
+  document.getElementById("med-stock").value     = stock;
+  document.getElementById("med-threshold").value = threshold;
+  document.getElementById("med-notes").value     = notes;
+  document.getElementById("add-med-modal").classList.add("open");
+}
+async function saveMed() {
+  const fd = new FormData();
+  fd.append("admin_pin",              getAdminPin());
+  fd.append("id",                     document.getElementById("med-id").value);
+  fd.append("name",                   document.getElementById("med-name").value.trim());
+  fd.append("person",                 document.getElementById("med-person").value);
+  fd.append("daily_dose",             document.getElementById("med-dose").value);
+  fd.append("stock_count",            document.getElementById("med-stock").value);
+  fd.append("reorder_threshold_days", document.getElementById("med-threshold").value);
+  fd.append("notes",                  document.getElementById("med-notes").value);
+  const r = await postAction("/admin/medicine", fd, "Medicine saved");
+  if (r) { document.getElementById("add-med-modal").classList.remove("open"); setTimeout(() => location.reload(), 400); }
+}
+async function deleteMed(id) {
+  if (!confirm("Delete this medicine?")) return;
+  const r = await adminPost(`/admin/medicine/${id}/delete`);
+  if (r) setTimeout(() => location.reload(), 400);
+}
+
+async function saveDevice() {
+  const fd = new FormData();
+  fd.append("admin_pin",    getAdminPin());
+  fd.append("display_name", document.getElementById("dev-name").value.trim());
+  fd.append("mac",          document.getElementById("dev-mac").value.trim());
+  fd.append("person",       document.getElementById("dev-person").value);
+  fd.append("notes",        document.getElementById("dev-notes").value);
+  const r = await postAction("/admin/device", fd, "Device saved");
+  if (r) { document.getElementById("add-device-modal").classList.remove("open"); setTimeout(() => location.reload(), 400); }
+}
+async function deleteDevice(id) {
+  if (!confirm("Remove this device?")) return;
+  const r = await adminPost(`/admin/device/${id}/delete`);
+  if (r) setTimeout(() => location.reload(), 400);
+}
+
+async function sendBroadcast() {
+  const fd = new FormData();
+  fd.append("admin_pin", getAdminPin());
+  fd.append("title",   document.getElementById("broadcast-title").value);
+  fd.append("message", document.getElementById("broadcast-msg").value.trim());
+  if (!fd.get("message")) { showToast("Enter a message", "error"); return; }
+  const r = await postAction("/admin/broadcast", fd);
+  if (r) showToast(`Sent to ${r.sent} channel(s)`);
+}
+
+async function adminAction(url, successMsg) {
+  const fd = new FormData(); fd.append("admin_pin", getAdminPin());
+  await postAction(url, fd, successMsg);
+}
+</script>
+{% endblock %}

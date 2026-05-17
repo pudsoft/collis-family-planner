@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="page">
+
+  <!-- ── Personal preferences ──────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">⚙️ My preferences — {{ person_display[person].label if person in person_display else person.title() }}</div>
+    <form method="POST" action="{{ url_for('settings_save') }}">
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Completed task style</div>
+          <div class="settings-desc">How finished tasks look in your lists</div>
+        </div>
+        <select class="form-select" name="completed_style" style="width:auto">
+          <option value="fade" {% if prefs.completed_style == 'fade' %}selected{% endif %}>Cross off &amp; fade</option>
+          <option value="collapse" {% if prefs.completed_style == 'collapse' %}selected{% endif %}>Collapse to count</option>
+        </select>
+      </div>
+
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">NTFY channel</div>
+          <div class="settings-desc">Your ntfy.sh channel name for reminders</div>
+        </div>
+        <input class="form-input" name="ntfy_channel" style="width:160px;text-align:right"
+               value="{{ prefs.ntfy_channel or '' }}" placeholder="channel-name">
+      </div>
+
+      <div style="margin-top:14px;display:flex;gap:8px">
+        <button type="submit" class="btn btn-primary" style="flex:1">Save preferences</button>
+        <button type="button" class="btn btn-secondary" id="ntfy-test-btn">Test NTFY</button>
+      </div>
+    </form>
+  </div>
+
+  {% if is_admin %}
+  <!-- ── Admin shortcut ───────────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">🔐 Family admin</div>
+    <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:12px">
+      Manage chores, medicines, devices and more.
+    </p>
+    <a href="{{ url_for('admin_view') }}" class="btn btn-primary btn-full">Open admin panel</a>
+  </div>
+
+  <!-- ── Google Calendar ──────────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">📅 Google Calendar</div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">Connection status</div>
+        <div class="settings-desc">
+          {% if google_connected %}✅ Connected{% else %}❌ Not connected{% endif %}
+        </div>
+      </div>
+      <a href="{{ url_for('calendar_auth') }}?admin_pin={{ prefs.get('admin_pin','') }}"
+         class="btn btn-secondary btn-sm">
+        {% if google_connected %}Re-authorise{% else %}Connect{% endif %}
+      </a>
+    </div>
+  </div>
+
+  <!-- ── UniFi quick controls ─────────────────────────────────────────────── -->
+  {% if wlans %}
+  <div class="card">
+    <div class="card-title">📶 WiFi networks</div>
+    <div style="margin-bottom:10px">
+      <input class="form-input" id="admin-pin-input" type="password"
+             placeholder="Admin PIN" style="max-width:160px">
+    </div>
+    {% for wlan in wlans %}
+    {% if wlan.name in managed_wlans %}
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">{{ wlan.name }}</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" class="wlan-toggle" data-ssid="{{ wlan.name }}"
+               {% if wlan.enabled %}checked{% endif %}>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endif %}
+
+</div>
+{% endblock %}

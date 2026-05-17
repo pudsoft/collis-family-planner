@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Medicines{% endblock %}
+
+{% block content %}
+<div class="page">
+
+  <div class="card">
+    <div class="card-title">💊 Medicines — {{ today }}</div>
+
+    {% if meds %}
+    <div class="med-list">
+      {% for med in meds %}
+      <div class="med-item {% if med.needs_reorder %}needs-reorder{% endif %}" id="med-{{ med.id }}">
+        <div class="med-pill-icon">
+          {% if med.person == 'cookie' %}🐾{% else %}💊{% endif %}
+        </div>
+        <div class="med-info">
+          <div class="med-name">{{ med.name }}
+            <span class="chip chip-{{ med.person }}" style="margin-left:4px">{{ med.person | title }}</span>
+          </div>
+          <div class="med-stock {% if med.needs_reorder %}low{% endif %}">
+            {% if med.days_remaining is not none %}
+              {{ med.days_remaining }} days left
+              {% if med.needs_reorder %} — ⚠️ Reorder now{% endif %}
+            {% endif %}
+            {% if med.taken_at %} · Taken at {{ med.taken_at[11:16] }}{% endif %}
+          </div>
+          {% if med.notes %}<div class="med-stock" style="font-style:italic">{{ med.notes }}</div>{% endif %}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+          <button class="take-btn {% if med.taken_today %}taken{% endif %}"
+                  data-med-id="{{ med.id }}">
+            {% if med.taken_today %}✓ Taken{% else %}Take{% endif %}
+          </button>
+          {% if med.needs_reorder %}
+          <button class="btn btn-danger btn-sm" onclick="markReordered({{ med.id }})">Reordered</button>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">💊</div>
+      <div class="empty-state-text">
+        No medicines set up yet.
+        {% if is_admin %}<a href="{{ url_for('admin_view') }}" style="color:var(--person-colour,var(--family));font-weight:600">Add in Admin</a>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- ── Reorder modal ─────────────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="reorder-modal">
+  <div class="modal-sheet">
+    <span class="modal-close">✕</span>
+    <div class="modal-title">Mark as reordered</div>
+    <input type="hidden" id="reorder-med-id">
+    <div class="form-group">
+      <label class="form-label">New stock count (number of doses, optional)</label>
+      <input class="form-input" id="reorder-stock" type="number" min="0" step="0.5" placeholder="e.g. 56">
+    </div>
+    <button class="btn btn-primary btn-full" onclick="submitReorder()">Confirm reorder</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function markReordered(medId) {
+  document.getElementById("reorder-med-id").value = medId;
+  document.getElementById("reorder-stock").value  = "";
+  document.getElementById("reorder-modal").classList.add("open");
+}
+
+async function submitReorder() {
+  const medId = document.getElementById("reorder-med-id").value;
+  const stock = document.getElementById("reorder-stock").value;
+  const fd = new FormData();
+  if (stock) fd.append("new_stock", stock);
+  await postAction(`/medicines/${medId}/reordered`, fd, "Marked as reordered ✓");
+  document.getElementById("reorder-modal").classList.remove("open");
+  setTimeout(() => location.reload(), 400);
+}
+</script>
+{% endblock %}

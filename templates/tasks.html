@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Tasks — {{ person_display[person].label if person in person_display else person.title() }}{% endblock %}
+
+{% block content %}
+<div class="page">
+
+  <!-- ── Add task ──────────────────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title" style="margin-bottom:0">✅ Tasks</span>
+      <button class="btn btn-primary btn-sm" data-modal="add-task-modal">+ Add</button>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <a href="?person={{ person }}&show_done={% if show_done %}0{% else %}1{% endif %}"
+         class="btn btn-secondary btn-sm">
+        {% if show_done %}Hide completed{% else %}Show completed{% endif %}
+      </a>
+    </div>
+
+    <!-- Active tasks -->
+    {% set active  = task_list | selectattr('completed_at', 'none') | list %}
+    {% set done    = task_list | rejectattr('completed_at', 'none') | list %}
+
+    {% if active %}
+    <div class="task-list">
+      {% for t in active %}
+      {% set role = t._display_role | default('assigned') %}
+      <div class="task-item {% if highlight_task == t.id %}highlight{% endif %} {% if role == 'transferred_away' %}transferred-away{% endif %}"
+           data-task-id="{{ t.id }}" id="task-{{ t.id }}">
+        <button class="task-check" aria-label="Complete"></button>
+        <div class="task-body">
+          <div class="task-title">
+            {{ t.title }}
+            {% if t.is_chore %}<span class="chip" style="margin-left:4px">🏠 Chore</span>{% endif %}
+            {% if role == 'transferred_to' %}<span class="chip chip-paul" style="margin-left:4px">↩ Transferred to you</span>{% endif %}
+          </div>
+          <div class="task-meta">
+            {% if t.assignee %}<span class="chip chip-{{ t.assignee }}">{{ t.assignee | title }}</span>{% endif %}
+            {% if t.due_date %} · Due {{ t.due_date }}{% endif %}
+            {% if t.deferred_to %} · Deferred to {{ t.deferred_to }}{% endif %}
+          </div>
+          {% if t.notes %}<div class="task-meta" style="margin-top:3px;font-style:italic">{{ t.notes }}</div>{% endif %}
+
+          <!-- Executive function transfer (anyone tasks only, admin persons) -->
+          {% if t.assignee == 'anyone' and not t.exec_function_transfer and person in ['katie','paul'] %}
+          <button class="exec-transfer-btn" data-task-id="{{ t.id }}">
+            😵 Can't find the executive function — transfer to {{ 'Paul' if person == 'katie' else 'Katie' }}
+          </button>
+          {% endif %}
+        </div>
+        <div class="task-actions">
+          <button class="task-defer-btn" data-task-id="{{ t.id }}" title="Defer to tomorrow">⏭</button>
+          {% if is_admin %}
+          <button class="task-delete-btn" data-task-id="{{ t.id }}" title="Delete">🗑</button>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:16px 0">
+      <div class="empty-state-icon">🎉</div>
+      <div class="empty-state-text">All clear for {{ person_display[person].label if person in person_display else person }}!</div>
+    </div>
+    {% endif %}
+
+    <!-- Completed tasks -->
+    {% if done %}
+      {% if prefs.completed_style == 'collapse' %}
+      <div class="completed-count" id="completed-count" style="margin-top:8px">
+        {{ done | length }} completed — tap to show
+      </div>
+      {% endif %}
+      <div class="task-list" style="margin-top:8px">
+        {% for t in done %}
+        <div class="task-item completed-item style-{{ prefs.completed_style }}"
+             data-task-id="{{ t.id }}">
+          <button class="task-check checked" aria-label="Uncomplete">✓</button>
+          <div class="task-body">
+            <div class="task-title">{{ t.title }}</div>
+            <div class="task-meta">
+              Done by {{ t.completed_by | title }} · {{ t.completed_at[:10] if t.completed_at else '' }}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- ── Add task modal ────────────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="add-task-modal">
+  <div class="modal-sheet">
+    <span class="modal-close">✕</span>
+    <div class="modal-title">Add task</div>
+    <form method="POST" action="{{ url_for('task_create') }}">
+      <div class="form-group">
+        <label class="form-label">Task</label>
+        <input class="form-input" name="title" required placeholder="What needs doing?" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Assign to</label>
+        <select class="form-select" name="assignee">
+          <option value="anyone">Anyone</option>
+          {% for p in ['katie','paul','joshua','violet'] %}
+          <option value="{{ p }}" {% if p == person %}selected{% endif %}>{{ p | title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Due date (optional)</label>
+        <input class="form-input" name="due_date" type="date" value="{{ today }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes (optional)</label>
+        <textarea class="form-textarea" name="notes" placeholder="Any extra detail…"></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">Add task</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
