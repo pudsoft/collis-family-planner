@@ -187,6 +187,17 @@ def init_db():
         # Seed default chores
         tasks.seed_default_chores(db)
 
+        # Add theme column if missing (migration for existing DBs)
+        cols = [r[1] for r in db.execute("PRAGMA table_info(person_prefs)").fetchall()]
+        if "theme" not in cols:
+            db.execute("ALTER TABLE person_prefs ADD COLUMN theme TEXT DEFAULT 'default'")
+            db.commit()
+
+        # Paul prefers dark mode by default
+        db.execute(
+            "UPDATE person_prefs SET theme='dark' WHERE person='paul' AND (theme IS NULL OR theme='default')"
+        )
+
         # Seed env-var NTFY channels if provided
         for person, ch in [
             ("paul",  config.NTFY_CHANNEL_PAUL),
@@ -641,9 +652,10 @@ def settings_save():
     db     = get_db()
     db.execute(
         """UPDATE person_prefs
-           SET completed_style=?, ntfy_channel=?
+           SET completed_style=?, ntfy_channel=?, theme=?
            WHERE person=?""",
-        (d.get("completed_style", "fade"), d.get("ntfy_channel", ""), person),
+        (d.get("completed_style", "fade"), d.get("ntfy_channel", ""),
+         d.get("theme", "default"), person),
     )
     db.commit()
     return redirect(url_for("settings_view"))

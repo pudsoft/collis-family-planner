@@ -9,7 +9,7 @@
   <title>{% block title %}Family Planner{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
 </head>
-<body class="person-{{ person }}" data-completed-style="{{ prefs.completed_style }}">
+<body class="person-{{ person }} theme-{{ prefs.theme or 'default' }}" data-completed-style="{{ prefs.completed_style }}">
 
 <!-- ── Person / top bar ─────────────────────────────────────────────────────── -->
 <nav class="top-bar">

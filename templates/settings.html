@@ -21,6 +21,17 @@
 
       <div class="settings-row">
         <div>
+          <div class="settings-label">Dark mode</div>
+          <div class="settings-desc">Dark background for night-time use</div>
+        </div>
+        <select class="form-select" name="theme" style="width:auto">
+          <option value="default" {% if prefs.theme != 'dark' %}selected{% endif %}>Light</option>
+          <option value="dark"    {% if prefs.theme == 'dark' %}selected{% endif %}>Dark</option>
+        </select>
+      </div>
+
+      <div class="settings-row">
+        <div>
           <div class="settings-label">NTFY channel</div>
           <div class="settings-desc">Your ntfy.sh channel name for reminders</div>
         </div>

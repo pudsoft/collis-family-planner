@@ -19,6 +19,27 @@
   --transition: .18s ease;
 }
 
+/* ── Dark mode ─────────────────────────────────────────────────────────────── */
+body.theme-dark {
+  --bg:         #0F1117;
+  --surface:    #1A1D27;
+  --border:     #2D3142;
+  --text:       #E8EAF0;
+  --text-muted: #8B92A8;
+  --shadow:     0 2px 8px rgba(0,0,0,.4);
+}
+body.theme-dark .btn-secondary {
+  background: #2D3142; color: var(--text); border-color: var(--border);
+}
+body.theme-dark .form-input,
+body.theme-dark .form-select,
+body.theme-dark .form-textarea {
+  background: #2D3142; color: var(--text); border-color: var(--border);
+}
+body.theme-dark .person-select {
+  background: #2D3142; color: var(--text);
+}
+
 /* ── Reset ─────────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 16px; -webkit-text-size-adjust: 100%; }
