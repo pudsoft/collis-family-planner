@@ -204,6 +204,14 @@ def init_db():
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+@app.before_request
+def sync_person_from_args():
+    """If ?person= is in the URL (e.g. NTFY deep-links), update the session."""
+    p = request.args.get("person")
+    if p and p in config.PEOPLE + ["family"]:
+        session["person"] = p
+
+
 def current_person() -> str:
     return session.get("person", "family")
 
@@ -236,7 +244,13 @@ def _week_days(week_start: date = None) -> list[str]:
 def set_person(person: str):
     if person in config.PEOPLE + ["family"]:
         session["person"] = person
-    return redirect(request.referrer or url_for("dashboard"))
+    # Redirect back but strip ?person= so the route doesn't override the session
+    referrer = request.referrer or url_for("dashboard")
+    from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
+    parsed = urlparse(referrer)
+    qs = {k: v for k, v in parse_qs(parsed.query).items() if k != "person"}
+    clean = urlunparse(parsed._replace(query=urlencode(qs, doseq=True)))
+    return redirect(clean)
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────

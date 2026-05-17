@@ -49,31 +49,25 @@ input, select, textarea { font: inherit; }
 }
 .top-bar-inner {
   display: flex; align-items: center; gap: 8px;
-  height: 56px; overflow-x: auto;
-  scrollbar-width: none;
+  height: 52px;
 }
-.top-bar-inner::-webkit-scrollbar { display: none; }
 .top-bar-title {
   font-size: .85rem; font-weight: 700; color: var(--text-muted);
   white-space: nowrap; margin-right: 4px;
 }
 
-/* Person tabs */
-.person-tab {
-  display: flex; align-items: center; gap: 5px;
-  padding: 6px 14px;
+/* Person dropdown */
+.person-select {
+  margin-left: auto;
+  padding: 6px 12px;
   border-radius: 20px;
-  font-size: .82rem; font-weight: 600;
-  white-space: nowrap;
-  color: var(--text-muted);
-  border: 2px solid transparent;
-  transition: var(--transition);
-}
-.person-tab:hover { border-color: var(--person-colour, var(--family)); }
-.person-tab.active {
-  background: var(--person-colour, var(--family));
-  color: #fff;
-  border-color: transparent;
+  border: 2px solid var(--person-colour, var(--family));
+  background: var(--surface);
+  color: var(--text);
+  font-size: .88rem; font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  min-width: 130px;
 }
 
 /* ── Bottom nav ────────────────────────────────────────────────────────────── */

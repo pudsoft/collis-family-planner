@@ -14,14 +14,16 @@
 <!-- ── Person / top bar ─────────────────────────────────────────────────────── -->
 <nav class="top-bar">
   <div class="top-bar-inner">
-    <span class="top-bar-title">🏠</span>
-    {% for p in ['family'] + people %}
-    {% set pd = person_display.get(p, {}) %}
-    <a href="{{ url_for('set_person', person=p) }}?next={{ request.path }}"
-       class="person-tab person-{{ p }} {% if person == p %}active{% endif %}">
-      {{ pd.get('emoji', '') }} {{ pd.get('label', p.title()) }}
-    </a>
-    {% endfor %}
+    <span class="top-bar-title">🏠 Family Planner</span>
+    <select class="person-select" id="person-select"
+            onchange="window.location='/set_person/'+this.value">
+      {% for p in ['family'] + people %}
+      {% set pd = person_display.get(p, {}) %}
+      <option value="{{ p }}" {% if person == p %}selected{% endif %}>
+        {{ pd.get('emoji', '') }} {{ pd.get('label', p.title()) }}
+      </option>
+      {% endfor %}
+    </select>
   </div>
 </nav>
 
