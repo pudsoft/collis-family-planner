@@ -34,7 +34,9 @@
         {% set ns.current_date = event_date %}
         <div class="section-label">{{ event_date }}</div>
       {% endif %}
-      <div class="event-card colour-{{ e.colour }} {% if highlight_event == e.id %}highlight{% endif %}"
+      <div class="event-card colour-{{ e.colour }}
+                  {% if e.cancelled %}cancelled{% endif %}
+                  {% if highlight_event == e.id %}highlight{% endif %}"
            id="event-{{ e.id }}">
         <div class="event-time">
           {% if e.all_day %}All day
@@ -49,7 +51,13 @@
             {% endfor %}
           </div>
           {% endif %}
+          {% if e.first_seen_at %}
+          <div class="first-seen">Added {{ e.first_seen_at[:10] }}</div>
+          {% endif %}
         </div>
+        {% if e.cancelled %}
+        <span class="badge-cancelled">Cancelled</span>
+        {% endif %}
       </div>
     {% endfor %}
   {% else %}

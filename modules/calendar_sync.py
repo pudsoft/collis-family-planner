@@ -106,7 +106,12 @@ def _colour_to_people(colour_name: str) -> list[str]:
 
 
 def fetch_events(db_conn) -> list[dict]:
-    """Fetch upcoming events (next 14 days) from Google Calendar and cache in DB."""
+    """Fetch upcoming events (next 14 days) from Google Calendar.
+
+    Events that disappear from Google (cancelled/deleted) are kept in the DB
+    with cancelled=1 so the family can see what was removed.  New events get
+    first_seen_at stamped; existing events preserve their first_seen_at.
+    """
     creds = _load_token(db_conn)
     if not creds:
         log.info("No Google Calendar token — skipping fetch")
@@ -125,59 +130,108 @@ def fetch_events(db_conn) -> list[dict]:
             maxResults=200,
         ).execute()
 
-        events = []
+        # Build set of IDs Google currently returns
+        fetched_ids: set[str] = set()
+        upserts = []
         for item in result.get("items", []):
             colour_id   = item.get("colorId", "")
             colour_name = GOOGLE_COLOUR_ID_MAP.get(colour_id, "default")
             attendees   = _colour_to_people(colour_name)
-
-            start = item.get("start", {})
-            end_  = item.get("end", {})
+            start   = item.get("start", {})
+            end_    = item.get("end", {})
             all_day = "date" in start and "dateTime" not in start
+            event_id = item["id"]
+            fetched_ids.add(event_id)
 
-            events.append({
-                "id":        item["id"],
-                "title":     item.get("summary", "(No title)"),
-                "start_dt":  start.get("dateTime", start.get("date", "")),
-                "end_dt":    end_.get("dateTime", end_.get("date", "")),
-                "colour":    colour_name,
-                "all_day":   1 if all_day else 0,
-                "attendees": json.dumps(attendees),
-                "cached_at": now.isoformat(),
+            # Preserve first_seen_at if this event already exists
+            existing = db_conn.execute(
+                "SELECT first_seen_at FROM calendar_events WHERE id=?", (event_id,)
+            ).fetchone()
+            first_seen = existing["first_seen_at"] if existing else now.isoformat()
+
+            upserts.append({
+                "id":           event_id,
+                "title":        item.get("summary", "(No title)"),
+                "start_dt":     start.get("dateTime", start.get("date", "")),
+                "end_dt":       end_.get("dateTime", end_.get("date", "")),
+                "colour":       colour_name,
+                "all_day":      1 if all_day else 0,
+                "attendees":    json.dumps(attendees),
+                "cached_at":    now.isoformat(),
+                "first_seen_at": first_seen,
+                "cancelled":    0,
             })
 
-        # Replace cache
-        db_conn.execute("DELETE FROM calendar_events")
+        # Upsert all currently-live events (restores any that were wrongly cancelled)
         db_conn.executemany(
-            """INSERT OR REPLACE INTO calendar_events
-               (id, title, start_dt, end_dt, colour, all_day, attendees, cached_at)
-               VALUES (:id,:title,:start_dt,:end_dt,:colour,:all_day,:attendees,:cached_at)""",
-            events,
+            """INSERT INTO calendar_events
+               (id, title, start_dt, end_dt, colour, all_day, attendees,
+                cached_at, first_seen_at, cancelled)
+               VALUES (:id,:title,:start_dt,:end_dt,:colour,:all_day,:attendees,
+                       :cached_at,:first_seen_at,:cancelled)
+               ON CONFLICT(id) DO UPDATE SET
+                 title        = excluded.title,
+                 start_dt     = excluded.start_dt,
+                 end_dt       = excluded.end_dt,
+                 colour       = excluded.colour,
+                 all_day      = excluded.all_day,
+                 attendees    = excluded.attendees,
+                 cached_at    = excluded.cached_at,
+                 cancelled    = 0""",
+            upserts,
         )
+
+        # Soft-cancel events that were in our window but are no longer returned
+        # (only cancel future events — past ones age out naturally)
+        window_start = now.isoformat()
+        window_end   = end.isoformat()
+        existing_in_window = db_conn.execute(
+            """SELECT id FROM calendar_events
+               WHERE cancelled = 0
+                 AND start_dt >= ? AND start_dt <= ?""",
+            (window_start, window_end),
+        ).fetchall()
+        to_cancel = [r["id"] for r in existing_in_window if r["id"] not in fetched_ids]
+        if to_cancel:
+            db_conn.executemany(
+                "UPDATE calendar_events SET cancelled=1, cached_at=? WHERE id=?",
+                [(now.isoformat(), eid) for eid in to_cancel],
+            )
+            log.info("Soft-cancelled %d removed event(s)", len(to_cancel))
+
         db_conn.commit()
-        log.info("Cached %d calendar events", len(events))
-        return events
+        log.info("Synced %d live events (%d cancelled this window)", len(upserts), len(to_cancel))
+        return upserts
     except Exception as e:
         log.warning("Calendar fetch error: %s", e)
         return []
 
 
-def get_cached_events(db_conn, person: str = None) -> list[dict]:
-    """Return cached events, optionally filtered to a person."""
+def get_cached_events(db_conn, person: str = None,
+                      include_cancelled: bool = True) -> list[dict]:
+    """Return cached events, optionally filtered to a person.
+
+    Cancelled events are always included (they render faded in the UI) unless
+    include_cancelled=False.  They are sorted so live events appear before
+    cancelled ones on the same date.
+    """
     rows = db_conn.execute(
-        "SELECT * FROM calendar_events ORDER BY start_dt"
+        "SELECT * FROM calendar_events ORDER BY start_dt, cancelled"
     ).fetchall()
     events = [dict(r) for r in rows]
     for e in events:
         e["attendees"] = json.loads(e.get("attendees") or "[]")
+    if not include_cancelled:
+        events = [e for e in events if not e.get("cancelled")]
     if person and person != "family":
         events = [e for e in events if person in e["attendees"]]
     return events
 
 
 def get_today_events(db_conn, person: str = None) -> list[dict]:
+    """Today's events for dashboard — excludes cancelled so the strip stays clean."""
     today = datetime.now().strftime("%Y-%m-%d")
-    events = get_cached_events(db_conn, person)
+    events = get_cached_events(db_conn, person, include_cancelled=False)
     return [e for e in events if e["start_dt"].startswith(today)]
 
 

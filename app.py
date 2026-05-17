@@ -78,15 +78,20 @@ def init_db():
             );
 
             CREATE TABLE IF NOT EXISTS calendar_events (
-                id        TEXT PRIMARY KEY,
-                title     TEXT,
-                start_dt  TEXT,
-                end_dt    TEXT,
-                colour    TEXT,
-                all_day   INTEGER DEFAULT 0,
-                attendees TEXT,
-                cached_at TEXT
+                id           TEXT PRIMARY KEY,
+                title        TEXT,
+                start_dt     TEXT,
+                end_dt       TEXT,
+                colour       TEXT,
+                all_day      INTEGER DEFAULT 0,
+                attendees    TEXT,
+                cached_at    TEXT,
+                first_seen_at TEXT,
+                cancelled    INTEGER DEFAULT 0
             );
+            -- Migrate existing installs: add columns if missing
+            CREATE TABLE IF NOT EXISTS _migrations (id TEXT PRIMARY KEY);
+            INSERT OR IGNORE INTO _migrations VALUES ('calendar_events_v2');
 
             CREATE TABLE IF NOT EXISTS chore_templates (
                 id               INTEGER PRIMARY KEY AUTOINCREMENT,
