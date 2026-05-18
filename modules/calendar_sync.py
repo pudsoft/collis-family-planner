@@ -24,7 +24,7 @@ SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
 REDIRECT_URI = f"{APP_BASE_URL}/calendar/oauth2callback"
 
 # In-memory work meetings state (cleared each new day, like SolarOctopusAPI)
-_work_state: dict = {"meetings": [], "date": None}
+_work_state: dict = {"meetings": []}
 _work_lock = threading.Lock()
 
 
@@ -342,23 +342,35 @@ def start_background_sync(get_db_fn):
 # ── Work meetings (push from work PC) ────────────────────────────────────────
 
 def push_work_meetings(meetings: list[dict]) -> int:
-    """Accept meetings pushed from Paul's work PC. Auto-clears on new day."""
-    today = datetime.now().strftime("%Y-%m-%d")
+    """Accept meetings pushed from Paul's work PC (up to 7 days ahead)."""
+    cutoff = datetime.now().strftime("%Y-%m-%d")
     with _work_lock:
-        if _work_state["date"] != today:
-            _work_state["meetings"] = []
-            _work_state["date"] = today
-        _work_state["meetings"] = sorted(meetings, key=lambda m: m.get("start", ""))
+        # Discard any already-stored events that are now in the past
+        kept = [m for m in _work_state["meetings"]
+                if m.get("start", "")[:10] >= cutoff]
+        # Merge incoming; replace any existing entry with same start+title
+        incoming = sorted(meetings, key=lambda m: m.get("start", ""))
+        merged = {(m["start"], m["title"]): m for m in kept}
+        for m in incoming:
+            merged[(m["start"], m["title"])] = m
+        _work_state["meetings"] = sorted(merged.values(), key=lambda m: m.get("start", ""))
         return len(_work_state["meetings"])
 
 
-def get_work_meetings() -> list[dict]:
+def get_work_meetings(date: str = None) -> list[dict]:
+    """Return work meetings for a specific date (default: today)."""
+    target = date or datetime.now().strftime("%Y-%m-%d")
+    with _work_lock:
+        return [m for m in _work_state["meetings"]
+                if m.get("start", "")[:10] == target]
+
+
+def get_future_work_meetings() -> list[dict]:
+    """Return work meetings for dates strictly after today."""
     today = datetime.now().strftime("%Y-%m-%d")
     with _work_lock:
-        if _work_state["date"] != today:
-            _work_state["meetings"] = []
-            _work_state["date"] = today
-        return list(_work_state["meetings"])
+        return [m for m in _work_state["meetings"]
+                if m.get("start", "")[:10] > today]
 
 
 def meeting_status(meeting: dict) -> str:

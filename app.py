@@ -368,6 +368,22 @@ def calendar_view():
     for m in meetings:
         m["_status"] = calendar_sync.meeting_status(m)
 
+    # Inject future work meetings into the event stream so they appear inline
+    if person in ("paul", "family"):
+        for m in calendar_sync.get_future_work_meetings():
+            events.append({
+                "id":           f"wm_{m['start']}_{m['title']}",
+                "title":        m["title"],
+                "start_dt":     m["start"],
+                "end_dt":       m.get("end", ""),
+                "colour":       "peacock",
+                "all_day":      False,
+                "cancelled":    False,
+                "attendees":    ["paul"],
+                "first_seen_at": None,
+            })
+        events.sort(key=lambda e: e["start_dt"])
+
     return render_template(
         "calendar.html",
         person=person,
