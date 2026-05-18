@@ -259,6 +259,67 @@ def before_you_leave(db_conn, person: str) -> list[str]:
     return sorted(suggestions)
 
 
+# ── Childcare warning ────────────────────────────────────────────────────────
+
+def childcare_warning(db_conn) -> dict | None:
+    """Return warning info if Katie is at Toby AND Paul isn't on A/L
+    but Joshua or Violet have nothing scheduled between 09:00–17:30."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    all_events = get_cached_events(db_conn, include_cancelled=False)
+    today_events = [e for e in all_events if e["start_dt"].startswith(today)]
+
+    katie_at_work = any(
+        "toby" in e["title"].lower() and "katie" in e["attendees"]
+        for e in today_events
+    )
+    if not katie_at_work:
+        return None
+
+    paul_on_leave = any(
+        ("a/l" in e["title"].lower() or "annual leave" in e["title"].lower())
+        and "paul" in e["attendees"]
+        for e in today_events
+    )
+    if paul_on_leave:
+        return None
+
+    window_start = f"{today}T09:00:00"
+    window_end   = f"{today}T17:30:00"
+    uncovered = []
+    for child in ["joshua", "violet"]:
+        covered = any(
+            child in e["attendees"]
+            and not e.get("all_day")
+            and e["start_dt"] >= window_start
+            and e["start_dt"] <= window_end
+            for e in today_events
+        )
+        if not covered:
+            uncovered.append(child)
+
+    if uncovered:
+        return {"uncovered": uncovered, "katie_at": "Toby"}
+    return None
+
+
+def first_events_today(db_conn, people: list) -> dict:
+    """Return the first timed event today for each person in the list."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    all_events = get_cached_events(db_conn, include_cancelled=False)
+    timed = [
+        e for e in all_events
+        if e["start_dt"].startswith(today) and not e.get("all_day")
+    ]
+    timed.sort(key=lambda e: e["start_dt"])
+    result = {}
+    for p in people:
+        for e in timed:
+            if p in e["attendees"]:
+                result[p] = e
+                break
+    return result
+
+
 # ── Background refresh thread ─────────────────────────────────────────────────
 
 def start_background_sync(get_db_fn):

@@ -292,13 +292,15 @@ def dashboard():
     db   = get_db()
     prefs = get_prefs(db, person)
 
-    today_events    = calendar_sync.get_today_events(db, person)
-    work_meetings   = calendar_sync.get_work_meetings() if person in ("paul", "family") else []
-    leave_checklist = calendar_sync.before_you_leave(db, person)
-    today_tasks     = tasks.get_tasks_for_person(db, person)
-    today_meds      = medicines.get_today_doses(db, person)
-    wx              = weather.get_weather()
-    in_term         = school_terms.is_term_time()
+    today_events       = calendar_sync.get_today_events(db, person)
+    work_meetings      = calendar_sync.get_work_meetings() if person in ("paul", "family") else []
+    leave_checklist    = calendar_sync.before_you_leave(db, person)
+    today_tasks        = tasks.get_tasks_for_person(db, person)
+    today_meds         = medicines.get_today_doses(db, person)
+    wx                 = weather.get_weather()
+    in_term            = school_terms.is_term_time()
+    childcare_alert    = calendar_sync.childcare_warning(db)
+    kids_first_events  = calendar_sync.first_events_today(db, ["joshua", "violet"]) if person in ("paul", "family") else {}
 
     return render_template(
         "dashboard.html",
@@ -311,6 +313,8 @@ def dashboard():
         today_meds=today_meds,
         weather=wx,
         in_term=in_term,
+        childcare_alert=childcare_alert,
+        kids_first_events=kids_first_events,
         people=config.PEOPLE,
         person_display=config.PERSON_DISPLAY,
         today=date.today().isoformat(),

@@ -32,6 +32,40 @@
   </div>
   {% endif %}
 
+  <!-- ── Childcare warning ──────────────────────────────────────────────────── -->
+  {% if childcare_alert %}
+  <div class="alert-card alert-danger">
+    <div class="alert-icon">⚠️</div>
+    <div class="alert-body">
+      <div class="alert-title">Childcare not organised</div>
+      <div class="alert-desc">
+        Katie is at Toby and you're not on A/L — but
+        {% for c in childcare_alert.uncovered %}{{ person_display[c].emoji if c in person_display else '' }} {{ c | title }}{% if not loop.last %} and {% endif %}{% endfor %}
+        ha{{ 've' if childcare_alert.uncovered | length > 1 else 's' }} nothing between 9:00–17:30.
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── Kids' first event of the day (school drop-off) ─────────────────────── -->
+  {% if kids_first_events %}
+  <div class="card">
+    <div class="card-title">🚌 Drop-off today</div>
+    {% for child in ['joshua', 'violet'] %}
+    {% if child in kids_first_events %}
+    {% set e = kids_first_events[child] %}
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;{% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}">
+      <span style="font-size:1.2rem">{{ person_display[child].emoji if child in person_display else '👶' }}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:.88rem">{{ person_display[child].label if child in person_display else child | title }}</div>
+        <div style="font-size:.78rem;color:var(--text-muted)">{{ e.start_dt[11:16] }} — {{ e.title }}</div>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+
   <!-- ── Before you leave ─────────────────────────────────────────────────── -->
   {% if leave_checklist %}
   <div class="card">
