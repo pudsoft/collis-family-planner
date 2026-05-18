@@ -604,8 +604,10 @@ def shopping_clear_checked():
 
 @app.route("/alexa/auth")
 def alexa_auth():
+    if "person" in request.args:
+        session["person"] = request.args["person"]
     if current_person() not in config.ADMINS:
-        return "Admin only", 403
+        return "Admin only — add ?person=paul or ?person=katie to the URL", 403
     if not config.ALEXA_CLIENT_ID:
         return "ALEXA_CLIENT_ID not set in .env — see .env.example", 400
     return redirect(alexa.get_auth_url())
