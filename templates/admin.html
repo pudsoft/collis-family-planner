@@ -65,29 +65,25 @@
   <div class="card admin-section">
     <div class="card-header">
       <span class="admin-section-title" style="border:none;margin:0">🔒 Protected devices</span>
-      <button class="btn btn-primary btn-sm" data-modal="add-device-modal">+ Add</button>
+      <button class="btn btn-primary btn-sm" data-modal="add-device-modal">Edit</button>
     </div>
     <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px">
       Protected devices are hidden from Network controls and cannot be blocked.
     </div>
-    {% if all_devices %}
-    {% for dev in all_devices %}
+    {% set protected_devs = all_devices | selectattr('protected') | list %}
+    {% if protected_devs %}
+    {% for dev in protected_devs %}
     <div class="settings-row" style="flex-wrap:nowrap">
       <div style="flex:1;min-width:0">
         <div class="settings-label">{{ dev.display_name }}</div>
-        <div class="settings-desc">{{ dev.mac }}{% if dev.person %} · {{ dev.person | title }}{% endif %}</div>
+        <div class="settings-desc">{{ dev.mac }}</div>
       </div>
-      <label class="toggle" style="flex-shrink:0">
-        <input type="checkbox" class="protect-toggle" data-device-id="{{ dev.id }}"
-               {% if dev.protected %}checked{% endif %}>
-        <span class="toggle-slider"></span>
-      </label>
       <button class="btn btn-danger btn-sm" style="flex-shrink:0" onclick="deleteDevice({{ dev.id }})">✕</button>
     </div>
     {% endfor %}
     {% else %}
     <div class="empty-state" style="padding:12px 0">
-      <div class="empty-state-text">No devices added yet — tap + Add to pick from connected devices.</div>
+      <div class="empty-state-text">No protected devices — tap Edit to select from connected devices.</div>
     </div>
     {% endif %}
   </div>
@@ -199,54 +195,16 @@
   </div>
 </div>
 
-<!-- ── Add device modal ──────────────────────────────────────────────────────── -->
+<!-- ── Protect devices modal ─────────────────────────────────────────────────── -->
 <div class="modal-backdrop" id="add-device-modal">
   <div class="modal-sheet">
     <span class="modal-close">✕</span>
-    <div class="modal-title">Add protected device</div>
-    {% if live_clients %}
-    <div class="form-group">
-      <label class="form-label">Pick a connected device</label>
-      <select class="form-select" id="dev-pick" onchange="pickDevice(this)">
-        <option value="">— select to prefill —</option>
-        {% set known_macs = all_devices | map(attribute='mac') | map('lower') | list %}
-        {% for c in live_clients | sort(attribute='hostname') %}
-        {% if c.mac | lower not in known_macs %}
-        <option value="{{ c.mac }}" data-name="{{ c.hostname or c.mac }}">
-          {{ c.hostname or c.mac }}{% if c.ip %} ({{ c.ip }}){% endif %}
-        </option>
-        {% endif %}
-        {% endfor %}
-      </select>
+    <div class="modal-title">Protect devices</div>
+    <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px">Tick each device you want to protect from being blocked.</div>
+    <div id="protect-device-list">
+      <div style="color:var(--text-muted);text-align:center;padding:20px 0">Loading…</div>
     </div>
-    <div style="font-size:.75rem;color:var(--text-muted);margin:-6px 0 12px;text-align:center">— or fill in manually —</div>
-    {% endif %}
-    <input type="hidden" id="dev-id">
-    <div class="form-group">
-      <label class="form-label">Display name</label>
-      <input class="form-input" id="dev-name" placeholder="e.g. Joshua's iPad">
-    </div>
-    <div class="form-group">
-      <label class="form-label">MAC address</label>
-      <input class="form-input" id="dev-mac" placeholder="aa:bb:cc:dd:ee:ff">
-    </div>
-    <div class="form-group">
-      <label class="form-label">Person</label>
-      <select class="form-select" id="dev-person">
-        <option value="">— None —</option>
-        {% for p in people %}<option value="{{ p }}">{{ p | title }}</option>{% endfor %}
-      </select>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Notes (optional)</label>
-      <input class="form-input" id="dev-notes">
-    </div>
-    <label class="toggle" style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-      <input type="checkbox" id="dev-protected" checked>
-      <span class="toggle-slider"></span>
-      <span style="font-size:.85rem;font-weight:600">Protected (hidden from Network)</span>
-    </label>
-    <button class="btn btn-primary btn-full" onclick="saveDevice()">Save device</button>
+    <button class="btn btn-primary btn-full" style="margin-top:14px" onclick="saveProtectedDevices()">Save</button>
   </div>
 </div>
 {% endblock %}
@@ -307,40 +265,52 @@ async function deleteMed(id) {
   if (r) setTimeout(() => location.reload(), 400);
 }
 
-function pickDevice(sel) {
-  const opt = sel.options[sel.selectedIndex];
-  if (!opt.value) return;
-  document.getElementById("dev-mac").value  = opt.value;
-  document.getElementById("dev-name").value = opt.dataset.name || opt.value;
-}
+const _protectedMacs = new Set({{ all_devices | selectattr('protected') | map(attribute='mac') | list | tojson }});
 
-// Clear form when modal opens via data-modal button
-document.addEventListener("click", e => {
-  if (e.target.closest("[data-modal='add-device-modal']")) {
-    document.getElementById("dev-id").value      = "";
-    document.getElementById("dev-name").value    = "";
-    document.getElementById("dev-mac").value     = "";
-    document.getElementById("dev-person").value  = "";
-    document.getElementById("dev-notes").value   = "";
-    document.getElementById("dev-protected").checked = true;
-    const pick = document.getElementById("dev-pick");
-    if (pick) pick.value = "";
+document.addEventListener("click", async e => {
+  if (!e.target.closest("[data-modal='add-device-modal']")) return;
+  const listEl = document.getElementById("protect-device-list");
+  listEl.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px 0">Loading…</div>';
+  try {
+    const r    = await fetch("/network/status");
+    const data = await r.json();
+    const clients = (data.clients || []).slice().sort((a, b) =>
+      (a.hostname || a.mac).localeCompare(b.hostname || b.mac));
+    if (!clients.length) {
+      listEl.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">No devices currently connected</div>';
+      return;
+    }
+    listEl.innerHTML = clients.map(c => {
+      const checked = _protectedMacs.has(c.mac.toLowerCase());
+      return `<label style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
+        <input type="checkbox" class="protect-check" data-mac="${c.mac}"
+               data-name="${(c.hostname || c.mac).replace(/"/g, '')}"
+               ${checked ? "checked" : ""}
+               style="width:18px;height:18px;flex-shrink:0;accent-color:var(--family)">
+        <div>
+          <div style="font-size:.9rem;font-weight:600">${c.hostname || c.mac}</div>
+          <div style="font-size:.75rem;color:var(--text-muted)">${c.mac}${c.ip ? ' · ' + c.ip : ''}</div>
+        </div>
+      </label>`;
+    }).join("");
+  } catch {
+    listEl.innerHTML = '<div style="color:var(--text-muted)">Could not load devices — is UniFi reachable?</div>';
   }
 });
 
-async function saveDevice() {
-  const name = document.getElementById("dev-name").value.trim();
-  const mac  = document.getElementById("dev-mac").value.trim();
-  if (!name || !mac) { showToast("Name and MAC are required", "error"); return; }
+async function saveProtectedDevices() {
+  const checkboxes = document.querySelectorAll(".protect-check");
+  const devices = Array.from(checkboxes).map(cb => ({
+    mac:     cb.dataset.mac,
+    name:    cb.dataset.name,
+    protect: cb.checked,
+  }));
   const fd = new FormData();
-  fd.append("display_name", name);
-  fd.append("mac",          mac);
-  fd.append("person",       document.getElementById("dev-person").value);
-  fd.append("notes",        document.getElementById("dev-notes").value);
-  fd.append("protected",    document.getElementById("dev-protected").checked ? "1" : "0");
-  const r = await adminPost("/admin/device", fd, "Device saved");
+  fd.append("devices", JSON.stringify(devices));
+  const r = await adminPost("/admin/devices/protect_bulk", fd, "Saved");
   if (r) { document.getElementById("add-device-modal").classList.remove("open"); setTimeout(() => location.reload(), 400); }
 }
+
 async function deleteDevice(id) {
   if (!confirm("Remove this device?")) return;
   const r = await adminPost(`/admin/device/${id}/delete`, null, "Device removed");
@@ -361,16 +331,5 @@ async function adminAction(url, successMsg) {
   await adminPost(url, null, successMsg);
 }
 
-document.addEventListener("change", async (e) => {
-  const tog = e.target.closest(".protect-toggle");
-  if (!tog) return;
-  const devId     = tog.dataset.deviceId;
-  const protected_ = tog.checked ? "1" : "0";
-  const fd = new FormData();
-  fd.append("protected", protected_);
-  const r = await adminPost(`/admin/device/${devId}/protect`, fd, null);
-  if (!r) { tog.checked = !tog.checked; return; }
-  showToast(tog.checked ? "Device protected" : "Device unprotected");
-});
 </script>
 {% endblock %}

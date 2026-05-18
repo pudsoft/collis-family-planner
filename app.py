@@ -933,14 +933,28 @@ def admin_device_kick(dev_id: int):
     return jsonify({"ok": ok})
 
 
-@app.route("/admin/device/<int:dev_id>/protect", methods=["POST"])
+@app.route("/admin/devices/protect_bulk", methods=["POST"])
 @require_admin
-def admin_device_protect(dev_id: int):
-    protected = request.form.get("protected", "1") == "1"
+def admin_devices_protect_bulk():
+    devices = json.loads(request.form.get("devices", "[]"))
     db = get_db()
-    db.execute("UPDATE known_devices SET protected=? WHERE id=?", (1 if protected else 0, dev_id))
+    for dev in devices:
+        mac     = dev.get("mac", "").lower()
+        name    = dev.get("name") or mac
+        protect = 1 if dev.get("protect") else 0
+        if not mac:
+            continue
+        existing = db.execute("SELECT id FROM known_devices WHERE mac=?", (mac,)).fetchone()
+        if existing:
+            db.execute("UPDATE known_devices SET protected=?, display_name=? WHERE mac=?",
+                       (protect, name, mac))
+        elif protect:
+            db.execute(
+                "INSERT INTO known_devices (display_name, mac, protected) VALUES (?,?,1)",
+                (name, mac),
+            )
     db.commit()
-    return jsonify({"ok": True, "protected": protected})
+    return jsonify({"ok": True})
 
 
 @app.route("/admin/mac/<mac>/block", methods=["POST"])
