@@ -49,6 +49,27 @@ def list_wlans() -> list[dict]:
         return []
 
 
+def get_wifi_credentials(ssid_name: str) -> dict | None:
+    """Return SSID + password for a named network, or None if not found."""
+    if not _configured():
+        return None
+    try:
+        s = _session()
+        resp = s.get(f"{_base()}/rest/wlanconf", timeout=10)
+        resp.raise_for_status()
+        for w in resp.json().get("data", []):
+            if w.get("name") == ssid_name:
+                return {
+                    "ssid":     w.get("name", ""),
+                    "password": w.get("x_passphrase", ""),
+                    "security": "WPA" if w.get("x_passphrase") else "nopass",
+                }
+        return None
+    except Exception as e:
+        log.warning("get_wifi_credentials('%s') failed: %s", ssid_name, e)
+        return None
+
+
 def set_wlan_enabled(ssid_name: str, enabled: bool) -> bool:
     if not _configured():
         return False

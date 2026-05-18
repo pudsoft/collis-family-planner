@@ -870,6 +870,15 @@ def admin_device_protect(dev_id: int):
     return jsonify({"ok": True, "protected": protected})
 
 
+@app.route("/network/wifi_credentials/<ssid>", methods=["POST"])
+@require_admin
+def wifi_credentials(ssid: str):
+    creds = unifi.get_wifi_credentials(ssid)
+    if not creds:
+        return jsonify({"error": "Network not found"}), 404
+    return jsonify(creds)
+
+
 @app.route("/admin/wlan/<ssid>/toggle", methods=["POST"])
 @require_admin
 def admin_wlan_toggle(ssid: str):

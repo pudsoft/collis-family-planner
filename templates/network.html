@@ -80,9 +80,21 @@
     <button class="btn btn-primary btn-full" onclick="saveDevice()">Save device</button>
   </div>
 </div>
+<!-- ── WiFi credentials modal ─────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="wifi-creds-modal">
+  <div class="modal-sheet" style="text-align:center">
+    <span class="modal-close">✕</span>
+    <div class="modal-title" id="creds-ssid"></div>
+    <div id="creds-qr" style="margin:16px auto;width:fit-content"></div>
+    <div style="margin:12px 0 4px;font-size:.8rem;color:var(--text-muted)">Password</div>
+    <div id="creds-password" style="font-size:1.1rem;font-weight:700;letter-spacing:.08em;padding:10px 16px;background:var(--bg);border-radius:10px;user-select:all"></div>
+    <button class="btn btn-secondary btn-full" style="margin-top:14px" onclick="copyPassword()">Copy password</button>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>
 const MANAGED_WLANS = {{ managed_wlans | tojson }};
 let _pollTimer = null;
@@ -128,10 +140,13 @@ function renderWlans(wlans) {
         <div class="settings-label">${w.name}</div>
         <div class="settings-desc">${w.enabled ? "✅ Enabled" : "❌ Disabled"}</div>
       </div>
-      <label class="toggle">
-        <input type="checkbox" class="wlan-toggle" data-ssid="${w.name}" ${w.enabled ? "checked" : ""}>
-        <span class="toggle-slider"></span>
-      </label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn btn-secondary btn-sm" onclick="showCredentials('${w.name.replace(/'/g,"\\'")}')">🔑 Join</button>
+        <label class="toggle">
+          <input type="checkbox" class="wlan-toggle" data-ssid="${w.name}" ${w.enabled ? "checked" : ""}>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
     </div>`).join("");
 }
 
@@ -191,6 +206,28 @@ async function deleteDevice(id) {
   if (!confirm("Remove this device?")) return;
   const r = await adminPost(`/admin/device/${id}/delete`, null, "Device removed");
   if (r) setTimeout(() => location.reload(), 400);
+}
+
+// ── WiFi credentials + QR ────────────────────────────────────────────────────
+let _lastPassword = "";
+
+async function showCredentials(ssid) {
+  const r = await adminPost(`/network/wifi_credentials/${encodeURIComponent(ssid)}`, null, null);
+  if (!r) return;
+  _lastPassword = r.password;
+  document.getElementById("creds-ssid").textContent = r.ssid;
+  document.getElementById("creds-password").textContent = r.password || "(open network)";
+  const qrEl = document.getElementById("creds-qr");
+  qrEl.innerHTML = "";
+  const qrString = `WIFI:T:${r.security};S:${r.ssid};P:${r.password};;`;
+  QRCode.toCanvas(qrString, { width: 200, margin: 1 }, (err, canvas) => {
+    if (!err) qrEl.appendChild(canvas);
+  });
+  document.getElementById("wifi-creds-modal").classList.add("open");
+}
+
+function copyPassword() {
+  navigator.clipboard.writeText(_lastPassword).then(() => showToast("Password copied"));
 }
 
 // ── Start polling ─────────────────────────────────────────────────────────────

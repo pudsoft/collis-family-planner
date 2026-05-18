@@ -118,15 +118,16 @@
     {% endif %}
   </div>
 
-  <!-- ── Medicine check-in ────────────────────────────────────────────────── -->
-  {% if today_meds %}
+  <!-- ── Medicine check-in — only shown while doses remain to take ─────────── -->
+  {% set pending_meds = today_meds | selectattr('taken_today', 'equalto', false) | list %}
+  {% if pending_meds %}
   <div class="card">
     <div class="card-header">
       <span class="card-title" style="margin-bottom:0">💊 Medicines</span>
       <a href="{{ url_for('medicines_view') }}?person={{ person }}" class="btn btn-secondary btn-sm">See all</a>
     </div>
     <div class="med-list">
-      {% for med in today_meds %}
+      {% for med in pending_meds %}
       <div class="med-item {% if med.needs_reorder %}needs-reorder{% endif %}">
         <div class="med-pill-icon">💊</div>
         <div class="med-info">
