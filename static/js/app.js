@@ -177,36 +177,53 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// ── Admin PIN prompt ──────────────────────────────────────────────────────── //
+// ── Admin PIN keypad ──────────────────────────────────────────────────────── //
 let _pinResolve = null;
+let _pinValue   = "";
+
+function _pinUpdateDots() {
+  for (let i = 0; i < 4; i++) {
+    const d = document.getElementById("pd" + i);
+    if (d) d.classList.toggle("filled", i < _pinValue.length);
+  }
+}
+
+window._pinKey = function(digit) {
+  if (_pinValue.length >= 8) return;
+  _pinValue += digit;
+  _pinUpdateDots();
+};
+
+window._pinBackspace = function() {
+  _pinValue = _pinValue.slice(0, -1);
+  _pinUpdateDots();
+};
 
 function _showPinModal() {
   return new Promise(resolve => {
     _pinResolve = resolve;
+    _pinValue   = "";
+    _pinUpdateDots();
     const modal = document.getElementById("pin-prompt-modal");
     if (!modal) { resolve(""); return; }
     modal.classList.add("open");
-    const inp = document.getElementById("pin-prompt-input");
-    inp.value = "";
-    setTimeout(() => inp.focus(), 80);
   });
 }
 
 window._confirmPin = function() {
-  const pin = document.getElementById("pin-prompt-input").value;
+  const pin = _pinValue;
+  _pinValue  = "";
+  _pinUpdateDots();
   document.getElementById("pin-prompt-modal").classList.remove("open");
   if (_pinResolve) { _pinResolve(pin); _pinResolve = null; }
 };
 
 window._cancelPin = function() {
+  _pinValue = "";
+  _pinUpdateDots();
   document.getElementById("pin-prompt-modal").classList.remove("open");
   if (_pinResolve) { _pinResolve(null); _pinResolve = null; }
 };
-
-document.addEventListener("keydown", e => {
-  if (e.key === "Enter" && document.getElementById("pin-prompt-modal")?.classList.contains("open"))
-    window._confirmPin();
-});
 
 async function adminPost(url, formData = null, successMsg = null) {
   const pin = await _showPinModal();

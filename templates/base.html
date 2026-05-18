@@ -71,17 +71,30 @@
 
 <div class="toast-container" id="toast-container"></div>
 
-<!-- ── Admin PIN prompt (global, used by any page with admin actions) ── -->
-<div class="modal-backdrop" id="pin-prompt-modal">
-  <div class="modal-sheet" style="max-width:320px">
-    <div class="modal-title">🔐 Enter admin PIN</div>
-    <input class="form-input" id="pin-prompt-input" type="password"
-           placeholder="PIN" autocomplete="current-password" style="margin-bottom:12px">
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-secondary" style="flex:1" onclick="_cancelPin()">Cancel</button>
-      <button class="btn btn-primary"   style="flex:1" onclick="_confirmPin()">Confirm</button>
-    </div>
+<!-- ── Admin PIN keypad (full-screen, global) ────────────────────────────── -->
+<div class="pin-overlay" id="pin-prompt-modal">
+  <div class="pin-overlay-title">🔐 Admin PIN</div>
+  <div class="pin-dots" id="pin-dots">
+    <span class="pin-dot" id="pd0"></span>
+    <span class="pin-dot" id="pd1"></span>
+    <span class="pin-dot" id="pd2"></span>
+    <span class="pin-dot" id="pd3"></span>
   </div>
+  <div class="pin-grid">
+    <button class="pin-key" onclick="_pinKey('1')">1</button>
+    <button class="pin-key" onclick="_pinKey('2')">2</button>
+    <button class="pin-key" onclick="_pinKey('3')">3</button>
+    <button class="pin-key" onclick="_pinKey('4')">4</button>
+    <button class="pin-key" onclick="_pinKey('5')">5</button>
+    <button class="pin-key" onclick="_pinKey('6')">6</button>
+    <button class="pin-key" onclick="_pinKey('7')">7</button>
+    <button class="pin-key" onclick="_pinKey('8')">8</button>
+    <button class="pin-key" onclick="_pinKey('9')">9</button>
+    <button class="pin-key pin-key-back" onclick="_pinBackspace()">⌫</button>
+    <button class="pin-key" onclick="_pinKey('0')">0</button>
+    <button class="pin-key pin-key-ok" onclick="_confirmPin()">✓</button>
+  </div>
+  <button class="pin-cancel" onclick="_cancelPin()">Cancel</button>
 </div>
 
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>

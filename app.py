@@ -590,13 +590,15 @@ def medicines_view():
 
     db    = get_db()
     prefs = get_prefs(db, person)
-    meds  = medicines.get_today_doses(db, person)
+    # All medicines, current person's first
+    all_meds = medicines.get_today_doses(db, None)
+    all_meds.sort(key=lambda m: (0 if m["person"] == person else 1, m["person"], m["name"]))
 
     return render_template(
         "medicines.html",
         person=person,
         prefs=prefs,
-        meds=meds,
+        meds=all_meds,
         people=config.PEOPLE,
         person_display=config.PERSON_DISPLAY,
         is_admin=person in config.ADMINS,

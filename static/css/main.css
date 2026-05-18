@@ -449,6 +449,45 @@ input, select, textarea { font: inherit; }
   float: right; font-size: 1.4rem; line-height: 1; color: var(--text-muted); cursor: pointer;
 }
 
+/* ── PIN keypad overlay ─────────────────────────────────────────────────────── */
+.pin-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: var(--bg);
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center; gap: 28px;
+}
+.pin-overlay.open { display: flex; }
+.pin-overlay-title { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+.pin-dots { display: flex; gap: 14px; }
+.pin-dot {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid var(--border);
+  background: transparent; transition: background .1s;
+}
+.pin-dot.filled { background: var(--person-colour, var(--family)); border-color: var(--person-colour, var(--family)); }
+.pin-grid {
+  display: grid; grid-template-columns: repeat(3, 72px);
+  grid-template-rows: repeat(4, 72px); gap: 12px;
+}
+.pin-key {
+  font-size: 1.5rem; font-weight: 600;
+  border-radius: 50%; border: none;
+  background: var(--surface); color: var(--text);
+  box-shadow: var(--shadow); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .1s, background .1s;
+}
+.pin-key:active { transform: scale(.92); background: var(--border); }
+.pin-key-back { font-size: 1.2rem; }
+.pin-key-ok {
+  background: var(--person-colour, var(--family));
+  color: #fff;
+}
+.pin-cancel {
+  font-size: .9rem; color: var(--text-muted);
+  background: none; border: none; cursor: pointer; padding: 8px 20px;
+}
+
 /* ── Cancelled events ────────────────────────────────────────────────────────── */
 .event-card.cancelled {
   opacity: .45;
