@@ -32,7 +32,7 @@
       {% set event_date = e.start_dt[:10] %}
       {% if event_date != ns.current_date %}
         {% set ns.current_date = event_date %}
-        <div class="section-label">{{ event_date }}</div>
+        <div class="section-label">{{ event_date | friendlydate }}</div>
       {% endif %}
       <div class="event-card colour-{{ e.colour }}
                   {% if e.cancelled %}cancelled{% endif %}

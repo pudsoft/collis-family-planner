@@ -23,6 +23,20 @@ from modules import (
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
 
+
+@app.template_filter("friendlydate")
+def friendlydate_filter(date_str: str) -> str:
+    try:
+        dt = datetime.strptime(date_str[:10], "%Y-%m-%d")
+        today = date.today()
+        if dt.date() == today:
+            return f"Today — {dt.strftime('%A %-d %B')}"
+        if dt.date() == today + timedelta(days=1):
+            return f"Tomorrow — {dt.strftime('%A %-d %B')}"
+        return dt.strftime("%A %-d %B")
+    except Exception:
+        return date_str
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(name)s] %(levelname)s %(message)s",
