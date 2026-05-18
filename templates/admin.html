@@ -61,28 +61,36 @@
     {% endfor %}
   </div>
 
-  <!-- ── Protected devices ────────────────────────────────────────────────── -->
-  {% if all_devices %}
+  <!-- ── Known / protected devices ───────────────────────────────────────── -->
   <div class="card admin-section">
-    <div class="admin-section-title">🔒 Protected devices</div>
-    <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:10px">
+    <div class="card-header">
+      <span class="admin-section-title" style="border:none;margin:0">🔒 Protected devices</span>
+      <button class="btn btn-primary btn-sm" data-modal="add-device-modal">+ Add</button>
+    </div>
+    <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px">
       Protected devices are hidden from Network controls and cannot be blocked.
     </div>
+    {% if all_devices %}
     {% for dev in all_devices %}
-    <div class="settings-row">
-      <div>
+    <div class="settings-row" style="flex-wrap:nowrap">
+      <div style="flex:1;min-width:0">
         <div class="settings-label">{{ dev.display_name }}</div>
         <div class="settings-desc">{{ dev.mac }}{% if dev.person %} · {{ dev.person | title }}{% endif %}</div>
       </div>
-      <label class="toggle">
+      <label class="toggle" style="flex-shrink:0">
         <input type="checkbox" class="protect-toggle" data-device-id="{{ dev.id }}"
                {% if dev.protected %}checked{% endif %}>
         <span class="toggle-slider"></span>
       </label>
+      <button class="btn btn-danger btn-sm" style="flex-shrink:0" onclick="deleteDevice({{ dev.id }})">✕</button>
     </div>
     {% endfor %}
+    {% else %}
+    <div class="empty-state" style="padding:12px 0">
+      <div class="empty-state-text">No devices added yet — tap + Add to pick from connected devices.</div>
+    </div>
+    {% endif %}
   </div>
-  {% endif %}
 
   <!-- ── Broadcast ─────────────────────────────────────────────────────────── -->
   <div class="card admin-section">
@@ -195,7 +203,22 @@
 <div class="modal-backdrop" id="add-device-modal">
   <div class="modal-sheet">
     <span class="modal-close">✕</span>
-    <div class="modal-title">Known device</div>
+    <div class="modal-title">Add protected device</div>
+    {% if live_clients %}
+    <div class="form-group">
+      <label class="form-label">Pick a connected device</label>
+      <select class="form-select" id="dev-pick" onchange="pickDevice(this)">
+        <option value="">— select to prefill —</option>
+        {% for c in live_clients | sort(attribute='hostname') %}
+        <option value="{{ c.mac }}" data-name="{{ c.hostname or c.mac }}">
+          {{ c.hostname or c.mac }}{% if c.ip %} ({{ c.ip }}){% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="font-size:.75rem;color:var(--text-muted);margin:-6px 0 12px;text-align:center">— or fill in manually —</div>
+    {% endif %}
+    <input type="hidden" id="dev-id">
     <div class="form-group">
       <label class="form-label">Display name</label>
       <input class="form-input" id="dev-name" placeholder="e.g. Joshua's iPad">
@@ -215,6 +238,11 @@
       <label class="form-label">Notes (optional)</label>
       <input class="form-input" id="dev-notes">
     </div>
+    <label class="toggle" style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <input type="checkbox" id="dev-protected" checked>
+      <span class="toggle-slider"></span>
+      <span style="font-size:.85rem;font-weight:600">Protected (hidden from Network)</span>
+    </label>
     <button class="btn btn-primary btn-full" onclick="saveDevice()">Save device</button>
   </div>
 </div>
@@ -276,12 +304,37 @@ async function deleteMed(id) {
   if (r) setTimeout(() => location.reload(), 400);
 }
 
+function pickDevice(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt.value) return;
+  document.getElementById("dev-mac").value  = opt.value;
+  document.getElementById("dev-name").value = opt.dataset.name || opt.value;
+}
+
+// Clear form when modal opens via data-modal button
+document.addEventListener("click", e => {
+  if (e.target.closest("[data-modal='add-device-modal']")) {
+    document.getElementById("dev-id").value      = "";
+    document.getElementById("dev-name").value    = "";
+    document.getElementById("dev-mac").value     = "";
+    document.getElementById("dev-person").value  = "";
+    document.getElementById("dev-notes").value   = "";
+    document.getElementById("dev-protected").checked = true;
+    const pick = document.getElementById("dev-pick");
+    if (pick) pick.value = "";
+  }
+});
+
 async function saveDevice() {
+  const name = document.getElementById("dev-name").value.trim();
+  const mac  = document.getElementById("dev-mac").value.trim();
+  if (!name || !mac) { showToast("Name and MAC are required", "error"); return; }
   const fd = new FormData();
-  fd.append("display_name", document.getElementById("dev-name").value.trim());
-  fd.append("mac",          document.getElementById("dev-mac").value.trim());
+  fd.append("display_name", name);
+  fd.append("mac",          mac);
   fd.append("person",       document.getElementById("dev-person").value);
   fd.append("notes",        document.getElementById("dev-notes").value);
+  fd.append("protected",    document.getElementById("dev-protected").checked ? "1" : "0");
   const r = await adminPost("/admin/device", fd, "Device saved");
   if (r) { document.getElementById("add-device-modal").classList.remove("open"); setTimeout(() => location.reload(), 400); }
 }

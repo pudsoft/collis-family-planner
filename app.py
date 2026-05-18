@@ -778,6 +778,7 @@ def admin_view():
     google_connected = bool(
         db.execute("SELECT value FROM app_settings WHERE key='google_token'").fetchone()
     )
+    live_clients = unifi.list_connected_clients()
 
     return render_template(
         "admin.html",
@@ -791,6 +792,7 @@ def admin_view():
         all_meds=all_meds,
         google_connected=google_connected,
         admin_pin=config.ADMIN_PIN,
+        live_clients=live_clients,
     )
 
 
@@ -866,13 +868,15 @@ def admin_device_save():
     dev_id = d.get("id", type=int)
     if dev_id:
         db.execute(
-            "UPDATE known_devices SET display_name=?, mac=?, person=?, notes=? WHERE id=?",
-            (d["display_name"], d["mac"].lower(), d.get("person"), d.get("notes"), dev_id),
+            "UPDATE known_devices SET display_name=?, mac=?, person=?, notes=?, protected=? WHERE id=?",
+            (d["display_name"], d["mac"].lower(), d.get("person"), d.get("notes"),
+             1 if d.get("protected") == "1" else 0, dev_id),
         )
     else:
         db.execute(
-            "INSERT OR IGNORE INTO known_devices (display_name, mac, person, notes) VALUES (?,?,?,?)",
-            (d["display_name"], d["mac"].lower(), d.get("person"), d.get("notes")),
+            "INSERT OR IGNORE INTO known_devices (display_name, mac, person, notes, protected) VALUES (?,?,?,?,?)",
+            (d["display_name"], d["mac"].lower(), d.get("person"), d.get("notes"),
+             1 if d.get("protected") == "1" else 0),
         )
     db.commit()
     return jsonify({"ok": True})
