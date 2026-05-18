@@ -8,27 +8,28 @@
   {% if weather and weather.current %}
   {% set wx = weather.current %}
   <div class="weather-strip">
-    <div class="weather-main">{{ wx.emoji }}</div>
-    <div class="weather-info">
-      <div class="weather-temp">{{ wx.temp }}°C</div>
-      <div class="weather-desc">{{ wx.desc }} · Wind {{ wx.wind }} km/h
-        {% if in_term %}<span class="term-badge" style="margin-left:8px">📚 Term time</span>{% endif %}
-      </div>
-      {% if weather.forecast %}
-      <div class="weather-forecast">
-        {% for day in weather.forecast[:6] %}
-        <div class="forecast-day">
-          <div class="day-name">{{ day.date[5:] }}</div>
-          <div class="day-emoji">{{ day.emoji }}</div>
-          <div class="day-temp">{{ day.max }}° / {{ day.min }}°</div>
-          {% if day.rain_pct %}
-          <div class="day-temp" style="font-size:.65rem">💧{{ day.rain_pct }}%</div>
-          {% endif %}
+    <div class="weather-strip-top">
+      <div class="weather-main">{{ wx.emoji }}</div>
+      <div class="weather-info">
+        <div class="weather-temp">{{ wx.temp }}°C</div>
+        <div class="weather-desc">{{ wx.desc }} · 💨 {{ wx.wind }} km/h
+          {% if in_term %}<span class="term-badge" style="margin-left:6px">📚 Term</span>{% endif %}
         </div>
-        {% endfor %}
       </div>
-      {% endif %}
     </div>
+    {% if weather.forecast and weather_days > 0 %}
+    {% set day_labels = ['Tomorrow', 'In 2 days', 'In 3 days', 'In 4 days', 'In 5 days'] %}
+    <div class="weather-forecast">
+      {% for day in weather.forecast[1:weather_days+1] %}
+      <div class="forecast-day">
+        <div class="day-name">{{ day_labels[loop.index0] if loop.index0 < day_labels|length else day.date[5:] }}</div>
+        <div class="day-emoji">{{ day.emoji }}</div>
+        <div class="day-temp">{{ day.max }}° / {{ day.min }}°</div>
+        {% if day.rain_pct %}<div class="day-rain">💧{{ day.rain_pct }}%</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
   </div>
   {% endif %}
 

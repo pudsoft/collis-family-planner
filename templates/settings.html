@@ -32,6 +32,18 @@
 
       <div class="settings-row">
         <div>
+          <div class="settings-label">Forecast days</div>
+          <div class="settings-desc">Days of weather shown on dashboard</div>
+        </div>
+        <select class="form-select" name="weather_days" style="width:auto">
+          <option value="1" {% if prefs.weather_days == 1 %}selected{% endif %}>1 day</option>
+          <option value="3" {% if not prefs.weather_days or prefs.weather_days == 3 %}selected{% endif %}>3 days</option>
+          <option value="5" {% if prefs.weather_days == 5 %}selected{% endif %}>5 days</option>
+        </select>
+      </div>
+
+      <div class="settings-row">
+        <div>
           <div class="settings-label">Pin dark to this device</div>
           <div class="settings-desc">Stays dark regardless of whose view you're in</div>
         </div>

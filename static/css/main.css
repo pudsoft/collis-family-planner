@@ -168,25 +168,28 @@ input, select, textarea { font: inherit; max-width: 100%; }
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #fff; border-radius: var(--radius);
   padding: 14px 16px; margin-bottom: 12px;
-  display: flex; align-items: center; gap: 14px;
 }
-.weather-main { font-size: 2rem; line-height: 1; }
-.weather-info { flex: 1; }
-.weather-temp { font-size: 1.5rem; font-weight: 700; }
-.weather-desc { font-size: .85rem; opacity: .9; }
+.weather-strip-top {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+}
+.weather-main { font-size: 2rem; line-height: 1; flex-shrink: 0; }
+.weather-info { flex: 1; min-width: 0; }
+.weather-temp { font-size: 1.4rem; font-weight: 700; }
+.weather-desc { font-size: .82rem; opacity: .9; }
 .weather-forecast {
-  display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;
-  scrollbar-width: none; margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 6px;
 }
-.weather-forecast::-webkit-scrollbar { display: none; }
 .forecast-day {
-  min-width: 60px; text-align: center;
+  text-align: center;
   background: rgba(255,255,255,.15); border-radius: 8px; padding: 6px 4px;
   font-size: .72rem;
 }
-.forecast-day .day-name { font-weight: 700; opacity: .9; }
+.forecast-day .day-name { font-weight: 700; opacity: .9; font-size: .68rem; }
 .forecast-day .day-emoji { font-size: 1.2rem; margin: 2px 0; }
 .forecast-day .day-temp { opacity: .85; }
+.forecast-day .day-rain { opacity: .8; font-size: .65rem; }
 
 /* ── Event cards ─────────────────────────────────────────────────────────────── */
 .event-list { display: flex; flex-direction: column; gap: 8px; }

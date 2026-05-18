@@ -195,6 +195,12 @@ def init_db():
         # Seed default chores
         tasks.seed_default_chores(db)
 
+        # Add weather_days column to person_prefs if missing
+        pref_cols = [r[1] for r in db.execute("PRAGMA table_info(person_prefs)").fetchall()]
+        if "weather_days" not in pref_cols:
+            db.execute("ALTER TABLE person_prefs ADD COLUMN weather_days INTEGER DEFAULT 3")
+            db.commit()
+
         # Add scheduled_time column to medicines if missing
         med_cols = [r[1] for r in db.execute("PRAGMA table_info(medicines)").fetchall()]
         if "scheduled_time" not in med_cols:
@@ -307,6 +313,7 @@ def dashboard():
     in_term            = school_terms.is_term_time()
     childcare_alert    = calendar_sync.childcare_warning(db)
     kids_first_events  = calendar_sync.first_events_today(db, ["joshua", "violet"]) if person in ("paul", "family") else {}
+    weather_days       = int(prefs.get("weather_days") or 3)
 
     return render_template(
         "dashboard.html",
@@ -321,6 +328,7 @@ def dashboard():
         in_term=in_term,
         childcare_alert=childcare_alert,
         kids_first_events=kids_first_events,
+        weather_days=weather_days,
         people=config.PEOPLE,
         person_display=config.PERSON_DISPLAY,
         today=date.today().isoformat(),
@@ -698,10 +706,10 @@ def settings_save():
     db     = get_db()
     db.execute(
         """UPDATE person_prefs
-           SET completed_style=?, ntfy_channel=?, theme=?
+           SET completed_style=?, ntfy_channel=?, theme=?, weather_days=?
            WHERE person=?""",
         (d.get("completed_style", "fade"), d.get("ntfy_channel", ""),
-         d.get("theme", "default"), person),
+         d.get("theme", "default"), int(d.get("weather_days", 3)), person),
     )
     db.commit()
     return redirect(url_for("settings_view"))
