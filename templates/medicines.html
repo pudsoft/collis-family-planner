@@ -4,6 +4,75 @@
 {% block content %}
 <div class="page">
 
+  <!-- ── PRN / ad-hoc logging card ──────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">🆘 PRN — As needed</div>
+
+    <!-- Person selector for PRN -->
+    <div class="form-group" style="margin-bottom:12px">
+      <label class="form-label">Log for</label>
+      <select class="form-select" id="prn-person" style="width:auto;min-width:140px">
+        {% for p in ['family'] + people %}
+        {% set pd = person_display.get(p, {}) %}
+        <option value="{{ p }}" {% if p == person %}selected{% endif %}>
+          {{ pd.get('emoji','') }} {{ pd.get('label', p.title()) }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Med buttons -->
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="prn-med-btn" data-type="paracetamol" style="background:#FEF9C3;color:#854D0E;border:2px solid #FDE047">
+        💊 Paracetamol
+      </button>
+      <button class="prn-med-btn" data-type="ibuprofen" style="background:#FEE2E2;color:#991B1B;border:2px solid #FCA5A5">
+        💊 Ibuprofen
+      </button>
+    </div>
+
+    <!-- PRN status (next-dose safe indicator) -->
+    <div id="prn-status" style="font-size:.8rem;color:var(--text-muted);margin-bottom:12px;min-height:1.4em"></div>
+
+    <!-- Temperature -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <span style="font-size:.9rem;font-weight:600">🌡️ Temperature</span>
+      <input type="number" id="temp-value" class="form-input" step="0.1" min="35" max="42" placeholder="e.g. 37.5"
+             style="width:110px">
+      <span style="font-size:.85rem;color:var(--text-muted)">°C</span>
+      <button class="btn btn-primary btn-sm" onclick="logTemperature()">Log</button>
+    </div>
+
+    <!-- Recent PRN log -->
+    {% if prn_log %}
+    <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px">
+      <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:6px">Recent</div>
+      <div id="prn-recent-list">
+        {% for entry in prn_log %}
+        <div class="prn-log-row">
+          <span class="prn-log-icon">
+            {% if entry.type == 'temperature' %}🌡️{% else %}💊{% endif %}
+          </span>
+          <span class="prn-log-label">
+            {% if entry.type == 'temperature' %}
+              {{ entry.value }}°C
+            {% else %}
+              {{ entry.type | title }}
+            {% endif %}
+          </span>
+          <span class="prn-log-time">{{ entry.logged_at[11:16] }}</span>
+          {% if entry.type != 'temperature' and not entry.safe_now %}
+          <span class="prn-next-dose">next at {{ entry.next_safe_at }}</span>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+    <div id="prn-recent-list"></div>
+    {% endif %}
+  </div>
+
   <div class="card">
     <div class="card-title">💊 Medicines — {{ today }}</div>
 
@@ -91,5 +160,94 @@ async function submitReorder() {
   document.getElementById("reorder-modal").classList.remove("open");
   setTimeout(() => location.reload(), 400);
 }
+
+// ── PRN logging ────────────────────────────────────────────────────────────── //
+
+// PRN minimum intervals in minutes
+const PRN_INTERVALS = { paracetamol: 240, ibuprofen: 360 };
+
+// Track the most recent dose of each type from the server-rendered log
+const _prnLastDose = {};
+document.querySelectorAll(".prn-log-row").forEach(row => {
+  const label = row.querySelector(".prn-log-label")?.textContent.trim().toLowerCase();
+  const time  = row.querySelector(".prn-log-time")?.textContent.trim();
+  if ((label === "paracetamol" || label === "ibuprofen") && time && !_prnLastDose[label]) {
+    _prnLastDose[label] = row.dataset.loggedAt || null;
+  }
+});
+
+function _prnPerson() {
+  return document.getElementById("prn-person").value;
+}
+
+document.querySelectorAll(".prn-med-btn").forEach(btn => {
+  btn.addEventListener("click", () => logPrnMed(btn.dataset.type));
+});
+
+async function logPrnMed(type) {
+  const fd = new FormData();
+  fd.append("person", _prnPerson());
+  fd.append("type", type);
+  const result = await postAction("/prn/log", fd, `${type.charAt(0).toUpperCase()+type.slice(1)} logged ✓`);
+  if (result) refreshPrnStatus();
+}
+
+async function logTemperature() {
+  const val = document.getElementById("temp-value").value;
+  if (!val) { showToast("Enter a temperature first", "error"); return; }
+  const fd = new FormData();
+  fd.append("person", _prnPerson());
+  fd.append("type", "temperature");
+  fd.append("value", val);
+  const result = await postAction("/prn/log", fd, `${val}°C logged ✓`);
+  if (result) {
+    document.getElementById("temp-value").value = "";
+    refreshPrnStatus();
+  }
+}
+
+async function refreshPrnStatus() {
+  const person = _prnPerson();
+  const resp = await fetch(`/prn/recent?person=${encodeURIComponent(person)}`);
+  if (!resp.ok) return;
+  const entries = await resp.json();
+
+  // Update status bar
+  const statusEl = document.getElementById("prn-status");
+  const msgs = [];
+  for (const type of ["paracetamol", "ibuprofen"]) {
+    const last = entries.find(e => e.type === type);
+    if (last) {
+      if (last.safe_now) {
+        msgs.push(`${type.charAt(0).toUpperCase()+type.slice(1)}: ✓ safe to take`);
+      } else {
+        msgs.push(`${type.charAt(0).toUpperCase()+type.slice(1)}: next dose at ${last.next_safe_at}`);
+      }
+    }
+  }
+  statusEl.textContent = msgs.join("  ·  ");
+
+  // Rebuild recent list
+  const listEl = document.getElementById("prn-recent-list");
+  if (!entries.length) { listEl.innerHTML = ""; return; }
+  listEl.innerHTML = entries.map(e => {
+    const icon  = e.type === "temperature" ? "🌡️" : "💊";
+    const label = e.type === "temperature" ? `${e.value}°C` : e.type.charAt(0).toUpperCase()+e.type.slice(1);
+    const time  = e.logged_at.slice(11,16);
+    const next  = (e.type !== "temperature" && !e.safe_now)
+      ? `<span class="prn-next-dose">next at ${e.next_safe_at}</span>` : "";
+    return `<div class="prn-log-row">
+      <span class="prn-log-icon">${icon}</span>
+      <span class="prn-log-label">${label}</span>
+      <span class="prn-log-time">${time}</span>${next}
+    </div>`;
+  }).join("");
+}
+
+// On load: show status for the current person's recent PRN
+document.addEventListener("DOMContentLoaded", () => {
+  refreshPrnStatus();
+  document.getElementById("prn-person").addEventListener("change", refreshPrnStatus);
+});
 </script>
 {% endblock %}

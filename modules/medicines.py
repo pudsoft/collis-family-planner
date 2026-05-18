@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 log = logging.getLogger(__name__)
 
@@ -138,3 +138,49 @@ def check_reorder_alerts(db_conn) -> list[dict]:
     """Return medicines that need reordering."""
     meds = get_today_doses(db_conn)
     return [m for m in meds if m.get("needs_reorder")]
+
+
+# ── PRN / ad-hoc logging ──────────────────────────────────────────────────────
+
+PRN_MIN_INTERVALS = {
+    "paracetamol": 4 * 60,   # 4 hours in minutes
+    "ibuprofen":   6 * 60,   # 6 hours in minutes
+    "temperature": 0,
+}
+
+
+def log_prn(db_conn, person: str, prn_type: str, value: float = None):
+    now = datetime.now().isoformat()
+    db_conn.execute(
+        "INSERT INTO prn_log (person, type, value, logged_at) VALUES (?,?,?,?)",
+        (person, prn_type, value, now),
+    )
+    db_conn.commit()
+
+
+def get_prn_log(db_conn, person: str, limit: int = 20) -> list[dict]:
+    rows = db_conn.execute(
+        """SELECT id, person, type, value, logged_at
+           FROM prn_log
+           WHERE person=?
+           ORDER BY logged_at DESC
+           LIMIT ?""",
+        (person, limit),
+    ).fetchall()
+    result = []
+    for r in rows:
+        row = dict(r)
+        # Calculate minutes since last dose (for safe-to-take logic)
+        min_interval = PRN_MIN_INTERVALS.get(row["type"], 0)
+        if min_interval:
+            logged = datetime.fromisoformat(row["logged_at"])
+            elapsed = (datetime.now() - logged).total_seconds() / 60
+            row["minutes_ago"]   = int(elapsed)
+            row["next_safe_at"]  = (logged + timedelta(minutes=min_interval)).strftime("%H:%M")
+            row["safe_now"]      = elapsed >= min_interval
+        else:
+            row["minutes_ago"]  = None
+            row["next_safe_at"] = None
+            row["safe_now"]     = True
+        result.append(row)
+    return result

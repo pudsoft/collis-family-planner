@@ -174,6 +174,14 @@ def init_db():
                 active      INTEGER DEFAULT 1,
                 last_sent   TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS prn_log (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                person    TEXT NOT NULL,
+                type      TEXT NOT NULL,
+                value     REAL,
+                logged_at TEXT NOT NULL
+            );
         """)
         db.commit()
 
@@ -593,6 +601,7 @@ def medicines_view():
     # All medicines, current person's first
     all_meds = medicines.get_today_doses(db, None)
     all_meds.sort(key=lambda m: (0 if m["person"] == person else 1, m["person"], m["name"]))
+    prn_log  = medicines.get_prn_log(db, person, limit=10)
 
     return render_template(
         "medicines.html",
@@ -602,6 +611,7 @@ def medicines_view():
         people=config.PEOPLE,
         person_display=config.PERSON_DISPLAY,
         is_admin=person in config.ADMINS,
+        prn_log=prn_log,
     )
 
 
@@ -623,6 +633,24 @@ def medicine_reordered(med_id: int):
     new_stock = request.form.get("new_stock", type=float)
     medicines.mark_reordered(get_db(), med_id, new_stock)
     return jsonify({"ok": True})
+
+
+@app.route("/prn/log", methods=["POST"])
+def prn_log():
+    person   = request.form.get("person") or current_person()
+    prn_type = request.form.get("type")
+    value    = request.form.get("value", type=float)
+    if prn_type not in ("paracetamol", "ibuprofen", "temperature"):
+        return jsonify({"ok": False, "error": "Invalid type"}), 400
+    medicines.log_prn(get_db(), person, prn_type, value)
+    return jsonify({"ok": True})
+
+
+@app.route("/prn/recent")
+def prn_recent():
+    person = request.args.get("person") or current_person()
+    rows   = medicines.get_prn_log(get_db(), person)
+    return jsonify(rows)
 
 
 # ── Settings (personal) ───────────────────────────────────────────────────────
