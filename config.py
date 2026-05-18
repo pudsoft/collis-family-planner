@@ -71,9 +71,6 @@ if _raw:
             parts = pair.split(":", 1)
             KNOWN_DEVICES[parts[0].strip()] = parts[1].strip()
 
-# WiFi networks that admins can toggle
-MANAGED_WLANS = [n.strip() for n in os.getenv("MANAGED_WLANS", "TCN_Junior").split(",") if n.strip()]
-
 # ── Weather ───────────────────────────────────────────────────────────────────
 # Brundall, Norfolk, UK
 WEATHER_LAT = 52.617

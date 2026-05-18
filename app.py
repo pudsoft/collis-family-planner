@@ -748,7 +748,6 @@ def network_view():
         person_display=config.PERSON_DISPLAY,
         is_admin=True,
         known_devices=known_devs,
-        managed_wlans=config.MANAGED_WLANS,
     )
 
 

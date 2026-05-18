@@ -96,7 +96,6 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>
-const MANAGED_WLANS = {{ managed_wlans | tojson }};
 let _pollTimer = null;
 
 // ── Live poll ────────────────────────────────────────────────────────────────
@@ -128,13 +127,12 @@ function updateBlockButtons(blockedMacs) {
 }
 
 function renderWlans(wlans) {
-  const managed = wlans.filter(w => MANAGED_WLANS.includes(w.name));
   const el = document.getElementById("wlan-list");
-  if (!managed.length) {
-    el.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">No managed networks found</div>';
+  if (!wlans.length) {
+    el.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">No networks found</div>';
     return;
   }
-  el.innerHTML = managed.map(w => `
+  el.innerHTML = wlans.map(w => `
     <div class="settings-row">
       <div>
         <div class="settings-label">${w.name}</div>
