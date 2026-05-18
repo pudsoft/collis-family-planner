@@ -15,6 +15,9 @@
 <nav class="top-bar">
   <div class="top-bar-inner">
     <span class="top-bar-title">🏠 Family Planner</span>
+    {% if is_admin %}
+    <a href="{{ url_for('admin_view') }}" class="top-bar-admin {% if request.endpoint == 'admin_view' %}active{% endif %}" title="Admin">🔐</a>
+    {% endif %}
     <select class="person-select" id="person-select"
             onchange="window.location='/set_person/'+this.value">
       {% for p in ['family'] + people %}

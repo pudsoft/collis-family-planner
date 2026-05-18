@@ -694,12 +694,13 @@ def network_view():
 
 @app.route("/network/status")
 def network_status():
-    """Live poll: returns current WiFi states + connected clients."""
+    """Live poll: returns current WiFi states + connected clients + blocked MACs."""
     if current_person() not in config.ADMINS:
         return jsonify({"error": "Admin only"}), 403
     return jsonify({
-        "wlans":   unifi.list_wlans(),
-        "clients": unifi.list_connected_clients(),
+        "wlans":        unifi.list_wlans(),
+        "clients":      unifi.list_connected_clients(),
+        "blocked_macs": list(unifi.list_blocked_macs()),
     })
 
 

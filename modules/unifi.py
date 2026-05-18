@@ -121,3 +121,20 @@ def list_connected_clients() -> list[dict]:
     except Exception as e:
         log.warning("list_connected_clients failed: %s", e)
         return []
+
+
+def list_blocked_macs() -> set:
+    """Return set of MACs that are currently blocked (from /rest/user)."""
+    if not _configured():
+        return set()
+    try:
+        s = _session()
+        resp = s.get(f"{_base()}/rest/user", timeout=10)
+        resp.raise_for_status()
+        return {
+            c["mac"] for c in resp.json().get("data", [])
+            if c.get("blocked", False)
+        }
+    except Exception as e:
+        log.warning("list_blocked_macs failed: %s", e)
+        return set()

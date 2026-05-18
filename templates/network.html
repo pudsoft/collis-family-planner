@@ -24,7 +24,7 @@
       <button class="btn btn-primary btn-sm" data-modal="add-device-modal">+ Add</button>
     </div>
     {% for dev in known_devices %}
-    <div class="device-item" id="dev-{{ dev.id }}">
+    <div class="device-item" id="dev-{{ dev.id }}" data-mac="{{ dev.mac }}">
       <div style="flex:1">
         <div class="device-name">{{ dev.display_name }}
           {% if dev.person %}<span class="chip chip-{{ dev.person }}">{{ dev.person | title }}</span>{% endif %}
@@ -32,10 +32,9 @@
         <div class="device-mac">{{ dev.mac }}</div>
         {% if dev.notes %}<div class="device-mac" style="font-style:italic">{{ dev.notes }}</div>{% endif %}
       </div>
-      <button class="btn btn-secondary btn-sm" data-device-action="block"   data-device-id="{{ dev.id }}">Block</button>
-      <button class="btn btn-secondary btn-sm" data-device-action="unblock" data-device-id="{{ dev.id }}">Unblock</button>
-      <button class="btn btn-secondary btn-sm" data-device-action="kick"    data-device-id="{{ dev.id }}">Kick</button>
-      <button class="btn btn-danger btn-sm"    onclick="deleteDevice({{ dev.id }})">✕</button>
+      <button class="btn btn-secondary btn-sm dev-block-btn" data-device-id="{{ dev.id }}">Block</button>
+      <button class="btn btn-secondary btn-sm" data-device-action="kick" data-device-id="{{ dev.id }}">Kick</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteDevice({{ dev.id }})">✕</button>
     </div>
     {% else %}
     <div class="empty-state" style="padding:12px 0">
@@ -96,11 +95,24 @@ async function pollStatus() {
     const data = await r.json();
     renderWlans(data.wlans || []);
     renderClients(data.clients || []);
+    updateBlockButtons(new Set((data.blocked_macs || []).map(m => m.toLowerCase())));
     document.getElementById("poll-status").textContent =
       "Updated " + new Date().toLocaleTimeString("en-GB", {hour:"2-digit",minute:"2-digit",second:"2-digit"});
   } catch (e) {
     document.getElementById("poll-status").textContent = "Offline";
   }
+}
+
+function updateBlockButtons(blockedMacs) {
+  document.querySelectorAll(".device-item[data-mac]").forEach(row => {
+    const mac = row.dataset.mac.toLowerCase();
+    const btn = row.querySelector(".dev-block-btn");
+    if (!btn) return;
+    const isBlocked = blockedMacs.has(mac);
+    btn.textContent = isBlocked ? "Unblock" : "Block";
+    btn.dataset.deviceAction = isBlocked ? "unblock" : "block";
+    btn.style.color = isBlocked ? "var(--paul)" : "";
+  });
 }
 
 function renderWlans(wlans) {
