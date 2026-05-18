@@ -61,6 +61,29 @@
     {% endfor %}
   </div>
 
+  <!-- ── Protected devices ────────────────────────────────────────────────── -->
+  {% if all_devices %}
+  <div class="card admin-section">
+    <div class="admin-section-title">🔒 Protected devices</div>
+    <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:10px">
+      Protected devices are hidden from Network controls and cannot be blocked.
+    </div>
+    {% for dev in all_devices %}
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">{{ dev.display_name }}</div>
+        <div class="settings-desc">{{ dev.mac }}{% if dev.person %} · {{ dev.person | title }}{% endif %}</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" class="protect-toggle" data-device-id="{{ dev.id }}"
+               {% if dev.protected %}checked{% endif %}>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   <!-- ── Broadcast ─────────────────────────────────────────────────────────── -->
   <div class="card admin-section">
     <div class="admin-section-title">📢 Send family broadcast</div>
@@ -274,5 +297,17 @@ async function sendBroadcast() {
 async function adminAction(url, successMsg) {
   await adminPost(url, null, successMsg);
 }
+
+document.addEventListener("change", async (e) => {
+  const tog = e.target.closest(".protect-toggle");
+  if (!tog) return;
+  const devId     = tog.dataset.deviceId;
+  const protected_ = tog.checked ? "1" : "0";
+  const fd = new FormData();
+  fd.append("protected", protected_);
+  const r = await adminPost(`/admin/device/${devId}/protect`, fd, null);
+  if (!r) { tog.checked = !tog.checked; return; }
+  showToast(tog.checked ? "Device protected" : "Device unprotected");
+});
 </script>
 {% endblock %}

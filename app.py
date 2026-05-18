@@ -187,6 +187,12 @@ def init_db():
         # Seed default chores
         tasks.seed_default_chores(db)
 
+        # Add protected column to known_devices if missing
+        kd_cols = [r[1] for r in db.execute("PRAGMA table_info(known_devices)").fetchall()]
+        if "protected" not in kd_cols:
+            db.execute("ALTER TABLE known_devices ADD COLUMN protected INTEGER DEFAULT 0")
+            db.commit()
+
         # Add theme column if missing (migration for existing DBs)
         cols = [r[1] for r in db.execute("PRAGMA table_info(person_prefs)").fetchall()]
         if "theme" not in cols:
@@ -678,7 +684,7 @@ def network_view():
     db         = get_db()
     prefs      = get_prefs(db, person)
     known_devs = [dict(r) for r in db.execute(
-        "SELECT * FROM known_devices ORDER BY person, display_name"
+        "SELECT * FROM known_devices WHERE protected=0 ORDER BY person, display_name"
     ).fetchall()]
     return render_template(
         "network.html",
@@ -715,6 +721,7 @@ def admin_view():
     prefs        = get_prefs(db, person)
     chore_templates = [dict(r) for r in db.execute("SELECT * FROM chore_templates ORDER BY title").fetchall()]
     all_meds     = medicines.get_medicines(db)
+    all_devices  = [dict(r) for r in db.execute("SELECT * FROM known_devices ORDER BY display_name").fetchall()]
     google_connected = bool(
         db.execute("SELECT value FROM app_settings WHERE key='google_token'").fetchone()
     )
@@ -726,6 +733,7 @@ def admin_view():
         people=config.PEOPLE,
         person_display=config.PERSON_DISPLAY,
         is_admin=True,
+        all_devices=all_devices,
         chore_templates=chore_templates,
         all_meds=all_meds,
         google_connected=google_connected,
@@ -850,6 +858,16 @@ def admin_device_kick(dev_id: int):
         return jsonify({"error": "Not found"}), 404
     ok = unifi.kick_device(row["mac"])
     return jsonify({"ok": ok})
+
+
+@app.route("/admin/device/<int:dev_id>/protect", methods=["POST"])
+@require_admin
+def admin_device_protect(dev_id: int):
+    protected = request.form.get("protected", "1") == "1"
+    db = get_db()
+    db.execute("UPDATE known_devices SET protected=? WHERE id=?", (1 if protected else 0, dev_id))
+    db.commit()
+    return jsonify({"ok": True, "protected": protected})
 
 
 @app.route("/admin/wlan/<ssid>/toggle", methods=["POST"])
