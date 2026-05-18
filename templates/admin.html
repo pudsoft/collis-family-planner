@@ -53,7 +53,7 @@
         {% if med.notes %}<div class="device-mac" style="font-style:italic">{{ med.notes }}</div>{% endif %}
       </div>
       <button class="btn btn-secondary btn-sm"
-              onclick="editMed({{ med.id }},'{{ med.name|replace("'","\\'")|e }}','{{ med.person }}',{{ med.daily_dose }},{{ med.stock_count }},{{ med.reorder_threshold_days }},'{{ (med.notes or '')|replace("'","\\'")|e }}')">
+              onclick="editMed({{ med.id }},'{{ med.name|replace("'","\\'")|e }}','{{ med.person }}',{{ med.daily_dose }},{{ med.stock_count }},{{ med.reorder_threshold_days }},'{{ med.scheduled_time or '' }}','{{ (med.notes or '')|replace("'","\\'")|e }}')">
         Edit
       </button>
       <button class="btn btn-danger btn-sm" onclick="deleteMed({{ med.id }})">✕</button>
@@ -179,6 +179,11 @@
       <input class="form-input" id="med-threshold" type="number" min="1" value="14">
     </div>
     <div class="form-group">
+      <label class="form-label">Scheduled time (optional)</label>
+      <input class="form-input" id="med-scheduled-time" type="time" placeholder="e.g. 08:00">
+      <div style="font-size:.72rem;color:var(--text-muted);margin-top:3px">Late warning appears 30 min after this time if not taken</div>
+    </div>
+    <div class="form-group">
       <label class="form-label">Notes (optional)</label>
       <input class="form-input" id="med-notes" placeholder="e.g. Take with food">
     </div>
@@ -241,14 +246,15 @@ async function deleteChore(id) {
   if (r) setTimeout(() => location.reload(), 400);
 }
 
-function editMed(id, name, person, dose, stock, threshold, notes) {
-  document.getElementById("med-id").value        = id;
-  document.getElementById("med-name").value      = name;
-  document.getElementById("med-person").value    = person;
-  document.getElementById("med-dose").value      = dose;
-  document.getElementById("med-stock").value     = stock;
-  document.getElementById("med-threshold").value = threshold;
-  document.getElementById("med-notes").value     = notes;
+function editMed(id, name, person, dose, stock, threshold, scheduledTime, notes) {
+  document.getElementById("med-id").value             = id;
+  document.getElementById("med-name").value           = name;
+  document.getElementById("med-person").value         = person;
+  document.getElementById("med-dose").value           = dose;
+  document.getElementById("med-stock").value          = stock;
+  document.getElementById("med-threshold").value      = threshold;
+  document.getElementById("med-scheduled-time").value = scheduledTime || "";
+  document.getElementById("med-notes").value          = notes || "";
   document.getElementById("add-med-modal").classList.add("open");
 }
 async function saveMed() {
@@ -259,6 +265,7 @@ async function saveMed() {
   fd.append("daily_dose",             document.getElementById("med-dose").value);
   fd.append("stock_count",            document.getElementById("med-stock").value);
   fd.append("reorder_threshold_days", document.getElementById("med-threshold").value);
+  fd.append("scheduled_time",         document.getElementById("med-scheduled-time").value);
   fd.append("notes",                  document.getElementById("med-notes").value);
   const r = await adminPost("/admin/medicine", fd, "Medicine saved");
   if (r) { document.getElementById("add-med-modal").classList.remove("open"); setTimeout(() => location.reload(), 400); }

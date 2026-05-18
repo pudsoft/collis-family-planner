@@ -87,12 +87,19 @@
           {% if med.person == 'cookie' %}🐾 Cookie{% elif med.person == person %}{{ person_display[med.person].emoji }} {{ person_display[med.person].label }} (you){% else %}{{ person_display[med.person].emoji if med.person in person_display else '' }} {{ med.person | title }}{% endif %}
         </div>
       {% endif %}
-      <div class="med-item {% if med.needs_reorder %}needs-reorder{% endif %}" id="med-{{ med.id }}">
+      <div class="med-item {% if med.needs_reorder %}needs-reorder{% endif %} {% if med.is_late %}is-late{% endif %}" id="med-{{ med.id }}">
         <div class="med-pill-icon">
           {% if med.person == 'cookie' %}🐾{% else %}💊{% endif %}
         </div>
         <div class="med-info">
-          <div class="med-name">{{ med.name }}</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span class="med-name">{{ med.name }}</span>
+            {% if med.scheduled_time %}
+            <span class="med-schedule-badge {% if med.is_late %}late{% endif %}">
+              {% if med.is_late %}⚠️ Due {{ med.scheduled_time }}{% else %}{{ med.scheduled_time }}{% endif %}
+            </span>
+            {% endif %}
+          </div>
           <div class="med-stock {% if med.needs_reorder %}low{% endif %}">
             {% if med.days_remaining is not none %}
               {{ med.days_remaining }} days left{% if med.needs_reorder %} — ⚠️ Reorder now{% endif %}

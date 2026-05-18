@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
+
+LATE_GRACE_MINUTES = 30  # warn this many minutes after scheduled time
 
 log = logging.getLogger(__name__)
 
@@ -22,12 +24,12 @@ def get_medicines(db_conn, person: str = None) -> list[dict]:
 
 def add_medicine(db_conn, name: str, person: str, daily_dose: float = 1,
                  stock_count: float = 0, reorder_threshold_days: int = 14,
-                 notes: str = None) -> int:
+                 notes: str = None, scheduled_time: str = None) -> int:
     db_conn.execute(
         """INSERT INTO medicines
-           (name, person, daily_dose, stock_count, reorder_threshold_days, notes)
-           VALUES (?,?,?,?,?,?)""",
-        (name, person, daily_dose, stock_count, reorder_threshold_days, notes),
+           (name, person, daily_dose, stock_count, reorder_threshold_days, notes, scheduled_time)
+           VALUES (?,?,?,?,?,?,?)""",
+        (name, person, daily_dose, stock_count, reorder_threshold_days, notes, scheduled_time),
     )
     db_conn.commit()
     return db_conn.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -35,7 +37,7 @@ def add_medicine(db_conn, name: str, person: str, daily_dose: float = 1,
 
 def update_medicine(db_conn, med_id: int, **fields):
     allowed = {"name", "person", "daily_dose", "stock_count",
-               "reorder_threshold_days", "notes", "last_ordered"}
+               "reorder_threshold_days", "notes", "last_ordered", "scheduled_time"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return
@@ -75,6 +77,17 @@ def get_today_doses(db_conn, person: str = None) -> list[dict]:
             med["days_remaining"] is not None
             and med["days_remaining"] <= med["reorder_threshold_days"]
         )
+        # Late warning
+        sched = med.get("scheduled_time")
+        if sched and not med["taken_today"]:
+            try:
+                h, m = map(int, sched.split(":"))
+                scheduled_dt = datetime.combine(date.today(), time(h, m))
+                med["is_late"] = datetime.now() > scheduled_dt + timedelta(minutes=LATE_GRACE_MINUTES)
+            except ValueError:
+                med["is_late"] = False
+        else:
+            med["is_late"] = False
     return meds
 
 

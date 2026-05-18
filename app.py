@@ -195,6 +195,12 @@ def init_db():
         # Seed default chores
         tasks.seed_default_chores(db)
 
+        # Add scheduled_time column to medicines if missing
+        med_cols = [r[1] for r in db.execute("PRAGMA table_info(medicines)").fetchall()]
+        if "scheduled_time" not in med_cols:
+            db.execute("ALTER TABLE medicines ADD COLUMN scheduled_time TEXT")
+            db.commit()
+
         # Add protected column to known_devices if missing
         kd_cols = [r[1] for r in db.execute("PRAGMA table_info(known_devices)").fetchall()]
         if "protected" not in kd_cols:
@@ -815,6 +821,7 @@ def admin_medicine_save():
     d      = request.form
     db     = get_db()
     med_id = d.get("id", type=int)
+    scheduled_time = d.get("scheduled_time") or None
     if med_id:
         medicines.update_medicine(
             db, med_id,
@@ -823,6 +830,7 @@ def admin_medicine_save():
             stock_count=float(d.get("stock_count", 0)),
             reorder_threshold_days=int(d.get("reorder_threshold_days", 14)),
             notes=d.get("notes"),
+            scheduled_time=scheduled_time,
         )
     else:
         medicines.add_medicine(
@@ -831,6 +839,7 @@ def admin_medicine_save():
             stock_count=float(d.get("stock_count", 0)),
             reorder_threshold_days=int(d.get("reorder_threshold_days", 14)),
             notes=d.get("notes"),
+            scheduled_time=scheduled_time,
         )
     return jsonify({"ok": True})
 
