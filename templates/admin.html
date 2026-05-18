@@ -61,66 +61,6 @@
     {% endfor %}
   </div>
 
-  <!-- ── Known devices ─────────────────────────────────────────────────────── -->
-  <div class="card admin-section">
-    <div class="card-header">
-      <span class="admin-section-title" style="border:none;margin:0">📱 Known devices</span>
-      <button class="btn btn-primary btn-sm" data-modal="add-device-modal">+ Add</button>
-    </div>
-    {% for dev in known_devices %}
-    <div class="device-item">
-      <div style="flex:1">
-        <div class="device-name">{{ dev.display_name }}
-          {% if dev.person %}<span class="chip chip-{{ dev.person }}">{{ dev.person | title }}</span>{% endif %}
-        </div>
-        <div class="device-mac">{{ dev.mac }}</div>
-        {% if dev.notes %}<div class="device-mac" style="font-style:italic">{{ dev.notes }}</div>{% endif %}
-      </div>
-      <button class="btn btn-secondary btn-sm" data-device-action="block" data-device-id="{{ dev.id }}">Block</button>
-      <button class="btn btn-secondary btn-sm" data-device-action="kick"  data-device-id="{{ dev.id }}">Kick</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteDevice({{ dev.id }})">✕</button>
-    </div>
-    {% endfor %}
-
-    {% if connected_clients %}
-    <div style="margin-top:12px">
-      <div class="card-title">Currently connected</div>
-      {% for client in connected_clients %}
-      <div class="device-item" style="font-size:.8rem">
-        <div style="flex:1">
-          <div class="device-name">{{ client.hostname or client.mac }}</div>
-          <div class="device-mac">{{ client.mac }} · {{ client.ip }}</div>
-        </div>
-        {% if client.blocked %}
-        <span class="chip" style="background:#FEE2E2;color:#EF4444">Blocked</span>
-        {% endif %}
-      </div>
-      {% endfor %}
-    </div>
-    {% endif %}
-  </div>
-
-  <!-- ── WiFi networks ─────────────────────────────────────────────────────── -->
-  {% if wlans %}
-  <div class="card admin-section">
-    <div class="admin-section-title">📶 WiFi networks</div>
-    {% for wlan in wlans %}
-    {% if wlan.name in managed_wlans %}
-    <div class="settings-row">
-      <div>
-        <div class="settings-label">{{ wlan.name }}</div>
-      </div>
-      <label class="toggle">
-        <input type="checkbox" class="wlan-toggle" data-ssid="{{ wlan.name }}"
-               {% if wlan.enabled %}checked{% endif %}>
-        <span class="toggle-slider"></span>
-      </label>
-    </div>
-    {% endif %}
-    {% endfor %}
-  </div>
-  {% endif %}
-
   <!-- ── Broadcast ─────────────────────────────────────────────────────────── -->
   <div class="card admin-section">
     <div class="admin-section-title">📢 Send family broadcast</div>

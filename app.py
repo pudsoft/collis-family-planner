@@ -628,9 +628,6 @@ def settings_view():
     google_connected = bool(
         db.execute("SELECT value FROM app_settings WHERE key='google_token'").fetchone()
     )
-    known_devs = [dict(r) for r in db.execute("SELECT * FROM known_devices ORDER BY person, display_name").fetchall()]
-    wlans      = unifi.list_wlans() if person in config.ADMINS else []
-
     return render_template(
         "settings.html",
         person=person,
@@ -639,9 +636,6 @@ def settings_view():
         person_display=config.PERSON_DISPLAY,
         is_admin=person in config.ADMINS,
         google_connected=google_connected,
-        known_devices=known_devs,
-        wlans=wlans,
-        managed_wlans=config.MANAGED_WLANS,
     )
 
 
@@ -674,6 +668,41 @@ def ntfy_test():
     return jsonify({"ok": ok})
 
 
+# ── Network (WiFi + devices) ──────────────────────────────────────────────────
+
+@app.route("/network")
+def network_view():
+    person = current_person()
+    if person not in config.ADMINS:
+        return redirect(url_for("settings_view"))
+    db         = get_db()
+    prefs      = get_prefs(db, person)
+    known_devs = [dict(r) for r in db.execute(
+        "SELECT * FROM known_devices ORDER BY person, display_name"
+    ).fetchall()]
+    return render_template(
+        "network.html",
+        person=person,
+        prefs=prefs,
+        people=config.PEOPLE,
+        person_display=config.PERSON_DISPLAY,
+        is_admin=True,
+        known_devices=known_devs,
+        managed_wlans=config.MANAGED_WLANS,
+    )
+
+
+@app.route("/network/status")
+def network_status():
+    """Live poll: returns current WiFi states + connected clients."""
+    if current_person() not in config.ADMINS:
+        return jsonify({"error": "Admin only"}), 403
+    return jsonify({
+        "wlans":   unifi.list_wlans(),
+        "clients": unifi.list_connected_clients(),
+    })
+
+
 # ── Admin ─────────────────────────────────────────────────────────────────────
 
 @app.route("/admin")
@@ -685,10 +714,6 @@ def admin_view():
     prefs        = get_prefs(db, person)
     chore_templates = [dict(r) for r in db.execute("SELECT * FROM chore_templates ORDER BY title").fetchall()]
     all_meds     = medicines.get_medicines(db)
-    known_devs   = [dict(r) for r in db.execute("SELECT * FROM known_devices ORDER BY person, display_name").fetchall()]
-    wlans        = unifi.list_wlans()
-    connected    = unifi.list_connected_clients()
-
     google_connected = bool(
         db.execute("SELECT value FROM app_settings WHERE key='google_token'").fetchone()
     )
@@ -702,10 +727,6 @@ def admin_view():
         is_admin=True,
         chore_templates=chore_templates,
         all_meds=all_meds,
-        known_devices=known_devs,
-        wlans=wlans,
-        managed_wlans=config.MANAGED_WLANS,
-        connected_clients=connected,
         google_connected=google_connected,
         admin_pin=config.ADMIN_PIN,
     )

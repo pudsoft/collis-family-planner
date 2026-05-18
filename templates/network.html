@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}Network{% endblock %}
+
+{% block content %}
+<div class="page">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div style="font-size:1.1rem;font-weight:700">📶 Network</div>
+    <div id="poll-status" style="font-size:.75rem;color:var(--text-muted)">Refreshing…</div>
+  </div>
+
+  <!-- ── WiFi networks ──────────────────────────────────────────────────────── -->
+  <div class="card admin-section" id="wlan-card">
+    <div class="admin-section-title">📶 WiFi networks</div>
+    <div id="wlan-list">
+      <div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">Loading…</div>
+    </div>
+  </div>
+
+  <!-- ── Known devices ─────────────────────────────────────────────────────── -->
+  <div class="card admin-section">
+    <div class="card-header">
+      <span class="admin-section-title" style="border:none;margin:0">📱 Known devices</span>
+      <button class="btn btn-primary btn-sm" data-modal="add-device-modal">+ Add</button>
+    </div>
+    {% for dev in known_devices %}
+    <div class="device-item" id="dev-{{ dev.id }}">
+      <div style="flex:1">
+        <div class="device-name">{{ dev.display_name }}
+          {% if dev.person %}<span class="chip chip-{{ dev.person }}">{{ dev.person | title }}</span>{% endif %}
+        </div>
+        <div class="device-mac">{{ dev.mac }}</div>
+        {% if dev.notes %}<div class="device-mac" style="font-style:italic">{{ dev.notes }}</div>{% endif %}
+      </div>
+      <button class="btn btn-secondary btn-sm" data-device-action="block"   data-device-id="{{ dev.id }}">Block</button>
+      <button class="btn btn-secondary btn-sm" data-device-action="unblock" data-device-id="{{ dev.id }}">Unblock</button>
+      <button class="btn btn-secondary btn-sm" data-device-action="kick"    data-device-id="{{ dev.id }}">Kick</button>
+      <button class="btn btn-danger btn-sm"    onclick="deleteDevice({{ dev.id }})">✕</button>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:12px 0">
+      <div class="empty-state-text">No known devices yet — add one above</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- ── Connected clients (live) ──────────────────────────────────────────── -->
+  <div class="card admin-section">
+    <div class="admin-section-title">🔗 Currently connected</div>
+    <div id="client-list">
+      <div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">Loading…</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Add device modal ──────────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="add-device-modal">
+  <div class="modal-sheet">
+    <span class="modal-close">✕</span>
+    <div class="modal-title">Known device</div>
+    <div class="form-group">
+      <label class="form-label">Display name</label>
+      <input class="form-input" id="dev-name" placeholder="e.g. Joshua's iPad">
+    </div>
+    <div class="form-group">
+      <label class="form-label">MAC address</label>
+      <input class="form-input" id="dev-mac" placeholder="aa:bb:cc:dd:ee:ff">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Person</label>
+      <select class="form-select" id="dev-person">
+        <option value="">— None —</option>
+        {% for p in people %}<option value="{{ p }}">{{ p | title }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes (optional)</label>
+      <input class="form-input" id="dev-notes">
+    </div>
+    <button class="btn btn-primary btn-full" onclick="saveDevice()">Save device</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const MANAGED_WLANS = {{ managed_wlans | tojson }};
+let _pollTimer = null;
+
+// ── Live poll ────────────────────────────────────────────────────────────────
+async function pollStatus() {
+  try {
+    const r = await fetch("/network/status");
+    if (!r.ok) return;
+    const data = await r.json();
+    renderWlans(data.wlans || []);
+    renderClients(data.clients || []);
+    document.getElementById("poll-status").textContent =
+      "Updated " + new Date().toLocaleTimeString("en-GB", {hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  } catch (e) {
+    document.getElementById("poll-status").textContent = "Offline";
+  }
+}
+
+function renderWlans(wlans) {
+  const managed = wlans.filter(w => MANAGED_WLANS.includes(w.name));
+  const el = document.getElementById("wlan-list");
+  if (!managed.length) {
+    el.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">No managed networks found</div>';
+    return;
+  }
+  el.innerHTML = managed.map(w => `
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">${w.name}</div>
+        <div class="settings-desc">${w.enabled ? "✅ Enabled" : "❌ Disabled"}</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" class="wlan-toggle" data-ssid="${w.name}" ${w.enabled ? "checked" : ""}>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>`).join("");
+}
+
+function renderClients(clients) {
+  const el = document.getElementById("client-list");
+  if (!clients.length) {
+    el.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">No devices connected</div>';
+    return;
+  }
+  el.innerHTML = clients.map(c => `
+    <div class="device-item" style="font-size:.82rem">
+      <div style="flex:1">
+        <div class="device-name">${c.hostname || c.mac}</div>
+        <div class="device-mac">${c.mac} · ${c.ip || "—"}</div>
+      </div>
+      ${c.blocked ? '<span class="chip" style="background:#FEE2E2;color:#EF4444">Blocked</span>' : ""}
+    </div>`).join("");
+}
+
+// ── WLAN toggle (event delegation, rendered dynamically) ─────────────────────
+document.addEventListener("change", async (e) => {
+  const tog = e.target.closest(".wlan-toggle");
+  if (!tog) return;
+  const ssid    = tog.dataset.ssid;
+  const enabled = tog.checked;
+  const fd = new FormData();
+  fd.append("enabled", enabled ? "true" : "false");
+  const r = await adminPost(`/admin/wlan/${encodeURIComponent(ssid)}/toggle`, fd, null);
+  if (!r) { tog.checked = !enabled; return; }
+  showToast(`${ssid} ${enabled ? "enabled" : "disabled"}`);
+  pollStatus();
+});
+
+// ── Device actions ────────────────────────────────────────────────────────────
+document.addEventListener("click", async (e) => {
+  const btn    = e.target.closest("[data-device-action]");
+  if (!btn) return;
+  const devId  = btn.dataset.deviceId;
+  const action = btn.dataset.deviceAction;
+  const labels = { block: "Block", unblock: "Unblock", kick: "Kick" };
+  if (!confirm(`${labels[action]} this device?`)) return;
+  await adminPost(`/admin/device/${devId}/${action}`, null, `${labels[action]} sent`);
+  pollStatus();
+});
+
+async function saveDevice() {
+  const fd = new FormData();
+  fd.append("display_name", document.getElementById("dev-name").value.trim());
+  fd.append("mac",          document.getElementById("dev-mac").value.trim());
+  fd.append("person",       document.getElementById("dev-person").value);
+  fd.append("notes",        document.getElementById("dev-notes").value);
+  const r = await adminPost("/admin/device", fd, "Device saved");
+  if (r) { document.getElementById("add-device-modal").classList.remove("open"); setTimeout(() => location.reload(), 400); }
+}
+
+async function deleteDevice(id) {
+  if (!confirm("Remove this device?")) return;
+  const r = await adminPost(`/admin/device/${id}/delete`, null, "Device removed");
+  if (r) setTimeout(() => location.reload(), 400);
+}
+
+// ── Start polling ─────────────────────────────────────────────────────────────
+pollStatus();
+_pollTimer = setInterval(pollStatus, 10000);
+</script>
+{% endblock %}
