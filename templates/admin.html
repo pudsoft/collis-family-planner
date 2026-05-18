@@ -209,10 +209,13 @@
       <label class="form-label">Pick a connected device</label>
       <select class="form-select" id="dev-pick" onchange="pickDevice(this)">
         <option value="">— select to prefill —</option>
+        {% set known_macs = all_devices | map(attribute='mac') | map('lower') | list %}
         {% for c in live_clients | sort(attribute='hostname') %}
+        {% if c.mac | lower not in known_macs %}
         <option value="{{ c.mac }}" data-name="{{ c.hostname or c.mac }}">
           {{ c.hostname or c.mac }}{% if c.ip %} ({{ c.ip }}){% endif %}
         </option>
+        {% endif %}
         {% endfor %}
       </select>
     </div>

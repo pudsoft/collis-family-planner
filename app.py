@@ -511,7 +511,7 @@ def meals_view():
     week_start = request.args.get("week") or meals.get_week_start().isoformat()
     week_days  = _week_days(date.fromisoformat(week_start))
     plan       = meals.get_meal_plan(db, week_start)
-    shopping   = meals.get_shopping_list(db, week_start)
+    shopping   = meals.get_shopping_list(db)
 
     prev_week = (date.fromisoformat(week_start) - timedelta(days=7)).isoformat()
     next_week = (date.fromisoformat(week_start) + timedelta(days=7)).isoformat()
@@ -560,8 +560,7 @@ def meal_clear():
 def shopping_add():
     d = request.form
     item_id = meals.add_shopping_item(
-        get_db(), d["item"], d.get("quantity"), d.get("category", "Other"),
-        "manual", d.get("week_start"),
+        get_db(), d["item"], d.get("quantity"), d.get("category", "Other"), "manual",
     )
     return jsonify({"ok": True, "id": item_id})
 
@@ -581,7 +580,7 @@ def shopping_delete(item_id: int):
 
 @app.route("/shopping/clear_checked", methods=["POST"])
 def shopping_clear_checked():
-    meals.clear_checked_items(get_db(), request.form.get("week_start"))
+    meals.clear_checked_items(get_db())
     return jsonify({"ok": True})
 
 
@@ -942,6 +941,20 @@ def admin_device_protect(dev_id: int):
     db.execute("UPDATE known_devices SET protected=? WHERE id=?", (1 if protected else 0, dev_id))
     db.commit()
     return jsonify({"ok": True, "protected": protected})
+
+
+@app.route("/admin/mac/<mac>/block", methods=["POST"])
+@require_admin
+def admin_mac_block(mac: str):
+    ok = unifi.block_device(mac)
+    return jsonify({"ok": ok})
+
+
+@app.route("/admin/mac/<mac>/unblock", methods=["POST"])
+@require_admin
+def admin_mac_unblock(mac: str):
+    ok = unifi.unblock_device(mac)
+    return jsonify({"ok": ok})
 
 
 @app.route("/network/wifi_credentials/<ssid>", methods=["POST"])

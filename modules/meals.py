@@ -61,24 +61,18 @@ def clear_meal(db_conn, meal_date: str, meal_type: str):
 
 # ── Shopping list ─────────────────────────────────────────────────────────────
 
-def get_shopping_list(db_conn, week_start: str = None) -> list[dict]:
-    if not week_start:
-        week_start = get_week_start().isoformat()
+def get_shopping_list(db_conn) -> list[dict]:
     rows = db_conn.execute(
-        "SELECT * FROM shopping_items WHERE week_start=? ORDER BY category, item",
-        (week_start,),
+        "SELECT * FROM shopping_items ORDER BY checked, category, item",
     ).fetchall()
     return [dict(r) for r in rows]
 
 
 def add_shopping_item(db_conn, item: str, quantity: str = None,
-                      category: str = "Other", source: str = "manual",
-                      week_start: str = None) -> int:
-    if not week_start:
-        week_start = get_week_start().isoformat()
+                      category: str = "Other", source: str = "manual") -> int:
     db_conn.execute(
-        "INSERT INTO shopping_items (item, quantity, category, source, week_start) VALUES (?,?,?,?,?)",
-        (item, quantity, category, source, week_start),
+        "INSERT INTO shopping_items (item, quantity, category, source) VALUES (?,?,?,?)",
+        (item, quantity, category, source),
     )
     db_conn.commit()
     return db_conn.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -97,13 +91,8 @@ def delete_shopping_item(db_conn, item_id: int):
     db_conn.commit()
 
 
-def clear_checked_items(db_conn, week_start: str = None):
-    if not week_start:
-        week_start = get_week_start().isoformat()
-    db_conn.execute(
-        "DELETE FROM shopping_items WHERE week_start=? AND checked=1",
-        (week_start,),
-    )
+def clear_checked_items(db_conn):
+    db_conn.execute("DELETE FROM shopping_items WHERE checked=1")
     db_conn.commit()
 
 

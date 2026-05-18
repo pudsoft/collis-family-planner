@@ -18,11 +18,9 @@
   </div>
 
   <!-- ── Known devices ─────────────────────────────────────────────────────── -->
+  {% if known_devices %}
   <div class="card admin-section">
-    <div class="card-header">
-      <span class="admin-section-title" style="border:none;margin:0">📱 Known devices</span>
-      <button class="btn btn-primary btn-sm" data-modal="add-device-modal">+ Add</button>
-    </div>
+    <div class="admin-section-title">📱 Known devices</div>
     {% for dev in known_devices %}
     <div class="device-item" id="dev-{{ dev.id }}" data-mac="{{ dev.mac }}">
       <div style="flex:1">
@@ -34,14 +32,10 @@
       </div>
       <button class="btn btn-secondary btn-sm dev-block-btn" data-device-id="{{ dev.id }}">Block</button>
       <button class="btn btn-secondary btn-sm" data-device-action="kick" data-device-id="{{ dev.id }}">Kick</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteDevice({{ dev.id }})">✕</button>
-    </div>
-    {% else %}
-    <div class="empty-state" style="padding:12px 0">
-      <div class="empty-state-text">No known devices yet — add one above</div>
     </div>
     {% endfor %}
   </div>
+  {% endif %}
 
   <!-- ── Connected clients (live) ──────────────────────────────────────────── -->
   <div class="card admin-section">
@@ -53,33 +47,6 @@
 
 </div>
 
-<!-- ── Add device modal ──────────────────────────────────────────────────────── -->
-<div class="modal-backdrop" id="add-device-modal">
-  <div class="modal-sheet">
-    <span class="modal-close">✕</span>
-    <div class="modal-title">Known device</div>
-    <div class="form-group">
-      <label class="form-label">Display name</label>
-      <input class="form-input" id="dev-name" placeholder="e.g. Joshua's iPad">
-    </div>
-    <div class="form-group">
-      <label class="form-label">MAC address</label>
-      <input class="form-input" id="dev-mac" placeholder="aa:bb:cc:dd:ee:ff">
-    </div>
-    <div class="form-group">
-      <label class="form-label">Person</label>
-      <select class="form-select" id="dev-person">
-        <option value="">— None —</option>
-        {% for p in people %}<option value="{{ p }}">{{ p | title }}</option>{% endfor %}
-      </select>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Notes (optional)</label>
-      <input class="form-input" id="dev-notes">
-    </div>
-    <button class="btn btn-primary btn-full" onclick="saveDevice()">Save device</button>
-  </div>
-</div>
 <!-- ── WiFi credentials modal ─────────────────────────────────────────────── -->
 <div class="modal-backdrop" id="wifi-creds-modal">
   <div class="modal-sheet" style="text-align:center">
@@ -96,7 +63,8 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>
-let _pollTimer = null;
+let _pollTimer  = null;
+let _blockedMacs = new Set();
 
 // ── Live poll ────────────────────────────────────────────────────────────────
 async function pollStatus() {
@@ -104,9 +72,10 @@ async function pollStatus() {
     const r = await fetch("/network/status");
     if (!r.ok) return;
     const data = await r.json();
+    _blockedMacs = new Set((data.blocked_macs || []).map(m => m.toLowerCase()));
     renderWlans(data.wlans || []);
     renderClients(data.clients || []);
-    updateBlockButtons(new Set((data.blocked_macs || []).map(m => m.toLowerCase())));
+    updateBlockButtons(_blockedMacs);
     document.getElementById("poll-status").textContent =
       "Updated " + new Date().toLocaleTimeString("en-GB", {hour:"2-digit",minute:"2-digit",second:"2-digit"});
   } catch (e) {
@@ -154,17 +123,25 @@ function renderClients(clients) {
     el.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">No devices connected</div>';
     return;
   }
-  el.innerHTML = clients.map(c => `
-    <div class="device-item" style="font-size:.82rem">
+  el.innerHTML = clients.map(c => {
+    const mac       = c.mac.toLowerCase();
+    const isBlocked = _blockedMacs.has(mac);
+    return `
+    <div class="device-item" style="font-size:.82rem" data-mac="${c.mac}">
       <div style="flex:1">
         <div class="device-name">${c.hostname || c.mac}</div>
         <div class="device-mac">${c.mac} · ${c.ip || "—"}</div>
       </div>
-      ${c.blocked ? '<span class="chip" style="background:#FEE2E2;color:#EF4444">Blocked</span>' : ""}
-    </div>`).join("");
+      <button class="btn btn-secondary btn-sm dev-block-btn mac-block-btn"
+              data-mac="${c.mac}"
+              style="${isBlocked ? "color:var(--paul)" : ""}">
+        ${isBlocked ? "Unblock" : "Block"}
+      </button>
+    </div>`;
+  }).join("");
 }
 
-// ── WLAN toggle (event delegation, rendered dynamically) ─────────────────────
+// ── WLAN toggle ───────────────────────────────────────────────────────────────
 document.addEventListener("change", async (e) => {
   const tog = e.target.closest(".wlan-toggle");
   if (!tog) return;
@@ -178,9 +155,9 @@ document.addEventListener("change", async (e) => {
   pollStatus();
 });
 
-// ── Device actions ────────────────────────────────────────────────────────────
+// ── Known device actions (block/unblock/kick by DB ID) ────────────────────────
 document.addEventListener("click", async (e) => {
-  const btn    = e.target.closest("[data-device-action]");
+  const btn = e.target.closest("[data-device-action][data-device-id]");
   if (!btn) return;
   const devId  = btn.dataset.deviceId;
   const action = btn.dataset.deviceAction;
@@ -190,21 +167,17 @@ document.addEventListener("click", async (e) => {
   pollStatus();
 });
 
-async function saveDevice() {
-  const fd = new FormData();
-  fd.append("display_name", document.getElementById("dev-name").value.trim());
-  fd.append("mac",          document.getElementById("dev-mac").value.trim());
-  fd.append("person",       document.getElementById("dev-person").value);
-  fd.append("notes",        document.getElementById("dev-notes").value);
-  const r = await adminPost("/admin/device", fd, "Device saved");
-  if (r) { document.getElementById("add-device-modal").classList.remove("open"); setTimeout(() => location.reload(), 400); }
-}
-
-async function deleteDevice(id) {
-  if (!confirm("Remove this device?")) return;
-  const r = await adminPost(`/admin/device/${id}/delete`, null, "Device removed");
-  if (r) setTimeout(() => location.reload(), 400);
-}
+// ── Live client block/unblock by MAC ─────────────────────────────────────────
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".mac-block-btn");
+  if (!btn) return;
+  const mac       = btn.dataset.mac.toLowerCase();
+  const isBlocked = _blockedMacs.has(mac);
+  const action    = isBlocked ? "unblock" : "block";
+  if (!confirm(`${isBlocked ? "Unblock" : "Block"} this device?`)) return;
+  await adminPost(`/admin/mac/${encodeURIComponent(mac)}/${action}`, null, `${isBlocked ? "Unblocked" : "Blocked"}`);
+  pollStatus();
+});
 
 // ── WiFi credentials + QR ────────────────────────────────────────────────────
 let _lastPassword = "";
