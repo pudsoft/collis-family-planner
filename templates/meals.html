@@ -17,15 +17,19 @@
   <div class="card">
     <div class="card-title">🍽️ Meal planner</div>
     <div class="meal-grid">
+      {% set day_names = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}
       {% for day in week_days %}
       {% set day_plan = plan.get(day, {}) %}
+      {% set dow = loop.index0 %}
       <div>
-        <div class="meal-day-header">{{ day }}</div>
-        {% for meal_type in meal_types %}
+        <div class="meal-day-header">{{ day_names[dow] }} {{ day[8:] }}</div>
+        {% for meal_type in day_meal_types[day] %}
         {% set meal = day_plan.get(meal_type) %}
         <div class="meal-slot {% if meal %}filled{% endif %}"
              onclick="openMealModal('{{ day }}','{{ meal_type }}','{{ meal.recipe_name if meal else '' }}','{{ meal.servings if meal else 4 }}')">
+          {% if day_meal_types[day] | length > 1 %}
           <div class="meal-slot-type">{{ meal_type }}</div>
+          {% endif %}
           {% if meal %}
           <div class="meal-slot-name">{{ meal.recipe_name }}</div>
           {% else %}

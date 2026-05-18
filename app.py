@@ -488,6 +488,12 @@ def meals_view():
     prev_week = (date.fromisoformat(week_start) - timedelta(days=7)).isoformat()
     next_week = (date.fromisoformat(week_start) + timedelta(days=7)).isoformat()
 
+    # Weekdays: evening only; weekends: lunch + evening
+    day_meal_types = {
+        d: (["Lunch", "Dinner"] if date.fromisoformat(d).weekday() >= 5 else ["Dinner"])
+        for d in week_days
+    }
+
     return render_template(
         "meals.html",
         person=person,
@@ -498,7 +504,7 @@ def meals_view():
         shopping=shopping,
         prev_week=prev_week,
         next_week=next_week,
-        meal_types=["Breakfast", "Lunch", "Dinner"],
+        day_meal_types=day_meal_types,
         categories=meals.ASDA_CATEGORIES,
         people=config.PEOPLE,
         person_display=config.PERSON_DISPLAY,
