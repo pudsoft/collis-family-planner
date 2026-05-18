@@ -9,7 +9,9 @@
   <title>{% block title %}Family Planner{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
 </head>
-<body class="person-{{ person }} theme-{{ prefs.theme or 'default' }}" data-completed-style="{{ prefs.completed_style }}">
+{% set _device_theme = request.cookies.get('device_theme', '') %}
+{% set _effective_theme = _device_theme if _device_theme else (prefs.theme or 'default') %}
+<body class="person-{{ person }} theme-{{ _effective_theme }}" data-completed-style="{{ prefs.completed_style }}" data-device-theme="{{ _device_theme }}" data-person-theme="{{ prefs.theme or 'default' }}">
 
 <!-- ── Person / top bar ─────────────────────────────────────────────────────── -->
 <nav class="top-bar">
@@ -19,6 +21,11 @@
     <a href="{{ url_for('admin_view') }}" class="top-bar-icon {% if request.endpoint == 'admin_view' %}active{% endif %}" title="Admin">🔐</a>
     {% endif %}
     <a href="{{ url_for('settings_view') }}" class="top-bar-icon {% if request.endpoint == 'settings_view' %}active{% endif %}" title="Settings">⚙️</a>
+    <button class="top-bar-icon top-bar-theme-btn" id="device-theme-btn"
+            onclick="toggleDeviceTheme()"
+            title="{{ 'Dark pinned to this device — tap to unpin' if _device_theme == 'dark' else 'Pin dark mode to this device' }}">
+      {{ '☀️' if _device_theme == 'dark' else '🌙' }}
+    </button>
     <select class="person-select" id="person-select"
             onchange="window.location='/set_person/'+this.value">
       {% for p in ['family'] + people %}

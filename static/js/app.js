@@ -270,6 +270,19 @@ function startClock() {
 }
 document.addEventListener("DOMContentLoaded", startClock);
 
+// ── Device theme pin ──────────────────────────────────────────────────────── //
+function toggleDeviceTheme() {
+  const pinned = document.body.dataset.deviceTheme === "dark";
+  if (pinned) {
+    // Unpin — let person preference take over
+    document.cookie = "device_theme=; path=/; max-age=0; SameSite=Lax";
+  } else {
+    // Pin dark on this device for 1 year
+    document.cookie = "device_theme=dark; path=/; max-age=31536000; SameSite=Lax";
+  }
+  location.reload();
+}
+
 // ── NTFY test ─────────────────────────────────────────────────────────────── //
 document.addEventListener("click", async (e) => {
   const btn = e.target.closest("#ntfy-test-btn");
