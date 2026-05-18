@@ -102,7 +102,7 @@
           </div>
           <div class="med-stock {% if med.needs_reorder %}low{% endif %}">
             {% if med.days_remaining is not none %}
-              {{ med.days_remaining }} days left{% if med.needs_reorder %} — ⚠️ Reorder now{% endif %}
+              {{ med.days_remaining }} days left{% if med.needs_reorder %} — ⚠️ <a href="https://www.nhs.uk/nhs-app/repeat-prescriptions/" target="_blank" rel="noopener" style="color:inherit;font-weight:700;text-decoration:underline">Order on NHS</a>{% endif %}
             {% endif %}
           </div>
           {% if med.taken_at %}
