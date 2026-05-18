@@ -21,11 +21,6 @@
     <a href="{{ url_for('admin_view') }}" class="top-bar-icon {% if request.endpoint == 'admin_view' %}active{% endif %}" title="Admin">🔐</a>
     {% endif %}
     <a href="{{ url_for('settings_view') }}" class="top-bar-icon {% if request.endpoint == 'settings_view' %}active{% endif %}" title="Settings">⚙️</a>
-    <button class="top-bar-icon top-bar-theme-btn" id="device-theme-btn"
-            onclick="toggleDeviceTheme()"
-            title="{{ 'Dark pinned to this device — tap to unpin' if _device_theme == 'dark' else 'Pin dark mode to this device' }}">
-      {{ '☀️' if _device_theme == 'dark' else '🌙' }}
-    </button>
     <select class="person-select" id="person-select"
             onchange="window.location='/set_person/'+this.value">
       {% for p in ['family'] + people %}

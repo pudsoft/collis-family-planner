@@ -42,17 +42,18 @@ body.theme-dark .person-select {
 
 /* ── Reset ─────────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+html { font-size: 16px; -webkit-text-size-adjust: 100%; overflow-x: hidden; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
   color: var(--text);
   min-height: 100dvh;
   padding-bottom: 80px; /* space for bottom nav */
+  overflow-x: hidden;
 }
 a { color: inherit; text-decoration: none; }
 button { cursor: pointer; border: none; background: none; font: inherit; }
-input, select, textarea { font: inherit; }
+input, select, textarea { font: inherit; max-width: 100%; }
 
 /* ── Person colour helpers ─────────────────────────────────────────────────── */
 .person-katie  { --person-colour: var(--katie);  }
@@ -96,7 +97,7 @@ input, select, textarea { font: inherit; }
   cursor: pointer;
   outline: none;
   min-width: 0;
-  max-width: 140px;
+  flex-shrink: 1;
 }
 
 /* ── Bottom nav ────────────────────────────────────────────────────────────── */
@@ -388,9 +389,12 @@ input, select, textarea { font: inherit; }
 /* ── Settings ────────────────────────────────────────────────────────────────── */
 .settings-row {
   display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
   padding: 12px 0; border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
 }
 .settings-row:last-child { border-bottom: none; }
+.settings-row > div:first-child { flex: 1; min-width: 0; }
 .settings-label { font-size: .9rem; font-weight: 500; }
 .settings-desc  { font-size: .75rem; color: var(--text-muted); margin-top: 2px; }
 
@@ -572,8 +576,10 @@ body.theme-dark .alert-warning .alert-title { color: #FDE68A; }
 body.theme-dark .alert-warning .alert-desc  { color: #FEF3C7; }
 
 /* ── Responsive ──────────────────────────────────────────────────────────────── */
-@media (max-width: 360px) {
+@media (max-width: 479px) {
   .top-bar-title { display: none; }
+  .settings-row { gap: 8px; }
+  .form-input, .form-select { font-size: .85rem; }
 }
 @media (min-width: 600px) {
   .page { padding: 20px; }

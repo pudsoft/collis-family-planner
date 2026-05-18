@@ -22,7 +22,7 @@
       <div class="settings-row">
         <div>
           <div class="settings-label">Dark mode</div>
-          <div class="settings-desc">Dark background for night-time use</div>
+          <div class="settings-desc">Default theme for your account</div>
         </div>
         <select class="form-select" name="theme" style="width:auto">
           <option value="default" {% if prefs.theme != 'dark' %}selected{% endif %}>Light</option>
@@ -32,10 +32,22 @@
 
       <div class="settings-row">
         <div>
+          <div class="settings-label">Pin dark to this device</div>
+          <div class="settings-desc">Stays dark regardless of whose view you're in</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="device-dark-toggle" {% if request.cookies.get('device_theme') == 'dark' %}checked{% endif %}
+                 onchange="toggleDeviceTheme()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="settings-row">
+        <div>
           <div class="settings-label">NTFY channel</div>
           <div class="settings-desc">Your ntfy.sh channel name for reminders</div>
         </div>
-        <input class="form-input" name="ntfy_channel" style="width:160px;text-align:right"
+        <input class="form-input" name="ntfy_channel" style="width:140px;min-width:0;text-align:right"
                value="{{ prefs.ntfy_channel or '' }}" placeholder="channel-name">
       </div>
 
