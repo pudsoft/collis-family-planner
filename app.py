@@ -880,13 +880,26 @@ def medicines_view():
 
     db    = get_db()
     prefs = get_prefs(db, person)
-    # All medicines, current person's first
-    all_meds = medicines.get_today_doses(db, None)
-    all_meds.sort(key=lambda m: (0 if m["person"] == person else 1, m["person"], m["name"]))
-    prn_log  = medicines.get_prn_log(db, person, limit=10)
 
-    today     = date.today()
-    yesterday = (today - timedelta(days=1)).isoformat()
+    today = date.today()
+    try:
+        view_date = date.fromisoformat(request.args.get("date", "")) if request.args.get("date") else today
+        if view_date > today:
+            view_date = today
+    except ValueError:
+        view_date = today
+
+    is_today = (view_date == today)
+    if is_today:
+        all_meds = medicines.get_today_doses(db, None)
+    else:
+        all_meds = medicines.get_doses_for_date(db, view_date.isoformat())
+    all_meds.sort(key=lambda m: (0 if m["person"] == person else 1, m["person"], m["name"]))
+
+    prev_date = (view_date - timedelta(days=1)).isoformat()
+    next_date = (view_date + timedelta(days=1)).isoformat() if not is_today else None
+    prn_log   = medicines.get_prn_log(db, person, limit=10)
+
     return render_template(
         "medicines.html",
         person=person,
@@ -896,8 +909,11 @@ def medicines_view():
         person_display=config.PERSON_DISPLAY,
         is_admin=person in config.ADMINS,
         prn_log=prn_log,
-        today=today.strftime("%-d %B %Y"),
-        yesterday=yesterday,
+        view_date=view_date.isoformat(),
+        view_date_label=("Today" if is_today else view_date.strftime("%-d %B %Y")),
+        is_today=is_today,
+        prev_date=prev_date,
+        next_date=next_date,
     )
 
 
@@ -920,7 +936,8 @@ def medicines_doses_for_date():
 
 @app.route("/medicines/<int:med_id>/untake", methods=["POST"])
 def medicine_untake(med_id: int):
-    medicines.unlog_dose(get_db(), med_id)
+    dose_date = request.form.get("dose_date") or None
+    medicines.unlog_dose(get_db(), med_id, dose_date=dose_date)
     return jsonify({"ok": True})
 
 

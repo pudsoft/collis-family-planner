@@ -123,10 +123,14 @@ document.addEventListener("click", async (e) => {
 document.addEventListener("click", async (e) => {
   const btn = e.target.closest(".take-btn");
   if (!btn) return;
-  const medId  = btn.dataset.medId;
+  const medId   = btn.dataset.medId;
   const isTaken = btn.classList.contains("taken");
   const url = isTaken ? `/medicines/${medId}/untake` : `/medicines/${medId}/take`;
-  const result = await postAction(url, new FormData());
+  const fd = new FormData();
+  if (typeof _viewDate !== "undefined" && typeof _isToday !== "undefined" && !_isToday) {
+    fd.append("dose_date", _viewDate);
+  }
+  const result = await postAction(url, fd);
   if (!result) return;
   btn.classList.toggle("taken", !isTaken);
   btn.textContent = isTaken ? "Take" : "✓ Taken";

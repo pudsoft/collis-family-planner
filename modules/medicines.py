@@ -115,22 +115,33 @@ def log_dose(db_conn, medicine_id: int, taken_by: str, dose_date: str = None) ->
 
 
 def get_doses_for_date(db_conn, dose_date: str) -> list[dict]:
-    """Return all medicines with taken status for a specific date."""
+    """Return all medicines with taken status for any date (same shape as get_today_doses)."""
     meds = get_medicines(db_conn)
     for med in meds:
         dose = db_conn.execute(
-            "SELECT id FROM medicine_doses WHERE medicine_id=? AND dose_date=?",
+            "SELECT * FROM medicine_doses WHERE medicine_id=? AND dose_date=?",
             (med["id"], dose_date),
         ).fetchone()
-        med["taken"] = dose is not None
+        med["taken_today"] = dose is not None
+        med["taken_at"]    = dose["taken_at"] if dose else None
+        med["days_remaining"] = (
+            round(med["stock_count"] / med["daily_dose"], 1)
+            if med["daily_dose"] and med["stock_count"] else None
+        )
+        med["needs_reorder"] = (
+            med["days_remaining"] is not None
+            and med["days_remaining"] <= med["reorder_threshold_days"]
+        )
+        med["is_late"] = False
     return meds
 
 
-def unlog_dose(db_conn, medicine_id: int) -> bool:
-    today = date.today().isoformat()
+def unlog_dose(db_conn, medicine_id: int, dose_date: str = None) -> bool:
+    if dose_date is None:
+        dose_date = date.today().isoformat()
     dose = db_conn.execute(
         "SELECT id FROM medicine_doses WHERE medicine_id=? AND dose_date=?",
-        (medicine_id, today),
+        (medicine_id, dose_date),
     ).fetchone()
     if not dose:
         return False
