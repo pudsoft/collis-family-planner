@@ -198,8 +198,21 @@ async function subscribePush() {
     return;
   }
   try {
-    const reg  = await navigator.serviceWorker.ready;
-    const sub  = await reg.pushManager.subscribe({
+    const reg = await navigator.serviceWorker.ready;
+
+    // Chrome won't let you change applicationServerKey on an existing subscription —
+    // always unsubscribe first so we can re-subscribe with the current VAPID key.
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      await fetch("/push/unsubscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: existing.endpoint }),
+      });
+      await existing.unsubscribe();
+    }
+
+    const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: _urlB64ToUint8(VAPID_PUBLIC_KEY),
     });

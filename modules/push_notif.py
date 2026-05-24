@@ -66,7 +66,11 @@ def get_public_key(db_conn) -> str:
 
 
 def send_push(subscription: dict, title: str, body: str, url: str, db_conn) -> bool:
-    """Send a Web Push to a single subscription dict {endpoint, p256dh, auth}."""
+    """Send a Web Push to a single subscription dict {endpoint, p256dh, auth}.
+
+    Automatically removes the subscription from the DB if the push service
+    returns 404/410 (expired or unregistered subscription).
+    """
     try:
         priv, _ = _get_or_create_keys(db_conn)
         from pywebpush import webpush, WebPushException
@@ -81,7 +85,18 @@ def send_push(subscription: dict, title: str, body: str, url: str, db_conn) -> b
         )
         return True
     except Exception as exc:
-        log.warning("Web Push failed (%.50s): %s", subscription.get("endpoint", ""), exc)
+        endpoint = subscription.get("endpoint", "")
+        # 404/410 = subscription is gone on the push service side; clean up DB
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        if status in (404, 410):
+            log.info("Push subscription expired (HTTP %s) — removing: %.60s", status, endpoint)
+            try:
+                db_conn.execute("DELETE FROM push_subscriptions WHERE endpoint=?", (endpoint,))
+                db_conn.commit()
+            except Exception:
+                pass
+        else:
+            log.warning("Web Push failed (%.50s): %s", endpoint, exc)
         return False
 
 
