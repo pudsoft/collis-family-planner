@@ -177,60 +177,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// ── Admin PIN keypad ──────────────────────────────────────────────────────── //
-let _pinResolve = null;
-let _pinValue   = "";
-
-function _pinUpdateDots() {
-  for (let i = 0; i < 4; i++) {
-    const d = document.getElementById("pd" + i);
-    if (d) d.classList.toggle("filled", i < _pinValue.length);
-  }
-}
-
-window._pinKey = function(digit) {
-  if (_pinValue.length >= 8) return;
-  _pinValue += digit;
-  _pinUpdateDots();
-};
-
-window._pinBackspace = function() {
-  _pinValue = _pinValue.slice(0, -1);
-  _pinUpdateDots();
-};
-
-function _showPinModal() {
-  return new Promise(resolve => {
-    _pinResolve = resolve;
-    _pinValue   = "";
-    _pinUpdateDots();
-    const modal = document.getElementById("pin-prompt-modal");
-    if (!modal) { resolve(""); return; }
-    modal.classList.add("open");
-  });
-}
-
-window._confirmPin = function() {
-  const pin = _pinValue;
-  _pinValue  = "";
-  _pinUpdateDots();
-  document.getElementById("pin-prompt-modal").classList.remove("open");
-  if (_pinResolve) { _pinResolve(pin); _pinResolve = null; }
-};
-
-window._cancelPin = function() {
-  _pinValue = "";
-  _pinUpdateDots();
-  document.getElementById("pin-prompt-modal").classList.remove("open");
-  if (_pinResolve) { _pinResolve(null); _pinResolve = null; }
-};
-
+// ── Admin actions (session-authenticated — no PIN prompt needed) ──────────── //
 async function adminPost(url, formData = null, successMsg = null) {
-  const pin = await _showPinModal();
-  if (pin === null) return null; // cancelled
-  const fd = formData || new FormData();
-  fd.append("admin_pin", pin);
-  return postAction(url, fd, successMsg);
+  return postAction(url, formData || new FormData(), successMsg);
 }
 
 // ── UniFi WLAN toggle ─────────────────────────────────────────────────────── //

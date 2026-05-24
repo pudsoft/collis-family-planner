@@ -71,31 +71,6 @@
 
 <div class="toast-container" id="toast-container"></div>
 
-<!-- ── Admin PIN keypad (full-screen, global) ────────────────────────────── -->
-<div class="pin-overlay" id="pin-prompt-modal">
-  <div class="pin-overlay-title">🔐 Admin PIN</div>
-  <div class="pin-dots" id="pin-dots">
-    <span class="pin-dot" id="pd0"></span>
-    <span class="pin-dot" id="pd1"></span>
-    <span class="pin-dot" id="pd2"></span>
-    <span class="pin-dot" id="pd3"></span>
-  </div>
-  <div class="pin-grid">
-    <button class="pin-key" onclick="_pinKey('1')">1</button>
-    <button class="pin-key" onclick="_pinKey('2')">2</button>
-    <button class="pin-key" onclick="_pinKey('3')">3</button>
-    <button class="pin-key" onclick="_pinKey('4')">4</button>
-    <button class="pin-key" onclick="_pinKey('5')">5</button>
-    <button class="pin-key" onclick="_pinKey('6')">6</button>
-    <button class="pin-key" onclick="_pinKey('7')">7</button>
-    <button class="pin-key" onclick="_pinKey('8')">8</button>
-    <button class="pin-key" onclick="_pinKey('9')">9</button>
-    <button class="pin-key pin-key-back" onclick="_pinBackspace()">⌫</button>
-    <button class="pin-key" onclick="_pinKey('0')">0</button>
-    <button class="pin-key pin-key-ok" onclick="_confirmPin()">✓</button>
-  </div>
-  <button class="pin-cancel" onclick="_cancelPin()">Cancel</button>
-</div>
 
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 {% block extra_js %}{% endblock %}
