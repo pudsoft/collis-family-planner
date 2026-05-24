@@ -58,6 +58,12 @@ GOOGLE_COLOUR_ID_MAP = {
     "11": "tomato",
 }
 
+# ── Web Push (VAPID) ─────────────────────────────────────────────────────────
+# If not set, keys are auto-generated on first run and stored in app_settings.
+VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "")
+VAPID_PUBLIC_KEY  = os.getenv("VAPID_PUBLIC_KEY", "")
+VAPID_SUBJECT     = os.getenv("VAPID_SUBJECT", "mailto:admin@collisfamilyplanner.ddns.net")
+
 # ── NTFY ──────────────────────────────────────────────────────────────────────
 NTFY_BASE_URL = "https://ntfy.sh"
 # Channels are stored per-person in the DB (person_prefs.ntfy_channel).

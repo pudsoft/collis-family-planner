@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+import threading
+import time as _time
 from datetime import date, datetime, timedelta
 from functools import wraps
 from pathlib import Path
@@ -17,7 +19,8 @@ from flask import (
 
 import config
 from modules import (
-    alexa, auth, calendar_sync, meals, medicines, ntfy, school_terms, tasks, unifi, weather,
+    alexa, auth, calendar_sync, meals, medicines, ntfy, push_notif,
+    school_terms, tasks, unifi, weather,
 )
 
 # ── App setup ─────────────────────────────────────────────────────────────────
@@ -171,7 +174,10 @@ def _init_db_mysql(db):
             reorder_threshold_days INT DEFAULT 14,
             last_ordered           VARCHAR(20),
             notes                  TEXT,
-            scheduled_time         VARCHAR(10)
+            scheduled_time         VARCHAR(10),
+            doses_per_day          INT DEFAULT 1,
+            dose_times             TEXT,
+            active                 TINYINT DEFAULT 1
         )""",
         """CREATE TABLE IF NOT EXISTS medicine_doses (
             id          INT AUTO_INCREMENT PRIMARY KEY,
@@ -179,7 +185,17 @@ def _init_db_mysql(db):
             taken_by    VARCHAR(50),
             taken_at    VARCHAR(50),
             dose_date   VARCHAR(20) NOT NULL,
+            dose_number INT DEFAULT 1,
             FOREIGN KEY (medicine_id) REFERENCES medicines(id) ON DELETE CASCADE
+        )""",
+        """CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id         INT AUTO_INCREMENT PRIMARY KEY,
+            person     VARCHAR(50) NOT NULL,
+            endpoint   TEXT NOT NULL,
+            p256dh     TEXT NOT NULL,
+            auth       TEXT NOT NULL,
+            created_at VARCHAR(50) DEFAULT NULL,
+            UNIQUE KEY uq_endpoint (endpoint(500))
         )""",
         """CREATE TABLE IF NOT EXISTS known_devices (
             id           INT AUTO_INCREMENT PRIMARY KEY,
@@ -218,11 +234,16 @@ def _init_db_mysql(db):
 
     # Column migrations (safe for repeated runs)
     for table, col, defn in [
-        ("person_prefs",  "weather_days",    "INT DEFAULT 3"),
-        ("medicines",     "scheduled_time",   "VARCHAR(10)"),
-        ("known_devices", "protected",        "TINYINT DEFAULT 0"),
-        ("person_prefs",  "theme",            "VARCHAR(20) DEFAULT 'default'"),
-        ("person_prefs",  "login_pin",        "VARCHAR(200)"),
+        ("person_prefs",   "weather_days",   "INT DEFAULT 3"),
+        ("medicines",      "scheduled_time", "VARCHAR(10)"),
+        ("known_devices",  "protected",      "TINYINT DEFAULT 0"),
+        ("person_prefs",   "theme",          "VARCHAR(20) DEFAULT 'default'"),
+        ("person_prefs",   "login_pin",      "VARCHAR(200)"),
+        ("medicines",      "doses_per_day",  "INT DEFAULT 1"),
+        ("medicines",      "dose_times",     "TEXT"),
+        ("medicines",      "active",         "TINYINT DEFAULT 1"),
+        ("medicine_doses", "dose_number",    "INT DEFAULT 1"),
+        ("person_prefs",   "notif_method",   "VARCHAR(20) DEFAULT 'ntfy'"),
     ]:
         if not _col_exists_mysql(db, table, col):
             db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {defn}")
@@ -318,14 +339,26 @@ def _init_db_sqlite(db):
             reorder_threshold_days INTEGER DEFAULT 14,
             last_ordered           TEXT,
             notes                  TEXT,
-            scheduled_time         TEXT
+            scheduled_time         TEXT,
+            doses_per_day          INTEGER DEFAULT 1,
+            dose_times             TEXT,
+            active                 INTEGER DEFAULT 1
         );
         CREATE TABLE IF NOT EXISTS medicine_doses (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             medicine_id INTEGER NOT NULL REFERENCES medicines(id) ON DELETE CASCADE,
             taken_by    TEXT,
             taken_at    TEXT,
-            dose_date   TEXT NOT NULL
+            dose_date   TEXT NOT NULL,
+            dose_number INTEGER DEFAULT 1
+        );
+        CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            person     TEXT NOT NULL,
+            endpoint   TEXT NOT NULL UNIQUE,
+            p256dh     TEXT NOT NULL,
+            auth       TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
         CREATE TABLE IF NOT EXISTS known_devices (
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -361,11 +394,16 @@ def _init_db_sqlite(db):
     tasks.seed_default_chores(db)
 
     for table, col, pragma_type in [
-        ("person_prefs",  "weather_days",   "INTEGER DEFAULT 3"),
-        ("medicines",     "scheduled_time", "TEXT"),
-        ("known_devices", "protected",      "INTEGER DEFAULT 0"),
-        ("person_prefs",  "theme",          "TEXT DEFAULT 'default'"),
-        ("person_prefs",  "login_pin",      "TEXT"),
+        ("person_prefs",   "weather_days",   "INTEGER DEFAULT 3"),
+        ("medicines",      "scheduled_time", "TEXT"),
+        ("known_devices",  "protected",      "INTEGER DEFAULT 0"),
+        ("person_prefs",   "theme",          "TEXT DEFAULT 'default'"),
+        ("person_prefs",   "login_pin",      "TEXT"),
+        ("medicines",      "doses_per_day",  "INTEGER DEFAULT 1"),
+        ("medicines",      "dose_times",     "TEXT"),
+        ("medicines",      "active",         "INTEGER DEFAULT 1"),
+        ("medicine_doses", "dose_number",    "INTEGER DEFAULT 1"),
+        ("person_prefs",   "notif_method",   "TEXT DEFAULT 'ntfy'"),
     ]:
         cols = [r[1] for r in db.execute(f"PRAGMA table_info({table})").fetchall()]
         if col not in cols:
@@ -935,9 +973,10 @@ def medicines_view():
 
 @app.route("/medicines/<int:med_id>/take", methods=["POST"])
 def medicine_take(med_id: int):
-    person    = current_person()
-    dose_date = request.form.get("dose_date") or None
-    taken     = medicines.log_dose(get_db(), med_id, person, dose_date=dose_date)
+    person      = current_person()
+    dose_date   = request.form.get("dose_date") or None
+    dose_number = int(request.form.get("dose_number") or 1)
+    taken = medicines.log_dose(get_db(), med_id, person, dose_date=dose_date, dose_number=dose_number)
     return jsonify({"ok": True, "already_taken": not taken})
 
 
@@ -952,8 +991,9 @@ def medicines_doses_for_date():
 
 @app.route("/medicines/<int:med_id>/untake", methods=["POST"])
 def medicine_untake(med_id: int):
-    dose_date = request.form.get("dose_date") or None
-    medicines.unlog_dose(get_db(), med_id, dose_date=dose_date)
+    dose_date   = request.form.get("dose_date") or None
+    dose_number = int(request.form.get("dose_number") or 1)
+    medicines.unlog_dose(get_db(), med_id, dose_date=dose_date, dose_number=dose_number)
     return jsonify({"ok": True})
 
 
@@ -1001,6 +1041,7 @@ def settings_view():
         person_display=config.PERSON_DISPLAY,
         is_admin=person in config.ADMINS,
         google_connected=google_connected,
+        vapid_public_key=push_notif.get_public_key(db),
     )
 
 
@@ -1011,10 +1052,11 @@ def settings_save():
     db     = get_db()
     db.execute(
         """UPDATE person_prefs
-           SET completed_style=?, ntfy_channel=?, theme=?, weather_days=?
+           SET completed_style=?, ntfy_channel=?, theme=?, weather_days=?, notif_method=?
            WHERE person=?""",
         (d.get("completed_style", "fade"), d.get("ntfy_channel", ""),
-         d.get("theme", "default"), int(d.get("weather_days", 3)), person),
+         d.get("theme", "default"), int(d.get("weather_days", 3)),
+         d.get("notif_method", "ntfy"), person),
     )
     db.commit()
     return redirect(url_for("settings_view"))
@@ -1046,6 +1088,57 @@ def ntfy_test():
     ok = ntfy.send_ntfy(ch, "Test from Family Planner!", title="✅ NTFY Test",
                         click_url=f"{config.APP_BASE_URL}/dashboard?person={person}")
     return jsonify({"ok": ok})
+
+
+# ── Web Push ──────────────────────────────────────────────────────────────────
+
+@app.route("/push/vapid-public-key")
+def push_vapid_public_key():
+    return jsonify({"key": push_notif.get_public_key(get_db())})
+
+
+@app.route("/push/subscribe", methods=["POST"])
+def push_subscribe():
+    person = current_person()
+    data   = request.get_json(force=True)
+    endpoint = data.get("endpoint", "").strip()
+    p256dh   = data.get("p256dh", "").strip()
+    auth_key = data.get("auth", "").strip()
+    if not (endpoint and p256dh and auth_key):
+        return jsonify({"error": "Missing fields"}), 400
+    db = get_db()
+    existing = db.execute("SELECT id FROM push_subscriptions WHERE endpoint=?", (endpoint,)).fetchone()
+    if existing:
+        db.execute("UPDATE push_subscriptions SET person=?, p256dh=?, auth=? WHERE endpoint=?",
+                   (person, p256dh, auth_key, endpoint))
+    else:
+        db.execute("INSERT INTO push_subscriptions (person, endpoint, p256dh, auth) VALUES (?,?,?,?)",
+                   (person, endpoint, p256dh, auth_key))
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/push/unsubscribe", methods=["POST"])
+def push_unsubscribe():
+    data     = request.get_json(force=True)
+    endpoint = data.get("endpoint", "").strip()
+    if endpoint:
+        db = get_db()
+        db.execute("DELETE FROM push_subscriptions WHERE endpoint=?", (endpoint,))
+        db.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/push/test", methods=["POST"])
+def push_test():
+    person = current_person()
+    sent   = push_notif.send_push_to_person(
+        get_db(), person,
+        title="✅ Push Test",
+        body="Family Planner push notifications are working!",
+        url=f"{config.APP_BASE_URL}/dashboard?person={person}",
+    )
+    return jsonify({"ok": True, "sent": sent})
 
 
 # ── Network (WiFi + devices) ──────────────────────────────────────────────────
@@ -1195,30 +1288,47 @@ def admin_set_pin():
 @app.route("/admin/medicine", methods=["POST"])
 @require_admin
 def admin_medicine_save():
-    d      = request.form
-    db     = get_db()
-    med_id = d.get("id", type=int)
-    scheduled_time = d.get("scheduled_time") or None
+    d             = request.form
+    db            = get_db()
+    med_id        = d.get("id", type=int)
+    doses_per_day = max(1, int(d.get("doses_per_day") or 1))
+    active        = 1 if d.get("active") != "0" else 0
+
+    # Build dose_times JSON from individual time fields
+    raw_times = [d.get(f"dose_time_{i}", "").strip() for i in range(1, doses_per_day + 1)]
+    dose_times = json.dumps([t or None for t in raw_times]) if doses_per_day > 1 else None
+    # For single dose keep scheduled_time for legacy compat
+    scheduled_time = raw_times[0] if raw_times[0] else None
+
+    kwargs = dict(
+        name=d["name"], person=d["person"],
+        daily_dose=float(d.get("daily_dose", 1)),
+        stock_count=float(d.get("stock_count", 0)),
+        reorder_threshold_days=int(d.get("reorder_threshold_days", 14)),
+        notes=d.get("notes") or None,
+        scheduled_time=scheduled_time,
+        doses_per_day=doses_per_day,
+        dose_times=dose_times,
+        active=active,
+    )
     if med_id:
-        medicines.update_medicine(
-            db, med_id,
-            name=d["name"], person=d["person"],
-            daily_dose=float(d.get("daily_dose", 1)),
-            stock_count=float(d.get("stock_count", 0)),
-            reorder_threshold_days=int(d.get("reorder_threshold_days", 14)),
-            notes=d.get("notes"),
-            scheduled_time=scheduled_time,
-        )
+        medicines.update_medicine(db, med_id, **kwargs)
     else:
-        medicines.add_medicine(
-            db, d["name"], d["person"],
-            daily_dose=float(d.get("daily_dose", 1)),
-            stock_count=float(d.get("stock_count", 0)),
-            reorder_threshold_days=int(d.get("reorder_threshold_days", 14)),
-            notes=d.get("notes"),
-            scheduled_time=scheduled_time,
-        )
+        medicines.add_medicine(db, **kwargs)
     return jsonify({"ok": True})
+
+
+@app.route("/admin/medicine/<int:med_id>/toggle_active", methods=["POST"])
+@require_admin
+def admin_medicine_toggle_active(med_id: int):
+    db  = get_db()
+    row = db.execute("SELECT active FROM medicines WHERE id=?", (med_id,)).fetchone()
+    if not row:
+        return jsonify({"error": "Not found"}), 404
+    new_val = 0 if row["active"] else 1
+    db.execute("UPDATE medicines SET active=? WHERE id=?", (new_val, med_id))
+    db.commit()
+    return jsonify({"ok": True, "active": new_val})
 
 
 @app.route("/admin/medicine/<int:med_id>/delete", methods=["POST"])
@@ -1384,12 +1494,97 @@ def api_work_meetings():
     return jsonify(meetings)
 
 
+# ── Medicine reminder background thread ──────────────────────────────────────
+
+def _send_medicine_reminders_now():
+    conn = _get_db_for_thread()
+    try:
+        now   = datetime.now()
+        today = now.date().isoformat()
+        # Window: reminders due within the last 60 seconds
+        window_start = now - timedelta(seconds=60)
+
+        meds = conn.execute(
+            "SELECT m.*, pp.ntfy_channel, pp.notif_method "
+            "FROM medicines m "
+            "JOIN person_prefs pp ON pp.person = m.person "
+            "WHERE m.active = 1"
+        ).fetchall()
+
+        for med in meds:
+            med = dict(med)
+            doses_per_day = int(med.get("doses_per_day") or 1)
+            # Build list of dose times
+            raw = med.get("dose_times")
+            if raw:
+                try:
+                    dose_times = json.loads(raw)
+                except Exception:
+                    dose_times = []
+            elif med.get("scheduled_time"):
+                dose_times = [med["scheduled_time"]]
+            else:
+                continue
+
+            for slot_i, t in enumerate(dose_times[:doses_per_day], start=1):
+                if not t:
+                    continue
+                try:
+                    h, m_val = map(int, t.split(":"))
+                    sched = now.replace(hour=h, minute=m_val, second=0, microsecond=0)
+                except ValueError:
+                    continue
+
+                if not (window_start <= sched <= now):
+                    continue
+
+                # Already taken?
+                if conn.execute(
+                    "SELECT id FROM medicine_doses "
+                    "WHERE medicine_id=? AND dose_date=? AND dose_number=?",
+                    (med["id"], today, slot_i)
+                ).fetchone():
+                    continue
+
+                person        = med["person"]
+                notif_method  = med.get("notif_method") or "ntfy"
+                med_name      = med["name"]
+                url           = f"{config.APP_BASE_URL}/medicines?person={person}"
+
+                if notif_method == "push":
+                    push_notif.send_push_to_person(conn, person, "💊 Medicine Reminder",
+                                                   f"Time to take {med_name}", url)
+                else:
+                    ch = med.get("ntfy_channel")
+                    if ch:
+                        ntfy.send_medicine_reminder(ch, person, med_name)
+    except Exception:
+        log.exception("Medicine reminder job failed")
+    finally:
+        conn.close()
+
+
+def _medicine_reminder_loop():
+    _time.sleep(10)  # brief startup delay
+    while True:
+        try:
+            _send_medicine_reminders_now()
+        except Exception:
+            log.exception("Medicine reminder loop error")
+        _time.sleep(60)
+
+
+def start_medicine_reminders():
+    t = threading.Thread(target=_medicine_reminder_loop, daemon=True, name="med-reminders")
+    t.start()
+
+
 # ── Run ───────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     init_db()
-    # Schedule today's chores on startup
     with app.app_context():
         tasks.ensure_chores_scheduled(get_db())
     calendar_sync.start_background_sync(_get_db_for_thread)
+    start_medicine_reminders()
     app.run(host="0.0.0.0", port=config.PORT, debug=False)

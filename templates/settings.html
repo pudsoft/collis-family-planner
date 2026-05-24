@@ -54,18 +54,49 @@
         </label>
       </div>
 
-      <div class="settings-row">
+      <!-- Notification method -->
+      <div class="settings-row" style="align-items:flex-start;flex-direction:column;gap:10px">
         <div>
-          <div class="settings-label">NTFY channel</div>
-          <div class="settings-desc">Your ntfy.sh channel name for reminders</div>
+          <div class="settings-label">Notifications</div>
+          <div class="settings-desc">How reminders reach you</div>
         </div>
-        <input class="form-input" name="ntfy_channel" style="width:140px;min-width:0;text-align:right"
-               value="{{ prefs.ntfy_channel or '' }}" placeholder="channel-name">
+        <div style="display:flex;flex-direction:column;gap:8px;width:100%">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="radio" name="notif_method" value="ntfy"
+                   {% if (prefs.notif_method or 'ntfy') == 'ntfy' %}checked{% endif %}
+                   onchange="updateNotifUI()">
+            <span style="font-size:.9rem">ntfy.sh</span>
+          </label>
+          <div id="ntfy-options" style="margin-left:22px">
+            <input class="form-input" name="ntfy_channel" style="width:160px"
+                   value="{{ prefs.ntfy_channel or '' }}" placeholder="channel-name">
+          </div>
+
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="radio" name="notif_method" value="push"
+                   {% if prefs.notif_method == 'push' %}checked{% endif %}
+                   onchange="updateNotifUI()">
+            <span style="font-size:.9rem">Browser / PWA push</span>
+          </label>
+          <div id="push-options" style="margin-left:22px">
+            <button type="button" class="btn btn-secondary btn-sm" id="push-subscribe-btn"
+                    onclick="subscribePush()">Subscribe this device</button>
+            <span id="push-status" style="font-size:.78rem;color:var(--text-muted);margin-left:8px"></span>
+          </div>
+
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="radio" name="notif_method" value="off"
+                   {% if prefs.notif_method == 'off' %}checked{% endif %}
+                   onchange="updateNotifUI()">
+            <span style="font-size:.9rem">Off</span>
+          </label>
+        </div>
       </div>
 
-      <div style="margin-top:14px;display:flex;gap:8px">
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
         <button type="submit" class="btn btn-primary" style="flex:1">Save preferences</button>
         <button type="button" class="btn btn-secondary" id="ntfy-test-btn">Test NTFY</button>
+        <button type="button" class="btn btn-secondary" id="push-test-btn" onclick="testPush()">Test Push</button>
       </div>
     </form>
   </div>
@@ -137,6 +168,68 @@
 
 {% block extra_js %}
 <script>
+const VAPID_PUBLIC_KEY = "{{ vapid_public_key }}";
+
+function updateNotifUI() {
+  const method = document.querySelector('input[name="notif_method"]:checked')?.value;
+  document.getElementById("ntfy-options").style.display  = method === "ntfy"  ? "" : "none";
+  document.getElementById("push-options").style.display  = method === "push"  ? "" : "none";
+  document.getElementById("ntfy-test-btn").style.display = method === "ntfy"  ? "" : "none";
+  document.getElementById("push-test-btn").style.display = method === "push"  ? "" : "none";
+}
+updateNotifUI();
+
+function _urlB64ToUint8(base64String) {
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+  const base64  = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw     = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function subscribePush() {
+  const statusEl = document.getElementById("push-status");
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    statusEl.textContent = "Push not supported in this browser";
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") {
+    statusEl.textContent = "Permission denied";
+    return;
+  }
+  try {
+    const reg  = await navigator.serviceWorker.ready;
+    const sub  = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: _urlB64ToUint8(VAPID_PUBLIC_KEY),
+    });
+    const j = sub.toJSON();
+    const r = await fetch("/push/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        endpoint: j.endpoint,
+        p256dh:   j.keys.p256dh,
+        auth:     j.keys.auth,
+      }),
+    });
+    if (r.ok) {
+      statusEl.textContent = "✓ This device subscribed";
+      statusEl.style.color = "var(--success, #4CAF50)";
+    } else {
+      statusEl.textContent = "Subscription failed";
+    }
+  } catch(e) {
+    statusEl.textContent = "Error: " + e.message;
+  }
+}
+
+async function testPush() {
+  const r = await fetch("/push/test", { method: "POST" });
+  const j = await r.json().catch(() => ({}));
+  showToast(j.sent > 0 ? "Push sent ✓" : "No subscriptions found — subscribe this device first", j.sent > 0 ? "success" : "error");
+}
+
 async function saveMyPin() {
   const pin     = document.getElementById("cp-new").value.trim();
   const confirm = document.getElementById("cp-confirm").value.trim();

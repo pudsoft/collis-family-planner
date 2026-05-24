@@ -27,6 +27,29 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
+// Push notifications
+self.addEventListener('push', e => {
+  let data = { title: '💊 Family Planner', body: 'You have a reminder', url: '/' };
+  try { data = Object.assign(data, e.data.json()); } catch {}
+  e.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/static/icons/icon-192.png',
+      badge: '/static/icons/icon-192.png',
+      data: { url: data.url },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = e.notification.data?.url || '/';
+  e.waitUntil(clients.matchAll({ type: 'window' }).then(wins => {
+    const w = wins.find(w => w.url === url && 'focus' in w);
+    return w ? w.focus() : clients.openWindow(url);
+  }));
+});
+
 // Fetch strategy
 self.addEventListener('fetch', e => {
   const { request } = e;

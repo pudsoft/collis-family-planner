@@ -48,12 +48,14 @@
         </div>
         <div class="device-mac">
           {{ med.stock_count }} doses · {{ med.daily_dose }}/day ·
+          {{ med.doses_per_day or 1 }}× daily ·
           Reorder at {{ med.reorder_threshold_days }} days
+          {% if not med.active %} · <span style="color:#EF4444">Paused</span>{% endif %}
         </div>
         {% if med.notes %}<div class="device-mac" style="font-style:italic">{{ med.notes }}</div>{% endif %}
       </div>
       <button class="btn btn-secondary btn-sm"
-              onclick="editMed({{ med.id }},'{{ med.name|replace("'","\\'")|e }}','{{ med.person }}',{{ med.daily_dose }},{{ med.stock_count }},{{ med.reorder_threshold_days }},'{{ med.scheduled_time or '' }}','{{ (med.notes or '')|replace("'","\\'")|e }}')">
+              onclick="editMed({{ med | tojson }})">
         Edit
       </button>
       <button class="btn btn-danger btn-sm" onclick="deleteMed({{ med.id }})">✕</button>
@@ -200,8 +202,22 @@
       </select>
     </div>
     <div class="form-group">
-      <label class="form-label">Daily dose (tablets/units)</label>
+      <label class="form-label">Daily dose total (tablets/units)</label>
       <input class="form-input" id="med-dose" type="number" min="0.5" step="0.5" value="1">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Doses per day</label>
+      <select class="form-select" id="med-doses-per-day" onchange="updateDoseTimes()">
+        <option value="1">1× daily</option>
+        <option value="2">2× daily</option>
+        <option value="3">3× daily</option>
+        <option value="4">4× daily</option>
+      </select>
+    </div>
+    <div id="med-dose-times-section" class="form-group">
+      <label class="form-label">Scheduled time(s) — optional</label>
+      <div id="med-dose-times-inputs" style="display:flex;flex-direction:column;gap:6px"></div>
+      <div style="font-size:.72rem;color:var(--text-muted);margin-top:3px">Late warning shown 30 min after each scheduled time</div>
     </div>
     <div class="form-group">
       <label class="form-label">Current stock (doses)</label>
@@ -212,13 +228,18 @@
       <input class="form-input" id="med-threshold" type="number" min="1" value="14">
     </div>
     <div class="form-group">
-      <label class="form-label">Scheduled time (optional)</label>
-      <input class="form-input" id="med-scheduled-time" type="time" placeholder="e.g. 08:00">
-      <div style="font-size:.72rem;color:var(--text-muted);margin-top:3px">Late warning appears 30 min after this time if not taken</div>
-    </div>
-    <div class="form-group">
       <label class="form-label">Notes (optional)</label>
       <input class="form-input" id="med-notes" placeholder="e.g. Take with food">
+    </div>
+    <div class="settings-row" style="margin-bottom:14px">
+      <div>
+        <div class="settings-label">Active (send reminders)</div>
+        <div class="settings-desc">Uncheck to pause reminders for seasonal/short courses</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="med-active" checked>
+        <span class="toggle-slider"></span>
+      </label>
     </div>
     <button class="btn btn-primary btn-full" onclick="saveMed()">Save medicine</button>
   </div>
@@ -286,35 +307,84 @@ async function deleteChore(id) {
   if (r) setTimeout(() => location.reload(), 400);
 }
 
-function editMed(id, name, person, dose, stock, threshold, scheduledTime, notes) {
-  document.getElementById("med-id").value             = id;
-  document.getElementById("med-name").value           = name;
-  document.getElementById("med-person").value         = person;
-  document.getElementById("med-dose").value           = dose;
-  document.getElementById("med-stock").value          = stock;
-  document.getElementById("med-threshold").value      = threshold;
-  document.getElementById("med-scheduled-time").value = scheduledTime || "";
-  document.getElementById("med-notes").value          = notes || "";
+function updateDoseTimes() {
+  const n      = parseInt(document.getElementById("med-doses-per-day").value) || 1;
+  const wrap   = document.getElementById("med-dose-times-inputs");
+  const labels = ["Morning", "Afternoon", "Evening", "Night"];
+  // preserve existing values
+  const existing = Array.from(wrap.querySelectorAll("input")).map(i => i.value);
+  wrap.innerHTML = "";
+  for (let i = 0; i < n; i++) {
+    const label = n > 1 ? labels[i] || `Dose ${i+1}` : "Time";
+    const inp = document.createElement("input");
+    inp.type      = "time";
+    inp.className = "form-input";
+    inp.id        = `med-dose-time-${i+1}`;
+    inp.placeholder = label;
+    inp.style.width = "130px";
+    inp.value = existing[i] || "";
+    const lbl = document.createElement("label");
+    lbl.style.cssText = "font-size:.78rem;color:var(--text-muted);display:flex;align-items:center;gap:8px";
+    lbl.textContent = label + ": ";
+    lbl.appendChild(inp);
+    wrap.appendChild(lbl);
+  }
+}
+
+function editMed(med) {
+  document.getElementById("med-id").value          = med.id || "";
+  document.getElementById("med-name").value        = med.name || "";
+  document.getElementById("med-person").value      = med.person || "";
+  document.getElementById("med-dose").value        = med.daily_dose || 1;
+  document.getElementById("med-stock").value       = med.stock_count || 0;
+  document.getElementById("med-threshold").value   = med.reorder_threshold_days || 14;
+  document.getElementById("med-notes").value       = med.notes || "";
+  document.getElementById("med-active").checked    = med.active !== 0;
+  const dpd = med.doses_per_day || 1;
+  document.getElementById("med-doses-per-day").value = dpd;
+  updateDoseTimes();
+  // Fill in times
+  let times = [];
+  if (med.dose_times) {
+    try { times = JSON.parse(med.dose_times); } catch {}
+  } else if (med.scheduled_time) {
+    times = [med.scheduled_time];
+  }
+  times.forEach((t, i) => {
+    const el = document.getElementById(`med-dose-time-${i+1}`);
+    if (el) el.value = t || "";
+  });
   document.getElementById("add-med-modal").classList.add("open");
 }
+
 async function saveMed() {
-  const fd = new FormData();
+  const fd  = new FormData();
+  const dpd = parseInt(document.getElementById("med-doses-per-day").value) || 1;
   fd.append("id",                     document.getElementById("med-id").value);
   fd.append("name",                   document.getElementById("med-name").value.trim());
   fd.append("person",                 document.getElementById("med-person").value);
   fd.append("daily_dose",             document.getElementById("med-dose").value);
   fd.append("stock_count",            document.getElementById("med-stock").value);
   fd.append("reorder_threshold_days", document.getElementById("med-threshold").value);
-  fd.append("scheduled_time",         document.getElementById("med-scheduled-time").value);
   fd.append("notes",                  document.getElementById("med-notes").value);
+  fd.append("doses_per_day",          dpd);
+  fd.append("active",                 document.getElementById("med-active").checked ? "1" : "0");
+  for (let i = 1; i <= dpd; i++) {
+    const el = document.getElementById(`med-dose-time-${i}`);
+    fd.append(`dose_time_${i}`, el ? el.value : "");
+  }
   const r = await adminPost("/admin/medicine", fd, "Medicine saved");
   if (r) { document.getElementById("add-med-modal").classList.remove("open"); setTimeout(() => location.reload(), 400); }
 }
+
 async function deleteMed(id) {
   if (!confirm("Delete this medicine?")) return;
   const r = await adminPost(`/admin/medicine/${id}/delete`, null, "Medicine deleted");
   if (r) setTimeout(() => location.reload(), 400);
 }
+
+// initialise time inputs for the "add new" case
+updateDoseTimes();
 
 const _protectedMacs = new Set({{ all_devices | selectattr('protected') | map(attribute='mac') | list | tojson }});
 
