@@ -6,7 +6,10 @@
   <meta name="theme-color" content="#7B5BA6">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Family Planner">
   <title>{% block title %}Family Planner{% endblock %}</title>
+  <link rel="manifest" href="/static/manifest.json">
+  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
 </head>
 {% set _device_theme = request.cookies.get('device_theme', '') %}
@@ -74,5 +77,10 @@
 
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 {% block extra_js %}{% endblock %}
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+</script>
 </body>
 </html>

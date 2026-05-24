@@ -505,6 +505,16 @@ def login_google_callback():
     return redirect(url_for("dashboard"))
 
 
+@app.route("/sw.js")
+def service_worker():
+    return app.send_static_file("sw.js"), 200, {"Content-Type": "application/javascript"}
+
+
+@app.route("/offline")
+def offline():
+    return render_template("offline.html"), 200
+
+
 @app.route("/logout")
 def logout():
     session.clear()
