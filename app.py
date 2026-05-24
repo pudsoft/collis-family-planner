@@ -460,6 +460,9 @@ def login_pin():
     if person not in config.PEOPLE + ["family"]:
         return redirect(url_for("login", error="Invalid person", next=next_url))
 
+    if person in auth.GOOGLE_LOGIN_PERSONS:
+        return redirect(url_for("login", error="Please use Google to sign in", next=next_url))
+
     db = get_db()
 
     if person == "family":
@@ -1147,8 +1150,10 @@ def admin_chore_save():
 @app.route("/admin/chore/<int:chore_id>/delete", methods=["POST"])
 @require_admin
 def admin_chore_delete(chore_id: int):
-    get_db().execute("DELETE FROM chore_templates WHERE id=?", (chore_id,))
-    get_db().commit()
+    db = get_db()
+    db.execute("DELETE FROM tasks WHERE chore_template_id=?", (chore_id,))
+    db.execute("DELETE FROM chore_templates WHERE id=?", (chore_id,))
+    db.commit()
     return jsonify({"ok": True})
 
 
