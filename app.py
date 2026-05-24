@@ -973,6 +973,21 @@ def settings_save():
     return redirect(url_for("settings_view"))
 
 
+@app.route("/settings/change_pin", methods=["POST"])
+def settings_change_pin():
+    person  = current_person()
+    pin_val = request.form.get("pin", "").strip()
+    if len(pin_val) < 4:
+        return jsonify({"error": "PIN must be at least 4 digits"}), 400
+    if not pin_val.isdigit():
+        return jsonify({"error": "PIN must be digits only"}), 400
+    db = get_db()
+    db.execute("UPDATE person_prefs SET login_pin=? WHERE person=?",
+               (auth.hash_pin(pin_val), person))
+    db.commit()
+    return jsonify({"ok": True})
+
+
 @app.route("/settings/ntfy_test", methods=["POST"])
 def ntfy_test():
     person = current_person()
