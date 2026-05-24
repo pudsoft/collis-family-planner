@@ -17,13 +17,18 @@ _PUB_KEY  = "vapid_public_key"
 
 
 def _generate_keys() -> tuple[str, str]:
-    """Return (private_pem, public_key_b64url)."""
+    """Return (private_pem_pkcs8, public_key_b64url).
+
+    pywebpush v2 (py_vapid Vapid02) requires PKCS8 PEM format:
+    '-----BEGIN PRIVATE KEY-----'  (NOT '-----BEGIN EC PRIVATE KEY-----')
+    """
     from cryptography.hazmat.primitives.asymmetric.ec import generate_private_key, SECP256R1
     from cryptography.hazmat.primitives.serialization import (
         Encoding, NoEncryption, PrivateFormat, PublicFormat,
     )
     key     = generate_private_key(SECP256R1())
-    priv    = key.private_bytes(Encoding.PEM, PrivateFormat.TraditionalOpenSSL, NoEncryption()).decode()
+    # PKCS8 — the only format pywebpush v2 can deserialise
+    priv    = key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
     pub_b64 = base64.urlsafe_b64encode(
         key.public_key().public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
     ).rstrip(b"=").decode()
