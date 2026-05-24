@@ -21,6 +21,7 @@
     <a href="{{ url_for('admin_view') }}" class="top-bar-icon {% if request.endpoint == 'admin_view' %}active{% endif %}" title="Admin">🔐</a>
     {% endif %}
     <a href="{{ url_for('settings_view') }}" class="top-bar-icon {% if request.endpoint == 'settings_view' %}active{% endif %}" title="Settings">⚙️</a>
+    <a href="{{ url_for('logout') }}" class="top-bar-icon" title="Sign out">🚪</a>
     <select class="person-select" id="person-select"
             onchange="window.location='/set_person/'+this.value">
       {% for p in ['family'] + people %}

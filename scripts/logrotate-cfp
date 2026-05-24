@@ -1,0 +1,16 @@
+# Copy to /etc/logrotate.d/collis-family-planner on the server:
+#   sudo cp scripts/logrotate-cfp /etc/logrotate.d/collis-family-planner
+#   sudo logrotate -d /etc/logrotate.d/collis-family-planner   # dry-run to verify
+
+/home/ubuntu/collis-family-planner/logs/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 ubuntu ubuntu
+    postrotate
+        systemctl restart collis-family-planner > /dev/null 2>&1 || true
+    endscript
+}

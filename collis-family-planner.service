@@ -1,16 +1,17 @@
 [Unit]
-Description=Collis Family Planner
+Description=Collis Family Planner Flask Application
 After=network.target
 
 [Service]
-User=pi
-WorkingDirectory=/home/pi/collis-family-planner
-EnvironmentFile=/home/pi/collis-family-planner/.env
-ExecStart=/home/pi/collis-family-planner/venv/bin/python app.py
-Restart=always
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/collis-family-planner
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/usr/bin/doppler run -- /home/ubuntu/collis-family-planner/venv/bin/python app.py
+Restart=on-failure
 RestartSec=5
-StandardOutput=append:/home/pi/data/family-planner.log
-StandardError=append:/home/pi/data/family-planner.log
+StandardOutput=append:/home/ubuntu/collis-family-planner/logs/app.log
+StandardError=append:/home/ubuntu/collis-family-planner/logs/app.log
 
 [Install]
 WantedBy=multi-user.target

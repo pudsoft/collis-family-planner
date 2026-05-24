@@ -88,6 +88,35 @@
     {% endif %}
   </div>
 
+  <!-- ── Login PINs ───────────────────────────────────────────────────────── -->
+  <div class="card admin-section">
+    <div class="admin-section-title">🔑 Login PINs</div>
+    <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px">
+      Set PINs for members who sign in with a code rather than Google.
+    </div>
+    {% for p in ['joshua', 'violet', 'family'] %}
+    {% set pd = person_display.get(p, {}) %}
+    {% set is_set = pin_status.get(p, false) %}
+    <div class="device-item">
+      <div style="flex:1">
+        <div class="device-name">{{ pd.get('emoji','👤') }} {{ pd.get('label', p.title()) }}</div>
+        <div class="device-mac">{{ 'PIN set ✓' if is_set else 'No PIN — cannot log in' }}</div>
+      </div>
+      <button class="btn btn-secondary btn-sm"
+              data-pin-person="{{ p }}"
+              data-pin-label="{{ pd.get('label', p.title()) }}"
+              onclick="openSetPin(this.dataset.pinPerson, this.dataset.pinLabel)">
+        {{ 'Change' if is_set else 'Set PIN' }}
+      </button>
+      {% if is_set %}
+      <button class="btn btn-danger btn-sm"
+              data-pin-person="{{ p }}"
+              onclick="clearPin(this.dataset.pinPerson)">Clear</button>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
   <!-- ── Broadcast ─────────────────────────────────────────────────────────── -->
   <div class="card admin-section">
     <div class="admin-section-title">📢 Send family broadcast</div>
@@ -192,6 +221,28 @@
       <input class="form-input" id="med-notes" placeholder="e.g. Take with food">
     </div>
     <button class="btn btn-primary btn-full" onclick="saveMed()">Save medicine</button>
+  </div>
+</div>
+
+<!-- ── Set PIN modal ──────────────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="set-pin-modal">
+  <div class="modal-sheet">
+    <span class="modal-close">✕</span>
+    <div class="modal-title" id="set-pin-modal-title">Set PIN</div>
+    <input type="hidden" id="set-pin-person">
+    <div class="form-group">
+      <label class="form-label">PIN (4–6 digits)</label>
+      <input class="form-input" id="set-pin-input" type="password"
+             inputmode="numeric" pattern="[0-9]*" maxlength="6"
+             placeholder="e.g. 1234" autocomplete="new-password">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Confirm PIN</label>
+      <input class="form-input" id="set-pin-confirm" type="password"
+             inputmode="numeric" pattern="[0-9]*" maxlength="6"
+             placeholder="Repeat PIN" autocomplete="new-password">
+    </div>
+    <button class="btn btn-primary btn-full" onclick="savePin()">Save PIN</button>
   </div>
 </div>
 
@@ -329,6 +380,37 @@ async function sendBroadcast() {
 
 async function adminAction(url, successMsg) {
   await adminPost(url, null, successMsg);
+}
+
+function openSetPin(person, label) {
+  document.getElementById("set-pin-person").value = person;
+  document.getElementById("set-pin-modal-title").textContent = label + " — set PIN";
+  document.getElementById("set-pin-input").value = "";
+  document.getElementById("set-pin-confirm").value = "";
+  document.getElementById("set-pin-modal").classList.add("open");
+  setTimeout(() => document.getElementById("set-pin-input").focus(), 100);
+}
+
+async function savePin() {
+  const pin     = document.getElementById("set-pin-input").value.trim();
+  const confirm = document.getElementById("set-pin-confirm").value.trim();
+  if (pin.length < 4)        { showToast("PIN must be at least 4 digits", "error"); return; }
+  if (!/^\d+$/.test(pin))    { showToast("PIN must be digits only", "error"); return; }
+  if (pin !== confirm)       { showToast("PINs don't match", "error"); return; }
+  const fd = new FormData();
+  fd.append("person", document.getElementById("set-pin-person").value);
+  fd.append("pin", pin);
+  const r = await adminPost("/admin/set_pin", fd, "PIN saved");
+  if (r) { document.getElementById("set-pin-modal").classList.remove("open"); setTimeout(() => location.reload(), 400); }
+}
+
+async function clearPin(person) {
+  if (!confirm("Clear this PIN? They won't be able to log in until a new one is set.")) return;
+  const fd = new FormData();
+  fd.append("person", person);
+  fd.append("clear", "1");
+  const r = await adminPost("/admin/set_pin", fd, "PIN cleared");
+  if (r) setTimeout(() => location.reload(), 400);
 }
 
 </script>

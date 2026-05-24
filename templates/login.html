@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#7B5BA6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Sign In — Family Planner</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+  <style>
+    body { display:flex; flex-direction:column; align-items:center; justify-content:center;
+           min-height:100vh; background:var(--bg, #1a1a2e); color:var(--text, #fff);
+           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .login-card { width:100%; max-width:360px; padding:2rem 1.5rem; text-align:center; }
+    .login-title { font-size:1.8rem; font-weight:700; margin-bottom:.25rem; color:#7B5BA6; }
+    .login-sub   { font-size:.9rem; opacity:.6; margin-bottom:2rem; }
+    .person-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:.75rem; margin-bottom:1.5rem; }
+    .person-btn  { background:rgba(255,255,255,.08); border:2px solid transparent;
+                   border-radius:12px; padding:.75rem .5rem; cursor:pointer;
+                   font-size:.8rem; color:inherit; transition:all .15s; }
+    .person-btn:hover  { background:rgba(123,91,166,.3); border-color:#7B5BA6; }
+    .person-btn.active { background:rgba(123,91,166,.4); border-color:#7B5BA6; }
+    .person-btn .emoji { display:block; font-size:1.8rem; margin-bottom:.25rem; }
+    .pin-section { display:none; }
+    .pin-section.visible { display:block; }
+    .pin-label   { font-size:.85rem; opacity:.7; margin-bottom:.75rem; }
+    .pin-dots    { display:flex; justify-content:center; gap:.75rem; margin-bottom:1rem; }
+    .pin-dot     { width:14px; height:14px; border-radius:50%;
+                   border:2px solid rgba(255,255,255,.4); background:transparent; transition:.15s; }
+    .pin-dot.filled { background:#7B5BA6; border-color:#7B5BA6; }
+    .pin-grid    { display:grid; grid-template-columns:repeat(3,1fr); gap:.5rem; max-width:240px; margin:0 auto 1rem; }
+    .pin-key     { background:rgba(255,255,255,.1); border:none; border-radius:10px;
+                   padding:.9rem; font-size:1.2rem; font-weight:600; color:inherit; cursor:pointer; }
+    .pin-key:active { background:rgba(123,91,166,.5); }
+    .pin-key-back { font-size:1rem; }
+    .btn-google  { display:flex; align-items:center; justify-content:center; gap:.6rem;
+                   width:100%; padding:.85rem; border:none; border-radius:10px;
+                   background:#fff; color:#333; font-size:.95rem; font-weight:600;
+                   cursor:pointer; margin-bottom:.75rem; text-decoration:none; }
+    .btn-google img { width:20px; height:20px; }
+    .divider     { display:flex; align-items:center; gap:.75rem; margin:.75rem 0;
+                   font-size:.8rem; opacity:.5; }
+    .divider::before, .divider::after { content:''; flex:1; height:1px; background:currentColor; }
+    .error-msg   { background:rgba(220,50,50,.2); border:1px solid rgba(220,50,50,.4);
+                   border-radius:8px; padding:.6rem 1rem; margin-bottom:1rem;
+                   font-size:.85rem; color:#ff8080; }
+    .back-btn    { background:none; border:none; color:inherit; opacity:.5;
+                   cursor:pointer; font-size:.85rem; margin-top:.5rem; }
+    .back-btn:hover { opacity:.8; }
+  </style>
+</head>
+<body>
+<div class="login-card">
+  <div class="login-title">🏠 Family Planner</div>
+  <div class="login-sub">Who are you?</div>
+
+  {% if error %}
+  <div class="error-msg">{{ error }}</div>
+  {% endif %}
+
+  <!-- Step 1: person picker -->
+  <div id="step-person">
+    <div class="person-grid">
+      {% for p in people %}
+      {% set pd = person_display.get(p, {}) %}
+      <button class="person-btn" onclick="selectPerson('{{ p }}', '{{ p in google_persons }}')">
+        <span class="emoji">{{ pd.get('emoji', '👤') }}</span>
+        {{ pd.get('label', p.title()) }}
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Step 2: PIN / Google -->
+  <div class="pin-section" id="step-pin">
+    <div class="pin-label" id="pin-label">Enter PIN</div>
+
+    <!-- Google sign-in (shown only for admins when Google is enabled) -->
+    {% if google_enabled %}
+    <div id="google-option" style="display:none">
+      <a href="{{ url_for('login_google') }}" class="btn-google">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="">
+        Sign in with Google
+      </a>
+      <div class="divider">or use PIN</div>
+    </div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('login_pin') }}" id="pin-form">
+      <input type="hidden" name="person" id="pin-person-input">
+      <input type="hidden" name="pin"    id="pin-value-input">
+      <input type="hidden" name="next"   value="{{ next }}">
+
+      <div class="pin-dots">
+        <span class="pin-dot" id="ld0"></span>
+        <span class="pin-dot" id="ld1"></span>
+        <span class="pin-dot" id="ld2"></span>
+        <span class="pin-dot" id="ld3"></span>
+        <span class="pin-dot" id="ld4"></span>
+        <span class="pin-dot" id="ld5"></span>
+      </div>
+
+      <div class="pin-grid">
+        {% for d in ['1','2','3','4','5','6','7','8','9'] %}
+        <button type="button" class="pin-key" onclick="lKey('{{ d }}')">{{ d }}</button>
+        {% endfor %}
+        <button type="button" class="pin-key pin-key-back" onclick="lBack()">⌫</button>
+        <button type="button" class="pin-key" onclick="lKey('0')">0</button>
+        <button type="button" class="pin-key" onclick="lSubmit()">✓</button>
+      </div>
+    </form>
+
+    <button class="back-btn" onclick="goBack()">← Choose a different person</button>
+  </div>
+</div>
+
+<script>
+  const GOOGLE_PERSONS = {{ google_persons | tojson }};
+  let _pin = '';
+  let _selectedPerson = '';
+
+  function selectPerson(person, isGooglePerson) {
+    _selectedPerson = person;
+    _pin = '';
+    document.querySelectorAll('.person-btn').forEach(b => b.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+
+    document.getElementById('pin-person-input').value = person;
+    document.getElementById('step-person').style.display = 'none';
+    document.getElementById('step-pin').classList.add('visible');
+
+    const googleOpt = document.getElementById('google-option');
+    if (googleOpt) {
+      googleOpt.style.display = (GOOGLE_PERSONS.has ? GOOGLE_PERSONS.has(person) : GOOGLE_PERSONS.includes(person)) ? 'block' : 'none';
+    }
+
+    const pd = {{ person_display | tojson }};
+    const label = pd[person] ? pd[person].label : person;
+    document.getElementById('pin-label').textContent = label + ' — enter PIN';
+    updateDots();
+  }
+
+  function lKey(d) {
+    if (_pin.length >= 6) return;
+    _pin += d;
+    updateDots();
+  }
+
+  function lBack() {
+    _pin = _pin.slice(0, -1);
+    updateDots();
+  }
+
+  function lSubmit() {
+    if (!_pin) return;
+    document.getElementById('pin-value-input').value = _pin;
+    document.getElementById('pin-form').submit();
+  }
+
+  function updateDots() {
+    for (let i = 0; i < 6; i++) {
+      document.getElementById('ld' + i).classList.toggle('filled', i < _pin.length);
+    }
+  }
+
+  function goBack() {
+    _pin = '';
+    _selectedPerson = '';
+    document.getElementById('step-person').style.display = '';
+    document.getElementById('step-pin').classList.remove('visible');
+    document.querySelectorAll('.person-btn').forEach(b => b.classList.remove('active'));
+  }
+</script>
+</body>
+</html>

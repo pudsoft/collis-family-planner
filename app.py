@@ -8,6 +8,8 @@ from datetime import date, datetime, timedelta
 from functools import wraps
 from pathlib import Path
 
+import database
+
 from flask import (
     Flask, g, jsonify, redirect, render_template, request,
     session, url_for,
@@ -15,13 +17,14 @@ from flask import (
 
 import config
 from modules import (
-    alexa, calendar_sync, meals, medicines, ntfy, school_terms, tasks, unifi, weather,
+    alexa, auth, calendar_sync, meals, medicines, ntfy, school_terms, tasks, unifi, weather,
 )
 
 # ── App setup ─────────────────────────────────────────────────────────────────
 
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 
 
 @app.template_filter("friendlydate")
@@ -46,14 +49,17 @@ log = logging.getLogger(__name__)
 
 # ── Database ──────────────────────────────────────────────────────────────────
 
-def get_db() -> sqlite3.Connection:
+def get_db():
     if "db" not in g:
-        db_path = Path(config.DB_PATH)
-        db_path.parent.mkdir(parents=True, exist_ok=True)
-        g.db = sqlite3.connect(str(db_path))
-        g.db.row_factory = sqlite3.Row
-        g.db.execute("PRAGMA foreign_keys = ON")
-        g.db.execute("PRAGMA journal_mode = WAL")
+        if config.DB_DRIVER == "mysql":
+            g.db = database.get_connection()
+        else:
+            db_path = Path(config.DB_PATH)
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            g.db = sqlite3.connect(str(db_path))
+            g.db.row_factory = sqlite3.Row
+            g.db.execute("PRAGMA foreign_keys = ON")
+            g.db.execute("PRAGMA journal_mode = WAL")
     return g.db
 
 
@@ -64,8 +70,10 @@ def close_db(_):
         db.close()
 
 
-def _get_db_for_thread() -> sqlite3.Connection:
+def _get_db_for_thread():
     """Open a plain connection for background threads (no Flask context)."""
+    if config.DB_DRIVER == "mysql":
+        return database.get_connection()
     db_path = Path(config.DB_PATH)
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(db_path))
@@ -75,189 +83,330 @@ def _get_db_for_thread() -> sqlite3.Connection:
     return conn
 
 
+def _col_exists_mysql(db, table: str, col: str) -> bool:
+    row = db.execute(
+        "SELECT COUNT(*) AS cnt FROM INFORMATION_SCHEMA.COLUMNS "
+        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?",
+        (table, col),
+    ).fetchone()
+    return bool(row["cnt"])
+
+
+def _init_db_mysql(db):
+    """Create schema for MySQL HeatWave (OCI production)."""
+    statements = [
+        """CREATE TABLE IF NOT EXISTS person_prefs (
+            person          VARCHAR(50) PRIMARY KEY,
+            completed_style VARCHAR(20) NOT NULL DEFAULT 'fade',
+            ntfy_channel    TEXT,
+            widget_order    TEXT,
+            theme           VARCHAR(20) DEFAULT 'default',
+            weather_days    INT DEFAULT 3
+        )""",
+        """CREATE TABLE IF NOT EXISTS app_settings (
+            `key`  VARCHAR(100) PRIMARY KEY,
+            value  TEXT
+        )""",
+        """CREATE TABLE IF NOT EXISTS calendar_events (
+            id            VARCHAR(200) PRIMARY KEY,
+            title         TEXT,
+            start_dt      VARCHAR(50),
+            end_dt        VARCHAR(50),
+            colour        VARCHAR(50),
+            all_day       TINYINT DEFAULT 0,
+            attendees     TEXT,
+            cached_at     VARCHAR(50),
+            first_seen_at VARCHAR(50),
+            cancelled     TINYINT DEFAULT 0
+        )""",
+        """CREATE TABLE IF NOT EXISTS _migrations (id VARCHAR(100) PRIMARY KEY)""",
+        """INSERT IGNORE INTO _migrations VALUES ('calendar_events_v2')""",
+        """CREATE TABLE IF NOT EXISTS chore_templates (
+            id               INT AUTO_INCREMENT PRIMARY KEY,
+            title            VARCHAR(500) NOT NULL,
+            interval_days    INT NOT NULL DEFAULT 7,
+            default_assignee VARCHAR(50) NOT NULL DEFAULT 'anyone',
+            active           TINYINT NOT NULL DEFAULT 1
+        )""",
+        """CREATE TABLE IF NOT EXISTS tasks (
+            id                     INT AUTO_INCREMENT PRIMARY KEY,
+            title                  VARCHAR(500) NOT NULL,
+            assignee               VARCHAR(50) NOT NULL DEFAULT 'anyone',
+            due_date               VARCHAR(20),
+            notes                  TEXT,
+            is_chore               TINYINT DEFAULT 0,
+            chore_template_id      INT,
+            chore_interval_days    INT,
+            created_at             VARCHAR(50),
+            deferred_to            VARCHAR(20),
+            deferred_reason        TEXT,
+            completed_by           VARCHAR(50),
+            completed_at           VARCHAR(50),
+            exec_function_transfer VARCHAR(50),
+            FOREIGN KEY (chore_template_id) REFERENCES chore_templates(id)
+        )""",
+        """CREATE TABLE IF NOT EXISTS meal_plan (
+            id          INT AUTO_INCREMENT PRIMARY KEY,
+            date        VARCHAR(20) NOT NULL,
+            meal_type   VARCHAR(20) NOT NULL,
+            recipe_name TEXT,
+            servings    INT DEFAULT 4,
+            notes       TEXT
+        )""",
+        """CREATE TABLE IF NOT EXISTS shopping_items (
+            id         INT AUTO_INCREMENT PRIMARY KEY,
+            item       TEXT NOT NULL,
+            quantity   TEXT,
+            category   VARCHAR(100) DEFAULT 'Other',
+            source     VARCHAR(50) DEFAULT 'manual',
+            checked    TINYINT DEFAULT 0,
+            week_start VARCHAR(20)
+        )""",
+        """CREATE TABLE IF NOT EXISTS medicines (
+            id                     INT AUTO_INCREMENT PRIMARY KEY,
+            name                   VARCHAR(200) NOT NULL,
+            person                 VARCHAR(50) NOT NULL,
+            daily_dose             DOUBLE DEFAULT 1,
+            stock_count            DOUBLE DEFAULT 0,
+            reorder_threshold_days INT DEFAULT 14,
+            last_ordered           VARCHAR(20),
+            notes                  TEXT,
+            scheduled_time         VARCHAR(10)
+        )""",
+        """CREATE TABLE IF NOT EXISTS medicine_doses (
+            id          INT AUTO_INCREMENT PRIMARY KEY,
+            medicine_id INT NOT NULL,
+            taken_by    VARCHAR(50),
+            taken_at    VARCHAR(50),
+            dose_date   VARCHAR(20) NOT NULL,
+            FOREIGN KEY (medicine_id) REFERENCES medicines(id) ON DELETE CASCADE
+        )""",
+        """CREATE TABLE IF NOT EXISTS known_devices (
+            id           INT AUTO_INCREMENT PRIMARY KEY,
+            display_name VARCHAR(200) NOT NULL,
+            mac          VARCHAR(17) NOT NULL UNIQUE,
+            person       VARCHAR(50),
+            notes        TEXT,
+            protected    TINYINT DEFAULT 0
+        )""",
+        """CREATE TABLE IF NOT EXISTS scheduled_reminders (
+            id          INT AUTO_INCREMENT PRIMARY KEY,
+            title       VARCHAR(200) NOT NULL,
+            message     TEXT NOT NULL,
+            recipients  TEXT NOT NULL,
+            cron_expr   VARCHAR(100) NOT NULL,
+            active      TINYINT DEFAULT 1,
+            last_sent   VARCHAR(50)
+        )""",
+        """CREATE TABLE IF NOT EXISTS prn_log (
+            id        INT AUTO_INCREMENT PRIMARY KEY,
+            person    VARCHAR(50) NOT NULL,
+            type      VARCHAR(50) NOT NULL,
+            value     DOUBLE,
+            logged_at VARCHAR(50) NOT NULL
+        )""",
+    ]
+    for stmt in statements:
+        db.execute(stmt)
+    db.commit()
+
+    for person in config.PEOPLE:
+        db.execute("INSERT IGNORE INTO person_prefs (person) VALUES (?)", (person,))
+    db.commit()
+
+    tasks.seed_default_chores(db)
+
+    # Column migrations (safe for repeated runs)
+    for table, col, defn in [
+        ("person_prefs",  "weather_days",    "INT DEFAULT 3"),
+        ("medicines",     "scheduled_time",   "VARCHAR(10)"),
+        ("known_devices", "protected",        "TINYINT DEFAULT 0"),
+        ("person_prefs",  "theme",            "VARCHAR(20) DEFAULT 'default'"),
+        ("person_prefs",  "login_pin",        "VARCHAR(200)"),
+    ]:
+        if not _col_exists_mysql(db, table, col):
+            db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {defn}")
+            db.commit()
+
+    db.execute(
+        "UPDATE person_prefs SET theme='dark' WHERE person='paul' AND (theme IS NULL OR theme='default')"
+    )
+    for person, ch in [("paul", config.NTFY_CHANNEL_PAUL), ("katie", config.NTFY_CHANNEL_KATIE)]:
+        if ch:
+            db.execute(
+                "UPDATE person_prefs SET ntfy_channel=? WHERE person=? AND ntfy_channel IS NULL",
+                (ch, person),
+            )
+    db.commit()
+
+
+def _init_db_sqlite(db):
+    """Create schema for SQLite (local dev)."""
+    db.executescript("""
+        CREATE TABLE IF NOT EXISTS person_prefs (
+            person          TEXT PRIMARY KEY,
+            completed_style TEXT NOT NULL DEFAULT 'fade',
+            ntfy_channel    TEXT,
+            widget_order    TEXT,
+            theme           TEXT DEFAULT 'default',
+            weather_days    INTEGER DEFAULT 3
+        );
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key   TEXT PRIMARY KEY,
+            value TEXT
+        );
+        CREATE TABLE IF NOT EXISTS calendar_events (
+            id            TEXT PRIMARY KEY,
+            title         TEXT,
+            start_dt      TEXT,
+            end_dt        TEXT,
+            colour        TEXT,
+            all_day       INTEGER DEFAULT 0,
+            attendees     TEXT,
+            cached_at     TEXT,
+            first_seen_at TEXT,
+            cancelled     INTEGER DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS _migrations (id TEXT PRIMARY KEY);
+        INSERT OR IGNORE INTO _migrations VALUES ('calendar_events_v2');
+        CREATE TABLE IF NOT EXISTS chore_templates (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            title            TEXT NOT NULL,
+            interval_days    INTEGER NOT NULL DEFAULT 7,
+            default_assignee TEXT NOT NULL DEFAULT 'anyone',
+            active           INTEGER NOT NULL DEFAULT 1
+        );
+        CREATE TABLE IF NOT EXISTS tasks (
+            id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+            title                  TEXT NOT NULL,
+            assignee               TEXT NOT NULL DEFAULT 'anyone',
+            due_date               TEXT,
+            notes                  TEXT,
+            is_chore               INTEGER DEFAULT 0,
+            chore_template_id      INTEGER REFERENCES chore_templates(id),
+            chore_interval_days    INTEGER,
+            created_at             TEXT,
+            deferred_to            TEXT,
+            deferred_reason        TEXT,
+            completed_by           TEXT,
+            completed_at           TEXT,
+            exec_function_transfer TEXT
+        );
+        CREATE TABLE IF NOT EXISTS meal_plan (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            date        TEXT NOT NULL,
+            meal_type   TEXT NOT NULL,
+            recipe_name TEXT,
+            servings    INTEGER DEFAULT 4,
+            notes       TEXT
+        );
+        CREATE TABLE IF NOT EXISTS shopping_items (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            item       TEXT NOT NULL,
+            quantity   TEXT,
+            category   TEXT DEFAULT 'Other',
+            source     TEXT DEFAULT 'manual',
+            checked    INTEGER DEFAULT 0,
+            week_start TEXT
+        );
+        CREATE TABLE IF NOT EXISTS medicines (
+            id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+            name                   TEXT NOT NULL,
+            person                 TEXT NOT NULL,
+            daily_dose             REAL DEFAULT 1,
+            stock_count            REAL DEFAULT 0,
+            reorder_threshold_days INTEGER DEFAULT 14,
+            last_ordered           TEXT,
+            notes                  TEXT,
+            scheduled_time         TEXT
+        );
+        CREATE TABLE IF NOT EXISTS medicine_doses (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            medicine_id INTEGER NOT NULL REFERENCES medicines(id) ON DELETE CASCADE,
+            taken_by    TEXT,
+            taken_at    TEXT,
+            dose_date   TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS known_devices (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            display_name TEXT NOT NULL,
+            mac          TEXT NOT NULL UNIQUE,
+            person       TEXT,
+            notes        TEXT,
+            protected    INTEGER DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS scheduled_reminders (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            title       TEXT NOT NULL,
+            message     TEXT NOT NULL,
+            recipients  TEXT NOT NULL,
+            cron_expr   TEXT NOT NULL,
+            active      INTEGER DEFAULT 1,
+            last_sent   TEXT
+        );
+        CREATE TABLE IF NOT EXISTS prn_log (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            person    TEXT NOT NULL,
+            type      TEXT NOT NULL,
+            value     REAL,
+            logged_at TEXT NOT NULL
+        );
+    """)
+    db.commit()
+
+    for person in config.PEOPLE:
+        db.execute("INSERT OR IGNORE INTO person_prefs (person) VALUES (?)", (person,))
+    db.commit()
+
+    tasks.seed_default_chores(db)
+
+    for table, col, pragma_type in [
+        ("person_prefs",  "weather_days",   "INTEGER DEFAULT 3"),
+        ("medicines",     "scheduled_time", "TEXT"),
+        ("known_devices", "protected",      "INTEGER DEFAULT 0"),
+        ("person_prefs",  "theme",          "TEXT DEFAULT 'default'"),
+        ("person_prefs",  "login_pin",      "TEXT"),
+    ]:
+        cols = [r[1] for r in db.execute(f"PRAGMA table_info({table})").fetchall()]
+        if col not in cols:
+            db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {pragma_type}")
+            db.commit()
+
+    db.execute(
+        "UPDATE person_prefs SET theme='dark' WHERE person='paul' AND (theme IS NULL OR theme='default')"
+    )
+    for person, ch in [("paul", config.NTFY_CHANNEL_PAUL), ("katie", config.NTFY_CHANNEL_KATIE)]:
+        if ch:
+            db.execute(
+                "UPDATE person_prefs SET ntfy_channel=? WHERE person=? AND ntfy_channel IS NULL",
+                (ch, person),
+            )
+    db.commit()
+
+
 def init_db():
     with app.app_context():
         db = get_db()
-        db.executescript("""
-            CREATE TABLE IF NOT EXISTS person_prefs (
-                person          TEXT PRIMARY KEY,
-                completed_style TEXT NOT NULL DEFAULT 'fade',
-                ntfy_channel    TEXT,
-                widget_order    TEXT,
-                theme           TEXT DEFAULT 'default'
-            );
-
-            CREATE TABLE IF NOT EXISTS app_settings (
-                key   TEXT PRIMARY KEY,
-                value TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS calendar_events (
-                id           TEXT PRIMARY KEY,
-                title        TEXT,
-                start_dt     TEXT,
-                end_dt       TEXT,
-                colour       TEXT,
-                all_day      INTEGER DEFAULT 0,
-                attendees    TEXT,
-                cached_at    TEXT,
-                first_seen_at TEXT,
-                cancelled    INTEGER DEFAULT 0
-            );
-            -- Migrate existing installs: add columns if missing
-            CREATE TABLE IF NOT EXISTS _migrations (id TEXT PRIMARY KEY);
-            INSERT OR IGNORE INTO _migrations VALUES ('calendar_events_v2');
-
-            CREATE TABLE IF NOT EXISTS chore_templates (
-                id               INTEGER PRIMARY KEY AUTOINCREMENT,
-                title            TEXT NOT NULL,
-                interval_days    INTEGER NOT NULL DEFAULT 7,
-                default_assignee TEXT NOT NULL DEFAULT 'anyone',
-                active           INTEGER NOT NULL DEFAULT 1
-            );
-
-            CREATE TABLE IF NOT EXISTS tasks (
-                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
-                title                TEXT NOT NULL,
-                assignee             TEXT NOT NULL DEFAULT 'anyone',
-                due_date             TEXT,
-                notes                TEXT,
-                is_chore             INTEGER DEFAULT 0,
-                chore_template_id    INTEGER REFERENCES chore_templates(id),
-                chore_interval_days  INTEGER,
-                created_at           TEXT,
-                deferred_to          TEXT,
-                deferred_reason      TEXT,
-                completed_by         TEXT,
-                completed_at         TEXT,
-                exec_function_transfer TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS meal_plan (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                date        TEXT NOT NULL,
-                meal_type   TEXT NOT NULL,
-                recipe_name TEXT,
-                servings    INTEGER DEFAULT 4,
-                notes       TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS shopping_items (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                item       TEXT NOT NULL,
-                quantity   TEXT,
-                category   TEXT DEFAULT 'Other',
-                source     TEXT DEFAULT 'manual',
-                checked    INTEGER DEFAULT 0,
-                week_start TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS medicines (
-                id                    INTEGER PRIMARY KEY AUTOINCREMENT,
-                name                  TEXT NOT NULL,
-                person                TEXT NOT NULL,
-                daily_dose            REAL  DEFAULT 1,
-                stock_count           REAL  DEFAULT 0,
-                reorder_threshold_days INTEGER DEFAULT 14,
-                last_ordered          TEXT,
-                notes                 TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS medicine_doses (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                medicine_id INTEGER NOT NULL REFERENCES medicines(id) ON DELETE CASCADE,
-                taken_by    TEXT,
-                taken_at    TEXT,
-                dose_date   TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS known_devices (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                display_name TEXT NOT NULL,
-                mac         TEXT NOT NULL UNIQUE,
-                person      TEXT,
-                notes       TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS scheduled_reminders (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                title       TEXT NOT NULL,
-                message     TEXT NOT NULL,
-                recipients  TEXT NOT NULL,
-                cron_expr   TEXT NOT NULL,
-                active      INTEGER DEFAULT 1,
-                last_sent   TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS prn_log (
-                id        INTEGER PRIMARY KEY AUTOINCREMENT,
-                person    TEXT NOT NULL,
-                type      TEXT NOT NULL,
-                value     REAL,
-                logged_at TEXT NOT NULL
-            );
-        """)
-        db.commit()
-
-        # Seed default prefs for each person
-        for person in config.PEOPLE:
-            db.execute(
-                "INSERT OR IGNORE INTO person_prefs (person) VALUES (?)", (person,)
-            )
-        db.commit()
-
-        # Seed default chores
-        tasks.seed_default_chores(db)
-
-        # Add weather_days column to person_prefs if missing
-        pref_cols = [r[1] for r in db.execute("PRAGMA table_info(person_prefs)").fetchall()]
-        if "weather_days" not in pref_cols:
-            db.execute("ALTER TABLE person_prefs ADD COLUMN weather_days INTEGER DEFAULT 3")
-            db.commit()
-
-        # Add scheduled_time column to medicines if missing
-        med_cols = [r[1] for r in db.execute("PRAGMA table_info(medicines)").fetchall()]
-        if "scheduled_time" not in med_cols:
-            db.execute("ALTER TABLE medicines ADD COLUMN scheduled_time TEXT")
-            db.commit()
-
-        # Add protected column to known_devices if missing
-        kd_cols = [r[1] for r in db.execute("PRAGMA table_info(known_devices)").fetchall()]
-        if "protected" not in kd_cols:
-            db.execute("ALTER TABLE known_devices ADD COLUMN protected INTEGER DEFAULT 0")
-            db.commit()
-
-        # Add theme column if missing (migration for existing DBs)
-        cols = [r[1] for r in db.execute("PRAGMA table_info(person_prefs)").fetchall()]
-        if "theme" not in cols:
-            db.execute("ALTER TABLE person_prefs ADD COLUMN theme TEXT DEFAULT 'default'")
-            db.commit()
-
-        # Paul prefers dark mode by default
-        db.execute(
-            "UPDATE person_prefs SET theme='dark' WHERE person='paul' AND (theme IS NULL OR theme='default')"
-        )
-
-        # Seed env-var NTFY channels if provided
-        for person, ch in [
-            ("paul",  config.NTFY_CHANNEL_PAUL),
-            ("katie", config.NTFY_CHANNEL_KATIE),
-        ]:
-            if ch:
-                db.execute(
-                    "UPDATE person_prefs SET ntfy_channel=? WHERE person=? AND ntfy_channel IS NULL",
-                    (ch, person),
-                )
-        db.commit()
-
-    log.info("Database initialised at %s", config.DB_PATH)
+        if config.DB_DRIVER == "mysql":
+            _init_db_mysql(db)
+            log.info("Database initialised (MySQL: %s/%s)", config.MYSQL_HOST, config.MYSQL_DB)
+        else:
+            _init_db_sqlite(db)
+            log.info("Database initialised (SQLite: %s)", config.DB_PATH)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+_LOGIN_EXEMPT = {
+    "login", "login_pin", "login_google", "login_google_callback", "logout", "static"
+}
+
 @app.before_request
-def sync_person_from_args():
-    """If ?person= is in the URL (e.g. NTFY deep-links), update the session."""
+def check_auth_and_person():
+    if request.endpoint in _LOGIN_EXEMPT:
+        return
+    if not session.get("authenticated"):
+        return redirect(url_for("login", next=request.url))
     p = request.args.get("person")
     if p and p in config.PEOPLE + ["family"]:
         session["person"] = p
@@ -275,13 +424,91 @@ def get_prefs(db, person: str) -> dict:
 def require_admin(f):
     @wraps(f)
     def decorated(*args, **kwargs):
+        if not session.get("authenticated"):
+            return jsonify({"error": "Not authenticated"}), 401
         if current_person() not in config.ADMINS:
             return jsonify({"error": "Admin only"}), 403
-        pin = request.headers.get("X-Admin-Pin") or request.form.get("admin_pin") or request.args.get("admin_pin")
-        if pin != config.ADMIN_PIN:
-            return jsonify({"error": "Invalid PIN"}), 403
         return f(*args, **kwargs)
     return decorated
+
+
+# ── Login / logout ────────────────────────────────────────────────────────────
+
+@app.route("/login")
+def login():
+    if session.get("authenticated"):
+        return redirect(url_for("dashboard"))
+    next_url = request.args.get("next", "")
+    return render_template(
+        "login.html",
+        people=config.PEOPLE + ["family"],
+        person_display=config.PERSON_DISPLAY,
+        google_persons=auth.GOOGLE_LOGIN_PERSONS,
+        google_enabled=bool(config.GOOGLE_CLIENT_ID),
+        next=next_url,
+        error=request.args.get("error", ""),
+    )
+
+
+@app.route("/login/pin", methods=["POST"])
+def login_pin():
+    person  = request.form.get("person", "").strip()
+    pin_val = request.form.get("pin", "").strip()
+    next_url = request.form.get("next", "") or url_for("dashboard")
+
+    if person not in config.PEOPLE + ["family"]:
+        return redirect(url_for("login", error="Invalid person", next=next_url))
+
+    db = get_db()
+
+    if person == "family":
+        row = db.execute("SELECT value FROM app_settings WHERE key='family_passcode'").fetchone()
+        hashed = row["value"] if row else None
+    else:
+        row = db.execute("SELECT login_pin FROM person_prefs WHERE person=?", (person,)).fetchone()
+        hashed = row["login_pin"] if row else None
+
+    if not hashed or not auth.check_pin(pin_val, hashed):
+        return redirect(url_for("login", error="Incorrect PIN", next=next_url))
+
+    session.permanent = True
+    session["authenticated"] = True
+    session["person"] = person
+    return redirect(next_url)
+
+
+@app.route("/login/google")
+def login_google():
+    redirect_uri = url_for("login_google_callback", _external=True)
+    url, state = auth.google_login_url(redirect_uri)
+    session["oauth_login_state"] = state
+    return redirect(url)
+
+
+@app.route("/login/google/callback")
+def login_google_callback():
+    if request.args.get("state") != session.pop("oauth_login_state", None):
+        return redirect(url_for("login", error="Invalid state — please try again"))
+    code = request.args.get("code")
+    if not code:
+        return redirect(url_for("login", error="Google login cancelled"))
+    redirect_uri = url_for("login_google_callback", _external=True)
+    email = auth.google_exchange_code(code, redirect_uri)
+    if not email:
+        return redirect(url_for("login", error="Could not retrieve email from Google"))
+    person = config.GOOGLE_AUTHORIZED_EMAILS.get(email)
+    if not person:
+        return redirect(url_for("login", error=f"Email not authorised: {email}"))
+    session.permanent = True
+    session["authenticated"] = True
+    session["person"] = person
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
 
 
 def _week_days(week_start: date = None) -> list[str]:
@@ -811,6 +1038,16 @@ def admin_view():
     )
     live_clients = unifi.list_connected_clients()
 
+    pin_rows = db.execute(
+        "SELECT person, login_pin FROM person_prefs WHERE person IN (?,?,?)",
+        ("joshua", "violet", "family"),
+    ).fetchall()
+    family_passcode_row = db.execute(
+        "SELECT value FROM app_settings WHERE key='family_passcode'"
+    ).fetchone()
+    pin_status = {r["person"]: bool(r["login_pin"]) for r in pin_rows}
+    pin_status["family"] = bool(family_passcode_row and family_passcode_row["value"])
+
     return render_template(
         "admin.html",
         person=person,
@@ -824,6 +1061,7 @@ def admin_view():
         google_connected=google_connected,
         admin_pin=config.ADMIN_PIN,
         live_clients=live_clients,
+        pin_status=pin_status,
     )
 
 
@@ -852,6 +1090,41 @@ def admin_chore_save():
 def admin_chore_delete(chore_id: int):
     get_db().execute("DELETE FROM chore_templates WHERE id=?", (chore_id,))
     get_db().commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/admin/set_pin", methods=["POST"])
+@require_admin
+def admin_set_pin():
+    person  = request.form.get("person", "").strip()
+    pin_val = request.form.get("pin", "").strip()
+    clear   = request.form.get("clear") == "1"
+    db      = get_db()
+
+    valid_targets = list(config.PEOPLE) + ["family"]
+    if person not in valid_targets:
+        return jsonify({"error": "Unknown person"}), 400
+
+    if clear:
+        if person == "family":
+            db.execute("DELETE FROM app_settings WHERE key='family_passcode'")
+        else:
+            db.execute("UPDATE person_prefs SET login_pin=NULL WHERE person=?", (person,))
+        db.commit()
+        return jsonify({"ok": True})
+
+    if len(pin_val) < 4:
+        return jsonify({"error": "PIN must be at least 4 digits"}), 400
+
+    hashed = auth.hash_pin(pin_val)
+    if person == "family":
+        db.execute(
+            "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('family_passcode', ?)",
+            (hashed,),
+        )
+    else:
+        db.execute("UPDATE person_prefs SET login_pin=? WHERE person=?", (hashed, person))
+    db.commit()
     return jsonify({"ok": True})
 
 

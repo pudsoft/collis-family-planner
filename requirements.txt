@@ -6,3 +6,5 @@ google-auth-oauthlib
 google-auth-httplib2
 google-api-python-client
 urllib3
+PyMySQL
+bcrypt

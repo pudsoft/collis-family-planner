@@ -1,0 +1,45 @@
+# Collis Family Planner — Caddyfile
+# Hosts two apps from one OCI instance.
+# Upload to /etc/caddy/Caddyfile on the server.
+
+collisfamilyplanner.ddns.net {
+    @options method OPTIONS
+    respond @options 405
+
+    reverse_proxy localhost:5000
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options    "nosniff"
+        X-Frame-Options           "SAMEORIGIN"
+        Referrer-Policy           "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    encode gzip
+
+    log {
+        output file /var/log/caddy/cfp-access.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+    }
+}
+
+# ── Personal Care Tracker (second app — add once deployed) ────────────────────
+# personal-care-tracker.ddns.net {
+#     @options method OPTIONS
+#     respond @options 405
+#
+#     reverse_proxy localhost:5001
+#
+#     header {
+#         Strict-Transport-Security "max-age=31536000; includeSubDomains"
+#         X-Content-Type-Options    "nosniff"
+#         X-Frame-Options           "SAMEORIGIN"
+#         Referrer-Policy           "strict-origin-when-cross-origin"
+#         -Server
+#     }
+#
+#     encode gzip
+# }

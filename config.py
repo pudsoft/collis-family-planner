@@ -11,7 +11,16 @@ PORT         = int(os.getenv("PORT", 8002))
 APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:8002")  # used in NTFY deep-links
 
 # ── Database ──────────────────────────────────────────────────────────────────
-DB_PATH = os.getenv("DB_PATH", "/home/pi/data/family.db")
+# DB_DRIVER: "mysql" (OCI/production) or "sqlite" (local dev)
+DB_DRIVER  = os.getenv("DB_DRIVER", "sqlite")
+DB_PATH    = os.getenv("DB_PATH", "database/family.db")  # sqlite only
+
+# MySQL HeatWave (used when DB_DRIVER=mysql)
+MYSQL_HOST = os.getenv("MYSQL_HOST", "")
+MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
+MYSQL_USER = os.getenv("MYSQL_USER", "")
+MYSQL_PASS = os.getenv("MYSQL_PASS", "")
+MYSQL_DB   = os.getenv("MYSQL_DB", "cfp")
 
 # ── Google Calendar ───────────────────────────────────────────────────────────
 GOOGLE_CLIENT_ID     = os.getenv("GOOGLE_CLIENT_ID", "")
@@ -82,8 +91,16 @@ WEATHER_LON = 1.469
 ALEXA_CLIENT_ID     = os.getenv("ALEXA_CLIENT_ID", "")
 ALEXA_CLIENT_SECRET = os.getenv("ALEXA_CLIENT_SECRET", "")
 
-# ── Admin PIN ─────────────────────────────────────────────────────────────────
-ADMIN_PIN = os.getenv("ADMIN_PIN", "1234")  # Katie & Paul set this in .env
+# ── Admin PIN (legacy — kept for local dev fallback only) ─────────────────────
+ADMIN_PIN = os.getenv("ADMIN_PIN", "1234")
+
+# ── Google login — map email address → person name ────────────────────────────
+# Set GOOGLE_EMAIL_KATIE, GOOGLE_EMAIL_PAUL etc. in Doppler / .env
+GOOGLE_AUTHORIZED_EMAILS: dict[str, str] = {}
+for _p in ["katie", "paul", "joshua", "violet"]:
+    _email = os.getenv(f"GOOGLE_EMAIL_{_p.upper()}", "").strip().lower()
+    if _email:
+        GOOGLE_AUTHORIZED_EMAILS[_email] = _p
 
 # ── People ────────────────────────────────────────────────────────────────────
 PEOPLE = ["katie", "paul", "joshua", "violet"]
