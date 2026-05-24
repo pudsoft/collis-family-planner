@@ -398,7 +398,8 @@ def init_db():
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 _LOGIN_EXEMPT = {
-    "login", "login_pin", "login_google", "login_google_callback", "logout", "static"
+    "login", "login_pin", "login_google", "login_google_callback",
+    "logout", "static", "service_worker", "offline",
 }
 
 @app.before_request
