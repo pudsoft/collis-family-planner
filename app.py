@@ -455,6 +455,11 @@ def current_person() -> str:
     return session.get("person", "family")
 
 
+def auth_person() -> str:
+    """The person who actually logged in — never changes with the view switcher."""
+    return session.get("auth_person") or session.get("person", "family")
+
+
 def get_prefs(db, person: str) -> dict:
     row = db.execute("SELECT * FROM person_prefs WHERE person=?", (person,)).fetchone()
     return dict(row) if row else {"completed_style": "fade"}
@@ -515,7 +520,8 @@ def login_pin():
 
     session.permanent = True
     session["authenticated"] = True
-    session["person"] = person
+    session["person"]      = person
+    session["auth_person"] = person
     return redirect(next_url)
 
 
@@ -545,7 +551,8 @@ def login_google_callback():
         return redirect(url_for("login", error=f"Email not authorised: {email}"))
     session.permanent = True
     session["authenticated"] = True
-    session["person"] = person
+    session["person"]      = person
+    session["auth_person"] = person
     return redirect(url_for("dashboard"))
 
 
@@ -1026,7 +1033,7 @@ def prn_recent():
 
 @app.route("/settings")
 def settings_view():
-    person = current_person()
+    person = auth_person()
     db     = get_db()
     prefs  = get_prefs(db, person)
 
@@ -1047,7 +1054,7 @@ def settings_view():
 
 @app.route("/settings/save", methods=["POST"])
 def settings_save():
-    person = current_person()
+    person = auth_person()
     d      = request.form
     db     = get_db()
     db.execute(
@@ -1064,7 +1071,7 @@ def settings_save():
 
 @app.route("/settings/change_pin", methods=["POST"])
 def settings_change_pin():
-    person  = current_person()
+    person  = auth_person()
     pin_val = request.form.get("pin", "").strip()
     if len(pin_val) < 4:
         return jsonify({"error": "PIN must be at least 4 digits"}), 400
@@ -1079,7 +1086,7 @@ def settings_change_pin():
 
 @app.route("/settings/ntfy_test", methods=["POST"])
 def ntfy_test():
-    person = current_person()
+    person = auth_person()
     db     = get_db()
     prefs  = get_prefs(db, person)
     ch     = prefs.get("ntfy_channel")
@@ -1099,8 +1106,8 @@ def push_vapid_public_key():
 
 @app.route("/push/subscribe", methods=["POST"])
 def push_subscribe():
-    person = current_person()
-    data   = request.get_json(force=True)
+    person   = auth_person()
+    data     = request.get_json(force=True)
     endpoint = data.get("endpoint", "").strip()
     p256dh   = data.get("p256dh", "").strip()
     auth_key = data.get("auth", "").strip()
@@ -1131,7 +1138,7 @@ def push_unsubscribe():
 
 @app.route("/push/test", methods=["POST"])
 def push_test():
-    person = current_person()
+    person = auth_person()
     sent   = push_notif.send_push_to_person(
         get_db(), person,
         title="✅ Push Test",
