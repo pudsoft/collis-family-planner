@@ -1186,7 +1186,7 @@ def admin_view():
     db = get_db()
     prefs        = get_prefs(db, person)
     chore_templates = [dict(r) for r in db.execute("SELECT * FROM chore_templates ORDER BY title").fetchall()]
-    all_meds     = medicines.get_medicines(db)
+    all_meds     = sorted(medicines.get_medicines(db), key=lambda m: m["name"].lower())
     all_devices  = [dict(r) for r in db.execute("SELECT * FROM known_devices ORDER BY display_name").fetchall()]
     google_connected = bool(
         db.execute("SELECT value FROM app_settings WHERE key='google_token'").fetchone()

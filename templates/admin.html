@@ -55,7 +55,7 @@
         {% if med.notes %}<div class="device-mac" style="font-style:italic">{{ med.notes }}</div>{% endif %}
       </div>
       <button class="btn btn-secondary btn-sm"
-              onclick="editMed({{ med | tojson }})">
+              onclick='editMed({{ med | tojson }})'>
         Edit
       </button>
       <button class="btn btn-danger btn-sm" onclick="deleteMed({{ med.id }})">✕</button>
