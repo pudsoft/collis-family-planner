@@ -443,7 +443,7 @@ def login():
         "login.html",
         people=config.PEOPLE + ["family"],
         person_display=config.PERSON_DISPLAY,
-        google_persons=auth.GOOGLE_LOGIN_PERSONS,
+        google_persons=list(auth.GOOGLE_LOGIN_PERSONS),
         google_enabled=bool(config.GOOGLE_CLIENT_ID),
         next=next_url,
         error=request.args.get("error", ""),
