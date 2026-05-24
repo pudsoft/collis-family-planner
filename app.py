@@ -478,10 +478,13 @@ def login_pin():
     return redirect(next_url)
 
 
+def _google_redirect_uri() -> str:
+    return config.APP_BASE_URL.rstrip("/") + "/login/google/callback"
+
+
 @app.route("/login/google")
 def login_google():
-    redirect_uri = url_for("login_google_callback", _external=True)
-    url, state = auth.google_login_url(redirect_uri)
+    url, state = auth.google_login_url(_google_redirect_uri())
     session["oauth_login_state"] = state
     return redirect(url)
 
@@ -493,8 +496,7 @@ def login_google_callback():
     code = request.args.get("code")
     if not code:
         return redirect(url_for("login", error="Google login cancelled"))
-    redirect_uri = url_for("login_google_callback", _external=True)
-    email = auth.google_exchange_code(code, redirect_uri)
+    email = auth.google_exchange_code(code, _google_redirect_uri())
     if not email:
         return redirect(url_for("login", error="Could not retrieve email from Google"))
     person = config.GOOGLE_AUTHORIZED_EMAILS.get(email)
