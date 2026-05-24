@@ -111,11 +111,8 @@
 
   {% endif %}
 
-</div>
-{% endblock %}
-
-<!-- ── Change PIN modal ───────────────────────────────────────────────────── -->
-<div class="modal-backdrop" id="change-pin-modal">
+  <!-- ── Change PIN modal ─────────────────────────────────────────────────── -->
+  <div class="modal-backdrop" id="change-pin-modal">
   <div class="modal-sheet">
     <span class="modal-close">✕</span>
     <div class="modal-title">Change PIN</div>
@@ -134,6 +131,9 @@
     <button class="btn btn-primary btn-full" onclick="saveMyPin()">Save PIN</button>
   </div>
 </div>
+
+</div>
+{% endblock %}
 
 {% block extra_js %}
 <script>
