@@ -885,6 +885,8 @@ def medicines_view():
     all_meds.sort(key=lambda m: (0 if m["person"] == person else 1, m["person"], m["name"]))
     prn_log  = medicines.get_prn_log(db, person, limit=10)
 
+    today     = date.today()
+    yesterday = (today - timedelta(days=1)).isoformat()
     return render_template(
         "medicines.html",
         person=person,
@@ -894,14 +896,26 @@ def medicines_view():
         person_display=config.PERSON_DISPLAY,
         is_admin=person in config.ADMINS,
         prn_log=prn_log,
+        today=today.strftime("%-d %B %Y"),
+        yesterday=yesterday,
     )
 
 
 @app.route("/medicines/<int:med_id>/take", methods=["POST"])
 def medicine_take(med_id: int):
-    person = current_person()
-    taken  = medicines.log_dose(get_db(), med_id, person)
+    person    = current_person()
+    dose_date = request.form.get("dose_date") or None
+    taken     = medicines.log_dose(get_db(), med_id, person, dose_date=dose_date)
     return jsonify({"ok": True, "already_taken": not taken})
+
+
+@app.route("/medicines/doses_for_date")
+def medicines_doses_for_date():
+    d = request.args.get("date", "").strip()
+    if not d:
+        return jsonify([])
+    meds = medicines.get_doses_for_date(get_db(), d)
+    return jsonify(meds)
 
 
 @app.route("/medicines/<int:med_id>/untake", methods=["POST"])

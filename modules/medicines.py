@@ -91,27 +91,39 @@ def get_today_doses(db_conn, person: str = None) -> list[dict]:
     return meds
 
 
-def log_dose(db_conn, medicine_id: int, taken_by: str) -> bool:
-    today = date.today().isoformat()
-    now   = datetime.now().isoformat()
+def log_dose(db_conn, medicine_id: int, taken_by: str, dose_date: str = None) -> bool:
+    if dose_date is None:
+        dose_date = date.today().isoformat()
+    now = datetime.now().isoformat()
     existing = db_conn.execute(
         "SELECT id FROM medicine_doses WHERE medicine_id=? AND dose_date=?",
-        (medicine_id, today),
+        (medicine_id, dose_date),
     ).fetchone()
     if existing:
-        return False  # already logged today
+        return False  # already logged for this date
 
     db_conn.execute(
         "INSERT INTO medicine_doses (medicine_id, taken_by, taken_at, dose_date) VALUES (?,?,?,?)",
-        (medicine_id, taken_by, now, today),
+        (medicine_id, taken_by, now, dose_date),
     )
-    # Decrement stock
     db_conn.execute(
         "UPDATE medicines SET stock_count = MAX(0, stock_count - daily_dose) WHERE id=?",
         (medicine_id,),
     )
     db_conn.commit()
     return True
+
+
+def get_doses_for_date(db_conn, dose_date: str) -> list[dict]:
+    """Return all medicines with taken status for a specific date."""
+    meds = get_medicines(db_conn)
+    for med in meds:
+        dose = db_conn.execute(
+            "SELECT id FROM medicine_doses WHERE medicine_id=? AND dose_date=?",
+            (med["id"], dose_date),
+        ).fetchone()
+        med["taken"] = dose is not None
+    return meds
 
 
 def unlog_dose(db_conn, medicine_id: int) -> bool:
