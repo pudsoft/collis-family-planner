@@ -129,14 +129,25 @@ function renderClients(clients) {
   const regular   = clients.filter(c => !_protectedMacs.has(c.mac.toLowerCase()));
   const protected_ = clients.filter(c =>  _protectedMacs.has(c.mac.toLowerCase()));
 
+  const signalIcon = q => ({ excellent: "▂▄▆█", good: "▂▄▆_", fair: "▂▄__", poor: "▂___" }[q] || "");
+  const signalColour = q => ({ excellent: "var(--family)", good: "var(--family)", fair: "#F59E0B", poor: "#EF4444" }[q] || "var(--text-muted)");
+
   const renderRow = (c, allowBlock) => {
     const mac       = c.mac.toLowerCase();
     const isBlocked = _blockedMacs.has(mac);
+    const netInfo   = [
+      c.is_wired ? "🔌 Wired" : (c.essid ? `📶 ${c.essid}` : ""),
+      c.ap_name  ? `· ${c.ap_name}` : "",
+    ].filter(Boolean).join(" ");
+    const sigBadge  = (!c.is_wired && c.signal_quality)
+      ? `<span style="font-size:.65rem;font-family:monospace;color:${signalColour(c.signal_quality)};
+                      letter-spacing:-.5px;margin-left:4px" title="${c.signal} dBm">${signalIcon(c.signal_quality)}</span>`
+      : "";
     return `
     <div class="device-item" style="font-size:.82rem" data-mac="${c.mac}">
       <div style="flex:1">
-        <div class="device-name">${c.hostname || c.mac}</div>
-        <div class="device-mac">${c.mac} · ${c.ip || "—"}</div>
+        <div class="device-name">${c.hostname || c.mac}${sigBadge}</div>
+        <div class="device-mac">${c.mac} · ${c.ip || "—"}${netInfo ? " · " + netInfo : ""}</div>
       </div>
       ${allowBlock
         ? `<button class="btn btn-secondary btn-sm dev-block-btn mac-block-btn"

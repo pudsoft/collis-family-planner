@@ -123,22 +123,36 @@ def kick_device(mac: str) -> bool:
 
 
 def list_connected_clients() -> list[dict]:
-    """Return currently connected clients (name, mac, ip, hostname)."""
+    """Return currently connected clients with network, signal and AP info."""
     if not _configured():
         return []
     try:
         s = _session()
         resp = s.get(f"{_base()}/stat/sta", timeout=10)
         resp.raise_for_status()
-        return [
-            {
-                "mac":      c.get("mac", ""),
-                "hostname": c.get("hostname", c.get("name", "")),
-                "ip":       c.get("ip", ""),
-                "blocked":  c.get("blocked", False),
-            }
-            for c in resp.json().get("data", [])
-        ]
+        result = []
+        for c in resp.json().get("data", []):
+            signal = c.get("signal")  # dBm, e.g. -45
+            if signal is not None:
+                if signal >= -50:   signal_quality = "excellent"
+                elif signal >= -60: signal_quality = "good"
+                elif signal >= -70: signal_quality = "fair"
+                else:               signal_quality = "poor"
+            else:
+                signal_quality = None
+            result.append({
+                "mac":            c.get("mac", ""),
+                "hostname":       c.get("hostname", c.get("name", "")),
+                "ip":             c.get("ip", ""),
+                "blocked":        c.get("blocked", False),
+                "essid":          c.get("essid", ""),
+                "ap_name":        c.get("last_uplink_name", ""),
+                "signal":         signal,
+                "signal_quality": signal_quality,
+                "is_wired":       c.get("is_wired", False),
+                "satisfaction":   c.get("satisfaction"),
+            })
+        return result
     except Exception as e:
         log.warning("list_connected_clients failed: %s", e)
         return []
