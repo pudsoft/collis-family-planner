@@ -63,8 +63,9 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>
-let _pollTimer  = null;
-let _blockedMacs = new Set();
+let _pollTimer     = null;
+let _blockedMacs   = new Set();
+let _protectedMacs = new Set();
 
 // ── Live poll ────────────────────────────────────────────────────────────────
 async function pollStatus() {
@@ -72,7 +73,8 @@ async function pollStatus() {
     const r = await fetch("/network/status");
     if (!r.ok) return;
     const data = await r.json();
-    _blockedMacs = new Set((data.blocked_macs || []).map(m => m.toLowerCase()));
+    _blockedMacs   = new Set((data.blocked_macs   || []).map(m => m.toLowerCase()));
+    _protectedMacs = new Set((data.protected_macs || []).map(m => m.toLowerCase()));
     renderWlans(data.wlans || []);
     renderClients(data.clients || []);
     updateBlockButtons(_blockedMacs);
@@ -123,7 +125,11 @@ function renderClients(clients) {
     el.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">No devices connected</div>';
     return;
   }
-  el.innerHTML = clients.map(c => {
+
+  const regular   = clients.filter(c => !_protectedMacs.has(c.mac.toLowerCase()));
+  const protected_ = clients.filter(c =>  _protectedMacs.has(c.mac.toLowerCase()));
+
+  const renderRow = (c, allowBlock) => {
     const mac       = c.mac.toLowerCase();
     const isBlocked = _blockedMacs.has(mac);
     return `
@@ -132,13 +138,32 @@ function renderClients(clients) {
         <div class="device-name">${c.hostname || c.mac}</div>
         <div class="device-mac">${c.mac} · ${c.ip || "—"}</div>
       </div>
-      <button class="btn btn-secondary btn-sm dev-block-btn mac-block-btn"
-              data-mac="${c.mac}"
-              style="${isBlocked ? "color:var(--paul)" : ""}">
-        ${isBlocked ? "Unblock" : "Block"}
-      </button>
+      ${allowBlock
+        ? `<button class="btn btn-secondary btn-sm dev-block-btn mac-block-btn"
+                   data-mac="${c.mac}"
+                   style="${isBlocked ? "color:var(--paul)" : ""}">
+             ${isBlocked ? "Unblock" : "Block"}
+           </button>`
+        : `<span style="font-size:.72rem;color:var(--text-muted);padding:.25rem .5rem">🔒</span>`
+      }
     </div>`;
-  }).join("");
+  };
+
+  let html = regular.map(c => renderRow(c, true)).join("");
+
+  if (protected_.length) {
+    html += `
+    <details style="margin-top:${regular.length ? "8px" : "0"}">
+      <summary style="cursor:pointer;font-size:.75rem;font-weight:700;letter-spacing:.06em;
+                      text-transform:uppercase;color:var(--text-muted);padding:8px 0;
+                      border-top:${regular.length ? "1px solid var(--border)" : "none"}">
+        🔒 Protected devices (${protected_.length})
+      </summary>
+      ${protected_.map(c => renderRow(c, false)).join("")}
+    </details>`;
+  }
+
+  el.innerHTML = html;
 }
 
 // ── WLAN toggle ───────────────────────────────────────────────────────────────

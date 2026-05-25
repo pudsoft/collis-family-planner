@@ -1202,10 +1202,15 @@ def network_status():
     """Live poll: returns current WiFi states + connected clients + blocked MACs."""
     if current_person() not in config.ADMINS:
         return jsonify({"error": "Admin only"}), 403
+    db = get_db()
+    protected_macs = [r["mac"].lower() for r in db.execute(
+        "SELECT mac FROM known_devices WHERE protected=1"
+    ).fetchall()]
     return jsonify({
-        "wlans":        unifi.list_wlans(),
-        "clients":      unifi.list_connected_clients(),
-        "blocked_macs": list(unifi.list_blocked_macs()),
+        "wlans":          unifi.list_wlans(),
+        "clients":        unifi.list_connected_clients(),
+        "blocked_macs":   list(unifi.list_blocked_macs()),
+        "protected_macs": protected_macs,
     })
 
 
