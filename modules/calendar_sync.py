@@ -124,6 +124,7 @@ def fetch_events(db_conn) -> list[dict]:
     with cancelled=1 so the family can see what was removed.  New events get
     first_seen_at stamped; existing events preserve their first_seen_at.
     """
+    global _sync_error
     creds = _load_token(db_conn)
     if not creds:
         log.info("No Google Calendar token — skipping fetch")
@@ -212,13 +213,11 @@ def fetch_events(db_conn) -> list[dict]:
             log.info("Soft-cancelled %d removed event(s)", len(to_cancel))
 
         db_conn.commit()
-        global _sync_error
         _sync_error = None  # Clear any previous error on successful sync
         log.info("Synced %d live events (%d cancelled this window)", len(upserts), len(to_cancel))
         return upserts
     except Exception as e:
         err_str = str(e).lower()
-        global _sync_error
         if "invalid_grant" in err_str or "token has been expired" in err_str or "token_revoked" in err_str:
             _sync_error = "token_expired"
         log.warning("Calendar fetch error: %s", e)
