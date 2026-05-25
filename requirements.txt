@@ -10,3 +10,4 @@ PyMySQL
 bcrypt
 pywebpush>=1.14.0
 qrcode[pil]
+pyhiveapi

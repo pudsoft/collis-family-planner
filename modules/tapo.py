@@ -1,0 +1,176 @@
+"""TP-Link Tapo cloud API — device discovery, state polling and control.
+
+Uses the V1 cloud endpoint (wap.tplinkcloud.com) which requires no request
+signing. Device on/off state is retrieved via cloud passthrough — no local
+network access needed, IoT VLAN isolation is fully maintained.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import time
+import config
+
+import requests
+
+log = logging.getLogger(__name__)
+
+_CLOUD_URL  = "https://wap.tplinkcloud.com"
+_TERM_UUID  = "cfp-tapo-v1-integration"
+_CACHE_TTL  = 30   # seconds between full device state refreshes
+
+# ── In-memory cache ───────────────────────────────────────────────────────────
+_token: str | None       = None
+_cache_ts: float         = 0.0
+_cache_devices: list     = []
+
+
+# ── Auth ──────────────────────────────────────────────────────────────────────
+
+def _post(payload: dict, token: str | None = None) -> dict:
+    url = _CLOUD_URL + (f"?token={token}" if token else "")
+    r = requests.post(url, json=payload, timeout=10)
+    data = r.json()
+    if data.get("error_code", 0) != 0:
+        raise RuntimeError(
+            f"Tapo cloud error {data.get('error_code')}: {data.get('msg', '')}"
+        )
+    return data.get("result", {})
+
+
+def _get_token() -> str:
+    global _token
+    if _token:
+        return _token
+    result = _post({
+        "method": "login",
+        "params": {
+            "appType":      "Kasa_Android",
+            "cloudUserName": config.TAPO_EMAIL,
+            "cloudPassword": config.TAPO_PASSWORD,
+            "terminalUUID":  _TERM_UUID,
+        },
+    })
+    _token = result["token"]
+    log.info("Tapo: authenticated successfully")
+    return _token
+
+
+def _invalidate_token():
+    global _token
+    _token = None
+
+
+# ── Device listing ────────────────────────────────────────────────────────────
+
+def list_cloud_devices() -> list[dict]:
+    """Return raw device list from Tapo cloud (no state, just metadata)."""
+    if not config.TAPO_EMAIL or not config.TAPO_PASSWORD:
+        return []
+    try:
+        token  = _get_token()
+        result = _post({"method": "getDeviceList", "params": {}}, token=token)
+        return result.get("deviceList", [])
+    except Exception as exc:
+        log.warning("Tapo list_cloud_devices failed: %s", exc)
+        _invalidate_token()
+        return []
+
+
+# ── Device state (passthrough) ────────────────────────────────────────────────
+
+def _passthrough(device: dict, request_data: dict) -> dict | None:
+    """Send a passthrough command to a device via its cloud appServerUrl."""
+    try:
+        token   = _get_token()
+        app_url = device.get("appServerUrl", _CLOUD_URL)
+        url     = f"{app_url}?token={token}"
+        payload = {
+            "method": "passthrough",
+            "params": {
+                "deviceId":    device["deviceId"],
+                "requestData": json.dumps(request_data),
+            },
+        }
+        r    = requests.post(url, json=payload, timeout=8)
+        data = r.json()
+        if data.get("error_code", 0) != 0:
+            return None
+        return json.loads(data["result"]["responseData"])
+    except Exception as exc:
+        log.warning("Tapo passthrough failed for %s: %s",
+                    device.get("alias", "?"), exc)
+        return None
+
+
+def get_device_state(device: dict) -> bool | None:
+    """Return True (on) / False (off) / None (unknown) for a device."""
+    resp = _passthrough(device, {"system": {"get_sysinfo": {}}})
+    if resp is None:
+        return None
+    sysinfo = resp.get("system", {}).get("get_sysinfo", {})
+    relay   = sysinfo.get("relay_state")
+    # Some bulbs use a different field
+    if relay is None:
+        relay = sysinfo.get("device_on")
+    return bool(relay) if relay is not None else None
+
+
+def set_device_state(device: dict, on: bool) -> bool:
+    """Turn a device on (True) or off (False). Returns success."""
+    try:
+        token   = _get_token()
+        app_url = device.get("appServerUrl", _CLOUD_URL)
+        url     = f"{app_url}?token={token}"
+        payload = {
+            "method": "passthrough",
+            "params": {
+                "deviceId":    device["deviceId"],
+                "requestData": json.dumps(
+                    {"system": {"set_relay_state": {"state": 1 if on else 0}}}
+                ),
+            },
+        }
+        r = requests.post(url, json=payload, timeout=8)
+        ok = r.json().get("error_code", -1) == 0
+        if ok:
+            _bust_cache()
+        return ok
+    except Exception as exc:
+        log.warning("Tapo set_device_state failed: %s", exc)
+        return False
+
+
+# ── Cached full status (devices + states) ────────────────────────────────────
+
+def _bust_cache():
+    global _cache_ts
+    _cache_ts = 0.0
+
+
+def get_all_device_states() -> list[dict]:
+    """
+    Return all devices with live on/off state, cached for _CACHE_TTL seconds.
+    Each dict: {deviceId, alias, deviceType, deviceModel, status, on}
+    """
+    global _cache_ts, _cache_devices
+    now = time.time()
+    if now - _cache_ts < _CACHE_TTL:
+        return _cache_devices
+
+    devices = list_cloud_devices()
+    results = []
+    for d in devices:
+        state = get_device_state(d) if d.get("status") == 1 else None
+        results.append({
+            "deviceId":    d.get("deviceId", ""),
+            "alias":       d.get("alias", d.get("deviceName", "Device")),
+            "deviceType":  d.get("deviceType", ""),
+            "deviceModel": d.get("deviceModel", ""),
+            "online":      d.get("status") == 1,
+            "on":          state,
+        })
+
+    _cache_devices = results
+    _cache_ts      = now
+    return results

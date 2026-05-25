@@ -77,6 +77,12 @@ UNIFI_HOST    = os.getenv("UNIFI_HOST", "")
 UNIFI_API_KEY = os.getenv("UNIFI_API_KEY", "")
 UNIFI_SITE    = os.getenv("UNIFI_SITE", "default")
 
+# ── Smart Home ────────────────────────────────────────────────────────────────
+TAPO_EMAIL    = os.getenv("TAPO_EMAIL", "")
+TAPO_PASSWORD = os.getenv("TAPO_PASSWORD", "")
+HIVE_EMAIL    = os.getenv("HIVE_EMAIL", "")
+HIVE_PASSWORD = os.getenv("HIVE_PASSWORD", "")
+
 # Known devices: display name → MAC address (fill in via admin UI or .env)
 KNOWN_DEVICES: dict[str, str] = {}
 _raw = os.getenv("KNOWN_DEVICES", "")  # format: "name:mac,name:mac"

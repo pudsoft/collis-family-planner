@@ -19,8 +19,8 @@ from flask import (
 
 import config
 from modules import (
-    alexa, auth, calendar_sync, meals, medicines, ntfy, push_notif,
-    school_terms, tasks, unifi, weather,
+    alexa, auth, calendar_sync, hive, meals, medicines, ntfy, push_notif,
+    school_terms, tapo, tasks, unifi, weather,
 )
 
 # ── App setup ─────────────────────────────────────────────────────────────────
@@ -392,6 +392,25 @@ def _init_db_sqlite(db):
             type      TEXT NOT NULL,
             value     REAL,
             logged_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS smart_rooms (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            name         TEXT NOT NULL,
+            icon         TEXT DEFAULT '🏠',
+            sort_order   INTEGER DEFAULT 0,
+            grid_col     INTEGER DEFAULT 0,
+            grid_row     INTEGER DEFAULT 0,
+            grid_col_span INTEGER DEFAULT 1,
+            grid_row_span INTEGER DEFAULT 1
+        );
+        CREATE TABLE IF NOT EXISTS smart_devices (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            provider    TEXT NOT NULL,
+            device_id   TEXT NOT NULL,
+            name        TEXT NOT NULL,
+            device_type TEXT,
+            room_id     INTEGER REFERENCES smart_rooms(id),
+            UNIQUE(provider, device_id)
         );
     """)
     db.commit()
@@ -1671,6 +1690,230 @@ def _medicine_reminder_loop():
 def start_medicine_reminders():
     t = threading.Thread(target=_medicine_reminder_loop, daemon=True, name="med-reminders")
     t.start()
+
+
+# ── Smart Home ────────────────────────────────────────────────────────────────
+
+@app.route("/smarthome")
+def smarthome_view():
+    if current_person() not in config.ADMINS:
+        return redirect(url_for("settings_view"))
+    db    = get_db()
+    prefs = get_prefs(db, current_person())
+    rooms = [dict(r) for r in db.execute(
+        "SELECT * FROM smart_rooms ORDER BY grid_row, grid_col, sort_order"
+    ).fetchall()]
+    devices = [dict(r) for r in db.execute(
+        "SELECT * FROM smart_devices"
+    ).fetchall()]
+    # Attach devices to rooms
+    dev_by_room: dict[int, list] = {}
+    for d in devices:
+        dev_by_room.setdefault(d["room_id"], []).append(d)
+    for r in rooms:
+        r["devices"] = dev_by_room.get(r["id"], [])
+    return render_template(
+        "smarthome.html",
+        person=current_person(),
+        prefs=prefs,
+        people=config.PEOPLE,
+        person_display=config.PERSON_DISPLAY,
+        is_admin=True,
+        rooms=rooms,
+        tapo_configured=bool(config.TAPO_EMAIL),
+        hive_configured=bool(config.HIVE_EMAIL),
+    )
+
+
+@app.route("/smarthome/status")
+def smarthome_status():
+    """Live poll — returns room states with Tapo + Hive data merged."""
+    if current_person() not in config.ADMINS:
+        return jsonify({"error": "Admin only"}), 403
+    db = get_db()
+
+    # Load room → device assignments
+    rooms = [dict(r) for r in db.execute(
+        "SELECT * FROM smart_rooms ORDER BY grid_row, grid_col, sort_order"
+    ).fetchall()]
+    assignments = [dict(r) for r in db.execute(
+        "SELECT * FROM smart_devices"
+    ).fetchall()]
+
+    # Fetch live data
+    tapo_devices = {d["deviceId"]: d for d in tapo.get_all_device_states()} \
+        if config.TAPO_EMAIL else {}
+    hive_zones   = {z["id"]: z for z in hive.get_climate_data()} \
+        if config.HIVE_EMAIL else {}
+
+    result = []
+    for room in rooms:
+        room_id  = room["id"]
+        room_devs = [a for a in assignments if a["room_id"] == room_id]
+        tapo_rows = []
+        hive_row  = None
+        any_on    = False
+
+        for d in room_devs:
+            if d["provider"] == "tapo":
+                live = tapo_devices.get(d["device_id"], {})
+                on   = live.get("on")
+                if on:
+                    any_on = True
+                tapo_rows.append({
+                    "id":     d["id"],
+                    "name":   d["name"],
+                    "device_id": d["device_id"],
+                    "on":     on,
+                    "online": live.get("online", False),
+                })
+            elif d["provider"] == "hive":
+                z = hive_zones.get(d["device_id"])
+                if z:
+                    hive_row = z
+
+        result.append({
+            "id":           room_id,
+            "name":         room["name"],
+            "icon":         room["icon"],
+            "grid_col":     room["grid_col"],
+            "grid_row":     room["grid_row"],
+            "grid_col_span": room["grid_col_span"],
+            "grid_row_span": room["grid_row_span"],
+            "any_on":       any_on,
+            "tapo":         tapo_rows,
+            "hive":         hive_row,
+        })
+
+    return jsonify({"rooms": result})
+
+
+@app.route("/smarthome/device/<int:device_db_id>/toggle", methods=["POST"])
+@require_admin
+def smarthome_toggle(device_db_id: int):
+    db  = get_db()
+    row = db.execute("SELECT * FROM smart_devices WHERE id=?", (device_db_id,)).fetchone()
+    if not row or row["provider"] != "tapo":
+        return jsonify({"error": "Device not found"}), 404
+    # Get current state then flip
+    cloud_devs = {d["deviceId"]: d for d in tapo.list_cloud_devices()}
+    dev = next(
+        (d for d in tapo.list_cloud_devices() if d["deviceId"] == row["device_id"]),
+        None,
+    )
+    if not dev:
+        return jsonify({"error": "Device not found in Tapo cloud"}), 404
+    current = tapo.get_device_state(dev)
+    ok = tapo.set_device_state(dev, not current)
+    return jsonify({"ok": ok, "now_on": not current})
+
+
+# ── Smart home admin ──────────────────────────────────────────────────────────
+
+@app.route("/admin/smarthome/rooms", methods=["POST"])
+@require_admin
+def admin_smarthome_save_room():
+    db = get_db()
+    d  = request.json or {}
+    room_id = d.get("id")
+    fields  = (
+        d.get("name", "Room"),
+        d.get("icon", "🏠"),
+        int(d.get("sort_order", 0)),
+        int(d.get("grid_col", 0)),
+        int(d.get("grid_row", 0)),
+        int(d.get("grid_col_span", 1)),
+        int(d.get("grid_row_span", 1)),
+    )
+    if room_id:
+        db.execute(
+            "UPDATE smart_rooms SET name=?,icon=?,sort_order=?,grid_col=?,"
+            "grid_row=?,grid_col_span=?,grid_row_span=? WHERE id=?",
+            fields + (room_id,),
+        )
+    else:
+        db.execute(
+            "INSERT INTO smart_rooms (name,icon,sort_order,grid_col,grid_row,"
+            "grid_col_span,grid_row_span) VALUES (?,?,?,?,?,?,?)",
+            fields,
+        )
+        room_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+    db.commit()
+    return jsonify({"ok": True, "id": room_id})
+
+
+@app.route("/admin/smarthome/rooms/<int:room_id>/delete", methods=["POST"])
+@require_admin
+def admin_smarthome_delete_room(room_id: int):
+    db = get_db()
+    db.execute("DELETE FROM smart_devices WHERE room_id=?", (room_id,))
+    db.execute("DELETE FROM smart_rooms WHERE id=?", (room_id,))
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/admin/smarthome/discover", methods=["POST"])
+@require_admin
+def admin_smarthome_discover():
+    """Return discovered Tapo + Hive devices for the admin to assign to rooms."""
+    tapo_devs = []
+    if config.TAPO_EMAIL:
+        for d in tapo.list_cloud_devices():
+            tapo_devs.append({
+                "provider":    "tapo",
+                "device_id":   d.get("deviceId", ""),
+                "name":        d.get("alias", d.get("deviceName", "Device")),
+                "device_type": d.get("deviceModel", ""),
+                "online":      d.get("status") == 1,
+            })
+
+    hive_devs = []
+    if config.HIVE_EMAIL:
+        for z in hive.get_climate_data():
+            hive_devs.append({
+                "provider":    "hive",
+                "device_id":   z["id"],
+                "name":        z["name"],
+                "device_type": z["type"],
+                "online":      z.get("online", True),
+            })
+
+    return jsonify({"tapo": tapo_devs, "hive": hive_devs})
+
+
+@app.route("/admin/smarthome/assign", methods=["POST"])
+@require_admin
+def admin_smarthome_assign():
+    """Assign (or unassign) a discovered device to a room."""
+    db      = get_db()
+    d       = request.json or {}
+    provider   = d.get("provider")
+    device_id  = d.get("device_id")
+    name       = d.get("name", "Device")
+    device_type = d.get("device_type", "")
+    room_id    = d.get("room_id")  # None = unassign
+
+    existing = db.execute(
+        "SELECT id FROM smart_devices WHERE provider=? AND device_id=?",
+        (provider, device_id),
+    ).fetchone()
+
+    if room_id is None:
+        if existing:
+            db.execute("DELETE FROM smart_devices WHERE id=?", (existing["id"],))
+    elif existing:
+        db.execute(
+            "UPDATE smart_devices SET name=?,device_type=?,room_id=? WHERE id=?",
+            (name, device_type, room_id, existing["id"]),
+        )
+    else:
+        db.execute(
+            "INSERT INTO smart_devices (provider,device_id,name,device_type,room_id)"
+            " VALUES (?,?,?,?,?)",
+            (provider, device_id, name, device_type, room_id),
+        )
+    db.commit()
+    return jsonify({"ok": True})
 
 
 # ── Run ───────────────────────────────────────────────────────────────────────
