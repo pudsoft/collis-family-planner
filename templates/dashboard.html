@@ -48,6 +48,17 @@
   </div>
   {% endif %}
 
+  <!-- ── Google Calendar disconnected warning (admins only) ─────────────────── -->
+  {% if calendar_error == "token_expired" %}
+  <div class="alert-card alert-warning">
+    <div class="alert-icon">📅</div>
+    <div class="alert-body">
+      <div class="alert-title">Google Calendar disconnected</div>
+      <div class="alert-desc">Calendar sync has stopped — <a href="{{ url_for('settings_view') }}" style="color:inherit;font-weight:600">reconnect in Settings</a></div>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- ── Kids' first event of the day (school drop-off) ─────────────────────── -->
   {% if kids_first_events %}
   <div class="card">

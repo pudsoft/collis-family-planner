@@ -25,6 +25,14 @@ REDIRECT_URI = f"{APP_BASE_URL}/calendar/oauth2callback"
 
 # In-memory work meetings state (cleared each new day, like SolarOctopusAPI)
 _work_state: dict = {"meetings": []}
+
+# Last calendar sync error — None means OK, "token_expired" means needs reconnect
+_sync_error: str | None = None
+
+
+def get_sync_error() -> str | None:
+    """Return the last sync error type, or None if syncing normally."""
+    return _sync_error
 _work_lock = threading.Lock()
 
 
@@ -204,9 +212,15 @@ def fetch_events(db_conn) -> list[dict]:
             log.info("Soft-cancelled %d removed event(s)", len(to_cancel))
 
         db_conn.commit()
+        global _sync_error
+        _sync_error = None  # Clear any previous error on successful sync
         log.info("Synced %d live events (%d cancelled this window)", len(upserts), len(to_cancel))
         return upserts
     except Exception as e:
+        err_str = str(e).lower()
+        global _sync_error
+        if "invalid_grant" in err_str or "token has been expired" in err_str or "token_revoked" in err_str:
+            _sync_error = "token_expired"
         log.warning("Calendar fetch error: %s", e)
         return []
 

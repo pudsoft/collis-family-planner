@@ -635,6 +635,7 @@ def dashboard():
         person_display=config.PERSON_DISPLAY,
         today=date.today().isoformat(),
         is_admin=person in config.ADMINS,
+        calendar_error=calendar_sync.get_sync_error() if person in config.ADMINS else None,
     )
 
 
