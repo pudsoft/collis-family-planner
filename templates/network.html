@@ -9,6 +9,12 @@
     <div id="poll-status" style="font-size:.75rem;color:var(--text-muted)">Refreshing…</div>
   </div>
 
+  <!-- ── Family presence ───────────────────────────────────────────────────── -->
+  <div class="card admin-section" id="presence-card" style="display:none">
+    <div class="admin-section-title">📍 Who's home</div>
+    <div id="presence-list" style="display:flex;flex-wrap:wrap;gap:10px;padding-top:4px"></div>
+  </div>
+
   <!-- ── WiFi networks ──────────────────────────────────────────────────────── -->
   <div class="card admin-section" id="wlan-card">
     <div class="admin-section-title">📶 WiFi networks</div>
@@ -76,6 +82,7 @@ async function pollStatus() {
     _protectedMacs = new Set((data.protected_macs || []).map(m => m.toLowerCase()));
     renderWlans(data.wlans || []);
     renderClients(data.clients || []);
+    renderPresence(data.presence || {});
     updateBlockButtons(_blockedMacs);
     document.getElementById("poll-status").textContent =
       "Updated " + new Date().toLocaleTimeString("en-GB", {hour:"2-digit",minute:"2-digit",second:"2-digit"});
@@ -128,25 +135,33 @@ function renderClients(clients) {
   const regular   = clients.filter(c => !_protectedMacs.has(c.mac.toLowerCase()));
   const protected_ = clients.filter(c =>  _protectedMacs.has(c.mac.toLowerCase()));
 
-  const signalIcon = q => ({ excellent: "▂▄▆█", good: "▂▄▆_", fair: "▂▄__", poor: "▂___" }[q] || "");
+  const signalIcon   = q => ({ excellent: "▂▄▆█", good: "▂▄▆_", fair: "▂▄__", poor: "▂___" }[q] || "");
   const signalColour = q => ({ excellent: "var(--family)", good: "var(--family)", fair: "#F59E0B", poor: "#EF4444" }[q] || "var(--text-muted)");
+  const fmtUptime    = s => {
+    if (!s) return "";
+    if (s < 60)    return `${s}s`;
+    if (s < 3600)  return `${Math.floor(s/60)}m`;
+    if (s < 86400) return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`;
+    return `${Math.floor(s/86400)}d ${Math.floor((s%86400)/3600)}h`;
+  };
 
   const renderRow = (c, allowBlock) => {
     const mac       = c.mac.toLowerCase();
     const isBlocked = _blockedMacs.has(mac);
-    const netInfo   = [
-      c.is_wired ? "🔌 Wired" : (c.essid ? `📶 ${c.essid}` : ""),
-      c.ap_name  ? `· ${c.ap_name}` : "",
-    ].filter(Boolean).join(" ");
     const sigBadge  = (!c.is_wired && c.signal_quality)
-      ? `<span style="font-size:.65rem;font-family:monospace;color:${signalColour(c.signal_quality)};
-                      letter-spacing:-.5px;margin-left:4px" title="${c.signal} dBm">${signalIcon(c.signal_quality)}</span>`
+      ? `<span style="font-family:monospace;color:${signalColour(c.signal_quality)};letter-spacing:-.5px;margin-left:4px" title="${c.signal} dBm">${signalIcon(c.signal_quality)}</span>`
       : "";
+    const netParts  = [
+      c.is_wired ? "🔌 Wired" : (c.essid ? `📶 ${c.essid}` : ""),
+      c.ap_name  ? c.ap_name : "",
+      c.uptime   ? `⏱ ${fmtUptime(c.uptime)}` : "",
+    ].filter(Boolean);
     return `
     <div class="device-item" style="font-size:.82rem" data-mac="${c.mac}">
-      <div style="flex:1">
+      <div style="flex:1;min-width:0">
         <div class="device-name">${c.hostname || c.mac}${sigBadge}</div>
-        <div class="device-mac">${c.mac} · ${c.ip || "—"}${netInfo ? " · " + netInfo : ""}</div>
+        <div class="device-mac">${c.mac} · ${c.ip || "—"}</div>
+        ${netParts.length ? `<div class="device-mac" style="margin-top:1px">${netParts.join(" · ")}</div>` : ""}
       </div>
       ${allowBlock
         ? `<button class="btn btn-secondary btn-sm dev-block-btn mac-block-btn"
@@ -174,6 +189,32 @@ function renderClients(clients) {
   }
 
   el.innerHTML = html;
+}
+
+// ── Presence ─────────────────────────────────────────────────────────────────
+const _personDisplay = {{ person_display | tojson }};
+
+function renderPresence(presence) {
+  const card   = document.getElementById("presence-card");
+  const listEl = document.getElementById("presence-list");
+  const entries = Object.entries(presence);
+  if (!entries.length) { card.style.display = "none"; return; }
+  card.style.display = "";
+  listEl.innerHTML = entries.map(([person, home]) => {
+    const pd    = _personDisplay[person] || {};
+    const emoji = pd.emoji || "👤";
+    const label = pd.label || person;
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;
+                        padding:10px 14px;border-radius:12px;min-width:72px;text-align:center;
+                        background:${home ? "var(--card-bg)" : "transparent"};
+                        border:1.5px solid ${home ? "var(--family)" : "var(--border)"}">
+      <span style="font-size:1.4rem">${emoji}</span>
+      <span style="font-size:.75rem;font-weight:600">${label}</span>
+      <span style="font-size:.7rem;color:${home ? "var(--family)" : "var(--text-muted)"}">
+        ${home ? "🏠 Home" : "🚶 Away"}
+      </span>
+    </div>`;
+  }).join("");
 }
 
 // ── WLAN toggle ───────────────────────────────────────────────────────────────

@@ -128,6 +128,28 @@
     {% endfor %}
   </div>
 
+  <!-- ── Presence tracking ───────────────────────────────────────────────────── -->
+  <div class="card admin-section">
+    <div class="admin-section-title">📍 Presence tracking</div>
+    <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px">
+      Enter each person's phone MAC address to track when they're home. Visible on the Network page.
+    </div>
+    {% for p in people %}
+    {% set pd = person_display.get(p, {}) %}
+    <div class="device-item" style="gap:10px">
+      <div style="flex:0 0 100px">
+        <div class="device-name">{{ pd.get('emoji','👤') }} {{ pd.get('label', p.title()) }}</div>
+      </div>
+      <input class="form-input" id="presence-mac-{{ p }}"
+             value="{{ presence_macs.get(p, '') }}"
+             placeholder="aa:bb:cc:dd:ee:ff"
+             style="flex:1;font-family:monospace;font-size:.82rem"
+             maxlength="17">
+    </div>
+    {% endfor %}
+    <button class="btn btn-primary" style="margin-top:10px" onclick="savePresenceMacs()">Save</button>
+  </div>
+
   <!-- ── Broadcast ─────────────────────────────────────────────────────────── -->
   <div class="card admin-section">
     <div class="admin-section-title">📢 Send family broadcast</div>
@@ -545,6 +567,14 @@ async function savePin() {
   fd.append("pin", pin);
   const r = await adminPost("/admin/set_pin", fd, "PIN saved");
   if (r) { document.getElementById("set-pin-modal").classList.remove("open"); setTimeout(() => location.reload(), 400); }
+}
+
+async function savePresenceMacs() {
+  const fd = new FormData();
+  {% for p in people %}
+  fd.append("mac_{{ p }}", document.getElementById("presence-mac-{{ p }}").value.trim());
+  {% endfor %}
+  await adminPost("/admin/presence_mac", fd, "Presence MACs saved ✓");
 }
 
 async function clearPin(person) {

@@ -414,6 +414,7 @@ def _init_db_sqlite(db):
         ("medicine_doses", "dose_number",    "INTEGER DEFAULT 1"),
         ("person_prefs",     "notif_method",  "TEXT DEFAULT 'ntfy'"),
         ("chore_templates",  "repeat_days",   "TEXT"),
+        ("person_prefs",     "presence_mac",  "TEXT"),
     ]:
         cols = [r[1] for r in db.execute(f"PRAGMA table_info({table})").fetchall()]
         if col not in cols:
@@ -1199,19 +1200,43 @@ def network_view():
 
 @app.route("/network/status")
 def network_status():
-    """Live poll: returns current WiFi states + connected clients + blocked MACs."""
+    """Live poll: returns current WiFi states + connected clients + blocked/protected MACs + presence."""
     if current_person() not in config.ADMINS:
         return jsonify({"error": "Admin only"}), 403
     db = get_db()
     protected_macs = [r["mac"].lower() for r in db.execute(
         "SELECT mac FROM known_devices WHERE protected=1"
     ).fetchall()]
+    clients = unifi.list_connected_clients()
+    connected_mac_set = {c["mac"].lower() for c in clients}
+    # Presence: which tracked people are home
+    presence_rows = db.execute(
+        "SELECT person, presence_mac FROM person_prefs WHERE presence_mac IS NOT NULL AND presence_mac != ''"
+    ).fetchall()
+    presence = {
+        r["person"]: r["presence_mac"].lower() in connected_mac_set
+        for r in presence_rows
+    }
     return jsonify({
         "wlans":          unifi.list_wlans(),
-        "clients":        unifi.list_connected_clients(),
+        "clients":        clients,
         "blocked_macs":   list(unifi.list_blocked_macs()),
         "protected_macs": protected_macs,
+        "presence":       presence,
     })
+
+
+@app.route("/admin/presence_mac", methods=["POST"])
+@require_admin
+def admin_save_presence_mac():
+    db = get_db()
+    for person in config.PEOPLE:
+        mac = request.form.get(f"mac_{person}", "").strip().lower()
+        db.execute("INSERT OR IGNORE INTO person_prefs (person) VALUES (?)", (person,))
+        db.execute("UPDATE person_prefs SET presence_mac=? WHERE person=?",
+                   (mac if mac else None, person))
+    db.commit()
+    return jsonify({"ok": True})
 
 
 # ── Admin ─────────────────────────────────────────────────────────────────────
@@ -1241,6 +1266,14 @@ def admin_view():
     pin_status = {r["person"]: bool(r["login_pin"]) for r in pin_rows}
     pin_status["family"] = bool(family_passcode_row and family_passcode_row["value"])
 
+    presence_rows = db.execute(
+        "SELECT person, presence_mac FROM person_prefs WHERE person IN ({})".format(
+            ",".join("?" * len(config.PEOPLE))
+        ),
+        config.PEOPLE,
+    ).fetchall()
+    presence_macs = {r["person"]: r["presence_mac"] or "" for r in presence_rows}
+
     return render_template(
         "admin.html",
         person=person,
@@ -1255,6 +1288,7 @@ def admin_view():
         admin_pin=config.ADMIN_PIN,
         live_clients=live_clients,
         pin_status=pin_status,
+        presence_macs=presence_macs,
     )
 
 

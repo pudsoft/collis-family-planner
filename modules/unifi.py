@@ -151,6 +151,7 @@ def list_connected_clients() -> list[dict]:
                 "signal_quality": signal_quality,
                 "is_wired":       c.get("is_wired", False),
                 "satisfaction":   c.get("satisfaction"),
+                "uptime":         c.get("uptime"),
             })
         return result
     except Exception as e:
