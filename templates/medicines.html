@@ -137,7 +137,7 @@
             </button>
           </div>
           {% endfor %}
-          {% if med.needs_reorder %}
+          {% if med.needs_reorder and can_reorder %}
           <button class="btn btn-danger btn-sm" onclick="markReordered({{ med.id }})">Reordered</button>
           {% endif %}
         </div>

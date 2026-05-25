@@ -958,6 +958,13 @@ def medicines_view():
         all_meds = medicines.get_doses_for_date(db, view_date.isoformat())
     all_meds.sort(key=lambda m: (0 if m["person"] == person else 1, m["person"], m["name"]))
 
+    # Non-admins (Joshua, Violet) only ever see their own medicines,
+    # regardless of which view (family, etc.) they're currently in.
+    viewer       = auth_person()
+    viewer_admin = viewer in config.ADMINS
+    if not viewer_admin:
+        all_meds = [m for m in all_meds if m["person"] == viewer]
+
     prev_date = (view_date - timedelta(days=1)).isoformat()
     next_date = (view_date + timedelta(days=1)).isoformat() if not is_today else None
     prn_log   = medicines.get_prn_log(db, person, limit=10)
@@ -970,6 +977,7 @@ def medicines_view():
         people=config.PEOPLE,
         person_display=config.PERSON_DISPLAY,
         is_admin=person in config.ADMINS,
+        can_reorder=viewer_admin,
         prn_log=prn_log,
         view_date=view_date.isoformat(),
         view_date_label=("Today" if is_today else view_date.strftime("%-d %B %Y")),
@@ -1007,6 +1015,8 @@ def medicine_untake(med_id: int):
 
 @app.route("/medicines/<int:med_id>/reordered", methods=["POST"])
 def medicine_reordered(med_id: int):
+    if auth_person() not in config.ADMINS:
+        return jsonify({"error": "Admin only"}), 403
     new_stock = request.form.get("new_stock", type=float)
     medicines.mark_reordered(get_db(), med_id, new_stock)
     return jsonify({"ok": True})
