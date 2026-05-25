@@ -74,13 +74,18 @@ def send_push(subscription: dict, title: str, body: str, url: str, db_conn) -> b
     try:
         priv, _ = _get_or_create_keys(db_conn)
         from pywebpush import webpush, WebPushException
+        from py_vapid import Vapid02
+        # pywebpush's webpush() treats a raw string as base64url via from_string(),
+        # which chokes on PKCS8 PEM headers. Build the Vapid02 object explicitly
+        # using from_pem() so pywebpush sees an already-parsed Vapid01 instance.
+        vapid = Vapid02.from_pem(priv.encode())
         webpush(
             subscription_info={
                 "endpoint": subscription["endpoint"],
                 "keys": {"p256dh": subscription["p256dh"], "auth": subscription["auth"]},
             },
             data=json.dumps({"title": title, "body": body, "url": url}),
-            vapid_private_key=priv,
+            vapid_private_key=vapid,
             vapid_claims={"sub": config.VAPID_SUBJECT},
         )
         return True
