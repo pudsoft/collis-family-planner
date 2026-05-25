@@ -617,6 +617,11 @@ def dashboard():
     kids_first_events  = calendar_sync.first_events_today(db, ["joshua", "violet"]) if person in ("paul", "family") else {}
     weather_days       = int(prefs.get("weather_days") or 3)
 
+    # Non-admins only see their own medicines (same rule as /medicines page)
+    viewer = auth_person()
+    if viewer not in config.ADMINS:
+        today_meds = [m for m in today_meds if m["person"] == viewer]
+
     return render_template(
         "dashboard.html",
         person=person,
