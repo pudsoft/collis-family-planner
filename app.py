@@ -1491,6 +1491,17 @@ def wifi_credentials(ssid: str):
     creds = unifi.get_wifi_credentials(ssid)
     if not creds:
         return jsonify({"error": "Network not found"}), 404
+    # Generate QR code as base64 data URL (server-side — no CDN dependency)
+    try:
+        import qrcode, io, base64
+        qr_string = f"WIFI:T:{creds['security']};S:{creds['ssid']};P:{creds['password']};;"
+        img = qrcode.make(qr_string)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        creds["qr_data_url"] = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+    except Exception as e:
+        log.warning("QR code generation failed: %s", e)
+        creds["qr_data_url"] = None
     return jsonify(creds)
 
 

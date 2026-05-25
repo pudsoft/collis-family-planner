@@ -52,7 +52,7 @@
   <div class="modal-sheet" style="text-align:center">
     <span class="modal-close">✕</span>
     <div class="modal-title" id="creds-ssid"></div>
-    <div id="creds-qr" style="margin:16px auto;width:fit-content"></div>
+    <img id="creds-qr" style="display:none;margin:16px auto;width:200px;height:200px;border-radius:8px" alt="WiFi QR code">
     <div style="margin:12px 0 4px;font-size:.8rem;color:var(--text-muted)">Password</div>
     <div id="creds-password" style="font-size:1.1rem;font-weight:700;letter-spacing:.08em;padding:10px 16px;background:var(--bg);border-radius:10px;user-select:all"></div>
     <button class="btn btn-secondary btn-full" style="margin-top:14px" onclick="copyPassword()">Copy password</button>
@@ -61,7 +61,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>
 let _pollTimer     = null;
 let _blockedMacs   = new Set();
@@ -224,12 +223,13 @@ async function showCredentials(ssid) {
   _lastPassword = r.password;
   document.getElementById("creds-ssid").textContent = r.ssid;
   document.getElementById("creds-password").textContent = r.password || "(open network)";
-  const qrEl = document.getElementById("creds-qr");
-  qrEl.innerHTML = "";
-  const qrString = `WIFI:T:${r.security};S:${r.ssid};P:${r.password};;`;
-  QRCode.toCanvas(qrString, { width: 200, margin: 1 }, (err, canvas) => {
-    if (!err) qrEl.appendChild(canvas);
-  });
+  const qrImg = document.getElementById("creds-qr");
+  if (r.qr_data_url) {
+    qrImg.src = r.qr_data_url;
+    qrImg.style.display = "block";
+  } else {
+    qrImg.style.display = "none";
+  }
   document.getElementById("wifi-creds-modal").classList.add("open");
 }
 
