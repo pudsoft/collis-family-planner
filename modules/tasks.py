@@ -1,6 +1,7 @@
 """Task management — CRUD, recurring chores, executive-function transfer, defer."""
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, date, timedelta
 
@@ -36,28 +37,50 @@ def ensure_chores_scheduled(db_conn):
         "SELECT * FROM chore_templates ORDER BY title"
     ).fetchall()
 
-    for chore in chores:
-        interval = chore["interval_days"]
-        # Find the most recent completed or pending instance
-        last = db_conn.execute(
-            """SELECT due_date, completed_at FROM tasks
-               WHERE chore_template_id = ? AND (completed_at IS NOT NULL OR due_date >= ?)
-               ORDER BY due_date DESC LIMIT 1""",
-            (chore["id"], today_str),
-        ).fetchone()
+    today_weekday = date.today().weekday()  # 0=Mon … 6=Sun
 
-        if last:
-            last_due = last["due_date"] or today_str
-            next_due = (date.fromisoformat(last_due) + timedelta(days=interval)).isoformat()
-            if next_due > today_str:
-                continue  # not due yet
-            # Check it hasn't already been created for today
+    for chore in chores:
+        if not chore["active"]:
+            continue
+
+        repeat_days_raw = chore["repeat_days"] if "repeat_days" in chore.keys() else None
+
+        if repeat_days_raw:
+            # ── Specific weekdays mode ────────────────────────────────────────
+            try:
+                repeat_days = json.loads(repeat_days_raw)
+            except Exception:
+                repeat_days = []
+            if today_weekday not in repeat_days:
+                continue  # not scheduled today
+            # Don't create a second instance if one already exists for today
             exists = db_conn.execute(
-                "SELECT id FROM tasks WHERE chore_template_id=? AND due_date=? AND completed_at IS NULL",
+                "SELECT id FROM tasks WHERE chore_template_id=? AND due_date=?",
                 (chore["id"], today_str),
             ).fetchone()
             if exists:
                 continue
+        else:
+            # ── Interval (every N days) mode ──────────────────────────────────
+            interval = chore["interval_days"]
+            last = db_conn.execute(
+                """SELECT due_date, completed_at FROM tasks
+                   WHERE chore_template_id = ? AND (completed_at IS NOT NULL OR due_date >= ?)
+                   ORDER BY due_date DESC LIMIT 1""",
+                (chore["id"], today_str),
+            ).fetchone()
+
+            if last:
+                last_due = last["due_date"] or today_str
+                next_due = (date.fromisoformat(last_due) + timedelta(days=interval)).isoformat()
+                if next_due > today_str:
+                    continue  # not due yet
+                exists = db_conn.execute(
+                    "SELECT id FROM tasks WHERE chore_template_id=? AND due_date=? AND completed_at IS NULL",
+                    (chore["id"], today_str),
+                ).fetchone()
+                if exists:
+                    continue
 
         _create_task(db_conn, {
             "title":               chore["title"],
@@ -65,7 +88,7 @@ def ensure_chores_scheduled(db_conn):
             "due_date":            today_str,
             "is_chore":            1,
             "chore_template_id":   chore["id"],
-            "chore_interval_days": interval,
+            "chore_interval_days": chore["interval_days"],
         })
 
     db_conn.commit()

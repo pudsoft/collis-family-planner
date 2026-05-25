@@ -13,18 +13,27 @@
   <div class="card admin-section">
     <div class="card-header">
       <span class="admin-section-title" style="border:none;margin:0">🏠 House chores</span>
-      <button class="btn btn-primary btn-sm" data-modal="add-chore-modal">+ Add</button>
+      <button class="btn btn-primary btn-sm" onclick="editChore(0,'',7,'anyone',1,null)">+ Add</button>
     </div>
+    {% set _day_names = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}
     {% for chore in chore_templates %}
     <div class="device-item">
       <div style="flex:1">
         <div class="device-name">{{ chore.title }}</div>
-        <div class="device-mac">Every {{ chore.interval_days }} days · {{ chore.default_assignee | title }}
+        <div class="device-mac">
+          {% if chore.repeat_days %}
+            {%- set ns = namespace(lbls=[]) -%}
+            {%- for d in chore.repeat_days | fromjson -%}
+              {%- set ns.lbls = ns.lbls + [_day_names[d]] -%}
+            {%- endfor -%}
+            {{ ns.lbls | join(', ') }}
+          {% else %}Every {{ chore.interval_days }} days{% endif %}
+          · {{ chore.default_assignee | title }}
           {% if not chore.active %} · <span style="color:#EF4444">Inactive</span>{% endif %}
         </div>
       </div>
       <button class="btn btn-secondary btn-sm"
-              onclick="editChore({{ chore.id }},'{{ chore.title|replace("'","\\'")|e }}',{{ chore.interval_days }},'{{ chore.default_assignee }}',{{ chore.active }})">
+              onclick="editChore({{ chore.id }},'{{ chore.title|replace("'","\\'")|e }}',{{ chore.interval_days }},'{{ chore.default_assignee }}',{{ chore.active }},{{ chore.repeat_days or 'null' }})">
         Edit
       </button>
       <button class="btn btn-danger btn-sm"
@@ -161,16 +170,44 @@
       <label class="form-label">Title</label>
       <input class="form-input" id="chore-title" placeholder="e.g. Hoover downstairs">
     </div>
+
+    <!-- Repeat type -->
     <div class="form-group">
-      <label class="form-label">Repeat every (days)</label>
-      <input class="form-input" id="chore-interval" type="number" min="1" value="7">
+      <label class="form-label">Repeat</label>
+      <div style="display:flex;gap:16px;margin-bottom:8px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="radio" name="chore-repeat-type" value="interval" checked onchange="updateChoreRepeatUI()"> Every N days
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="radio" name="chore-repeat-type" value="days" onchange="updateChoreRepeatUI()"> Specific days
+        </label>
+      </div>
+      <div id="chore-interval-wrap">
+        <input class="form-input" id="chore-interval" type="number" min="1" value="7" style="width:100px">
+        <span style="font-size:.85rem;color:var(--text-muted);margin-left:8px">days</span>
+      </div>
+      <div id="chore-days-wrap" style="display:none">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          {% for label, val in [('Mon',0),('Tue',1),('Wed',2),('Thu',3),('Fri',4),('Sat',5),('Sun',6)] %}
+          <label style="display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;
+                         background:var(--card-bg);border:1.5px solid var(--border);border-radius:8px;
+                         padding:6px 10px;font-size:.8rem;font-weight:600;min-width:44px">
+            <input type="checkbox" class="chore-day-cb" value="{{ val }}" style="margin:0">
+            {{ label }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
     </div>
+
     <div class="form-group">
-      <label class="form-label">Default assignee</label>
+      <label class="form-label">Assignee</label>
       <select class="form-select" id="chore-assignee">
         <option value="anyone">Anyone</option>
-        <option value="katie">Katie</option>
         <option value="paul">Paul</option>
+        <option value="katie">Katie</option>
+        <option value="joshua">Joshua</option>
+        <option value="violet">Violet</option>
       </select>
     </div>
     <div class="form-group">
@@ -283,23 +320,59 @@
 
 {% block extra_js %}
 <script>
-function editChore(id, title, interval, assignee, active) {
+function updateChoreRepeatUI() {
+  const type = document.querySelector('input[name="chore-repeat-type"]:checked').value;
+  document.getElementById("chore-interval-wrap").style.display = type === "interval" ? "" : "none";
+  document.getElementById("chore-days-wrap").style.display     = type === "days"     ? "" : "none";
+}
+
+function editChore(id, title, interval, assignee, active, repeatDays) {
   document.getElementById("chore-id").value       = id;
   document.getElementById("chore-title").value    = title;
   document.getElementById("chore-interval").value = interval;
   document.getElementById("chore-assignee").value = assignee;
   document.getElementById("chore-active").value   = active;
+
+  // Set repeat type and day checkboxes
+  const days = repeatDays ? JSON.parse(repeatDays) : null;
+  const typeInterval = document.querySelector('input[name="chore-repeat-type"][value="interval"]');
+  const typeDays     = document.querySelector('input[name="chore-repeat-type"][value="days"]');
+  if (days && days.length) {
+    typeDays.checked = true;
+    document.querySelectorAll(".chore-day-cb").forEach(cb => {
+      cb.checked = days.includes(parseInt(cb.value));
+    });
+  } else {
+    typeInterval.checked = true;
+    document.querySelectorAll(".chore-day-cb").forEach(cb => cb.checked = false);
+  }
+  updateChoreRepeatUI();
   document.getElementById("add-chore-modal").classList.add("open");
 }
+
 async function saveChore() {
-  const fd = new FormData();
-  fd.append("id",            document.getElementById("chore-id").value);
-  fd.append("title",         document.getElementById("chore-title").value.trim());
-  fd.append("interval_days", document.getElementById("chore-interval").value);
-  fd.append("assignee",      document.getElementById("chore-assignee").value);
-  fd.append("active",        document.getElementById("chore-active").value);
+  const fd    = new FormData();
+  const type  = document.querySelector('input[name="chore-repeat-type"]:checked').value;
+  fd.append("id",       document.getElementById("chore-id").value);
+  fd.append("title",    document.getElementById("chore-title").value.trim());
+  fd.append("assignee", document.getElementById("chore-assignee").value);
+  fd.append("active",   document.getElementById("chore-active").value);
+
+  if (type === "days") {
+    const checked = [...document.querySelectorAll(".chore-day-cb:checked")].map(cb => parseInt(cb.value));
+    if (!checked.length) { showToast("Select at least one day", "error"); return; }
+    fd.append("repeat_days",   JSON.stringify(checked));
+    fd.append("interval_days", "7");  // stored but not used
+  } else {
+    fd.append("interval_days", document.getElementById("chore-interval").value);
+    fd.append("repeat_days",   "");   // clear any previous day schedule
+  }
+
   const r = await adminPost("/admin/chore", fd, "Chore saved");
-  if (r) { document.getElementById("add-chore-modal").classList.remove("open"); setTimeout(() => location.reload(), 400); }
+  if (r) {
+    document.getElementById("add-chore-modal").classList.remove("open");
+    setTimeout(() => location.reload(), 400);
+  }
 }
 async function deleteChore(id) {
   if (!confirm("Delete this chore?")) return;

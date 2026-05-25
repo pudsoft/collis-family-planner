@@ -30,6 +30,14 @@ app.secret_key = config.SECRET_KEY
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 
 
+@app.template_filter("fromjson")
+def fromjson_filter(s):
+    try:
+        return json.loads(s) if s else []
+    except Exception:
+        return []
+
+
 @app.template_filter("friendlydate")
 def friendlydate_filter(date_str: str) -> str:
     try:
@@ -243,7 +251,8 @@ def _init_db_mysql(db):
         ("medicines",      "dose_times",     "TEXT"),
         ("medicines",      "active",         "TINYINT DEFAULT 1"),
         ("medicine_doses", "dose_number",    "INT DEFAULT 1"),
-        ("person_prefs",   "notif_method",   "VARCHAR(20) DEFAULT 'ntfy'"),
+        ("person_prefs",     "notif_method",   "VARCHAR(20) DEFAULT 'ntfy'"),
+        ("chore_templates",  "repeat_days",    "TEXT"),
     ]:
         if not _col_exists_mysql(db, table, col):
             db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {defn}")
@@ -403,7 +412,8 @@ def _init_db_sqlite(db):
         ("medicines",      "dose_times",     "TEXT"),
         ("medicines",      "active",         "INTEGER DEFAULT 1"),
         ("medicine_doses", "dose_number",    "INTEGER DEFAULT 1"),
-        ("person_prefs",   "notif_method",   "TEXT DEFAULT 'ntfy'"),
+        ("person_prefs",     "notif_method",  "TEXT DEFAULT 'ntfy'"),
+        ("chore_templates",  "repeat_days",   "TEXT"),
     ]:
         cols = [r[1] for r in db.execute(f"PRAGMA table_info({table})").fetchall()]
         if col not in cols:
@@ -1249,15 +1259,26 @@ def admin_chore_save():
     d  = request.form
     db = get_db()
     chore_id = d.get("id", type=int)
+
+    # repeat_days: JSON list of weekday ints (0=Mon..6=Sun), or None for interval mode
+    repeat_days_raw = d.get("repeat_days", "").strip()
+    repeat_days     = repeat_days_raw if repeat_days_raw else None
+    # interval_days still stored (used as fallback / display); default 7
+    interval_days   = int(d.get("interval_days") or 7)
+
     if chore_id:
         db.execute(
-            "UPDATE chore_templates SET title=?, interval_days=?, default_assignee=?, active=? WHERE id=?",
-            (d["title"], int(d["interval_days"]), d["assignee"], int(d.get("active", 1)), chore_id),
+            """UPDATE chore_templates
+               SET title=?, interval_days=?, default_assignee=?, active=?, repeat_days=?
+               WHERE id=?""",
+            (d["title"], interval_days, d["assignee"], int(d.get("active", 1)),
+             repeat_days, chore_id),
         )
     else:
         db.execute(
-            "INSERT INTO chore_templates (title, interval_days, default_assignee) VALUES (?,?,?)",
-            (d["title"], int(d["interval_days"]), d.get("assignee", "anyone")),
+            """INSERT INTO chore_templates (title, interval_days, default_assignee, repeat_days)
+               VALUES (?,?,?,?)""",
+            (d["title"], interval_days, d.get("assignee", "anyone"), repeat_days),
         )
     db.commit()
     return jsonify({"ok": True})
