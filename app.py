@@ -2265,6 +2265,40 @@ def energy_data():
         out["y_min"] = 14
         out["y_max"] = 25
 
+    # ── Temperature extremes ─────────────────────────────────────────────────
+    # Current = last non-null reading per room
+    _cur: dict[str, float] = {}
+    for _name, _data in out["rooms"].items():
+        for _t in reversed(_data["temps"]):
+            if _t is not None:
+                _cur[_name] = _t
+                break
+
+    # Period max/min (whole chart window)
+    _period_max: dict[str, float] = {}
+    _period_min: dict[str, float] = {}
+    for _name, _data in out["rooms"].items():
+        _ts = [t for t in _data["temps"] if t is not None]
+        if _ts:
+            _period_max[_name] = max(_ts)
+            _period_min[_name] = min(_ts)
+
+    if _cur:
+        _hot_now  = max(_cur, key=_cur.get)
+        _cold_now = min(_cur, key=_cur.get)
+        _hot_day  = max(_period_max, key=_period_max.get) if _period_max else _hot_now
+        _cold_day = min(_period_min, key=_period_min.get) if _period_min else _cold_now
+        out["extremes"] = {
+            "hot_now":  {"room": _hot_now,  "temp": round(_cur[_hot_now],  1)},
+            "cold_now": {"room": _cold_now, "temp": round(_cur[_cold_now], 1)},
+            "diff_now": round(_cur[_hot_now] - _cur[_cold_now], 1),
+            "hot_day":  {"room": _hot_day,  "temp": round(_period_max[_hot_day],  1)},
+            "cold_day": {"room": _cold_day, "temp": round(_period_min[_cold_day], 1)},
+            "diff_day": round(_period_max[_hot_day] - _period_min[_cold_day], 1),
+        }
+    else:
+        out["extremes"] = None
+
     return jsonify(out)
 
 

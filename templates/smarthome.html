@@ -26,8 +26,8 @@
   </div>
   {% endif %}
 
-  <!-- ── Floor tabs ──────────────────────────────────────────────────────── -->
-  <div style="display:flex;gap:6px;margin-bottom:10px">
+  <!-- ── Floor tabs (mobile only — hidden on desktop) ──────────────────── -->
+  <div class="floor-tabs-row" style="display:flex;gap:6px;margin-bottom:10px">
     <button id="tab-ground" class="floor-tab floor-tab-active" onclick="setFloor('ground')">
       🏠 Ground Floor
     </button>
@@ -36,24 +36,40 @@
     </button>
   </div>
 
-  <!-- ── Floor plan ─────────────────────────────────────────────────────── -->
-  <div id="floor-plan-wrap" style="
-    position: relative;
-    background-image: url('/static/images/floorplan-ground.png');
-    background-size: 100% 100%;
-    background-repeat: no-repeat;
-    border-radius: 8px;
-    margin-bottom: 12px;
-    aspect-ratio: 1038 / 1516;
-    padding: 4% 6% 7% 6%;
-    box-sizing: border-box;
-  ">
-    <div id="room-grid" style="width:100%;height:100%;display:grid;gap:3px"></div>
-    <div id="no-rooms-hint" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
-      <div style="background:rgba(255,255,255,.88);border-radius:10px;padding:16px 20px;text-align:center;font-size:.85rem;color:var(--text-muted)">
-        {% if is_admin %}No rooms yet — tap <strong>✏️ Edit</strong> then <strong>Seed rooms</strong>.{% else %}No rooms configured.{% endif %}
+  <!-- ── Floor plans (side-by-side on desktop) ──────────────────────────── -->
+  <div id="floor-plans-row" style="margin-bottom:12px">
+
+    <div id="floor-plan-ground" style="
+      position:relative;
+      background-image:url('/static/images/floorplan-ground.png');
+      background-size:100% 100%; background-repeat:no-repeat;
+      border-radius:8px; aspect-ratio:1038/1516;
+      padding:4% 6% 7% 6%; box-sizing:border-box;
+    ">
+      <div id="room-grid-ground" style="width:100%;height:100%;display:grid;gap:3px"></div>
+      <div id="no-rooms-hint-ground" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center">
+        <div style="background:rgba(255,255,255,.88);border-radius:10px;padding:16px 20px;text-align:center;font-size:.85rem;color:var(--text-muted)">
+          {% if is_admin %}No rooms yet — tap <strong>✏️ Edit</strong> then <strong>Seed rooms</strong>.{% else %}No rooms configured.{% endif %}
+        </div>
       </div>
     </div>
+
+    <div id="floor-plan-first" style="
+      display:none;
+      position:relative;
+      background-image:url('/static/images/floorplan-first.png');
+      background-size:100% 100%; background-repeat:no-repeat;
+      border-radius:8px; aspect-ratio:1123/1401;
+      padding:6% 8% 8% 8%; box-sizing:border-box;
+    ">
+      <div id="room-grid-first" style="width:100%;height:100%;display:grid;gap:3px"></div>
+      <div id="no-rooms-hint-first" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center">
+        <div style="background:rgba(255,255,255,.88);border-radius:10px;padding:16px 20px;text-align:center;font-size:.85rem;color:var(--text-muted)">
+          No first floor rooms configured.
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- ── Edit mode panel ────────────────────────────────────────────────── -->
@@ -176,6 +192,12 @@
   color: #fff;
 }
 
+@media (min-width: 768px) {
+  .floor-tabs-row  { display: none !important; }
+  #floor-plans-row { display: flex !important; gap: 16px; align-items: flex-start; }
+  #floor-plan-ground, #floor-plan-first { display: block !important; flex: 1; }
+}
+
 /* Room tile — transparent overlay on floor plan */
 .room-tile {
   background: transparent;
@@ -213,38 +235,22 @@ const IS_ADMIN        = {{ 'true' if is_admin else 'false' }};
 let ZONE_MIN = {{ zone_temp_min }};
 let ZONE_MAX = {{ zone_temp_max }};
 
-// Per-floor config: background image, aspect-ratio, and padding to align
-// the grid with the house outline within the image's white margins.
-const FLOOR_CFG = {
-  ground: {
-    img:    '/static/images/floorplan-ground.png',
-    ratio:  '1038 / 1516',
-    pad:    '4% 6% 7% 6%',
-  },
-  first: {
-    img:    '/static/images/floorplan-first.png',
-    ratio:  '1123 / 1401',
-    pad:    '6% 8% 8% 8%',
-  },
-};
-
 let _pollTimer    = null;
 let _editMode     = false;
 let _lastRooms    = [];
 let _currentFloor = 'ground';
 
-// ── Floor switching ────────────────────────────────────────────────────────────
+// ── Floor switching (mobile tab toggle) ───────────────────────────────────────
 
 function setFloor(f) {
   _currentFloor = f;
-  const cfg  = FLOOR_CFG[f];
-  const wrap = document.getElementById('floor-plan-wrap');
-  wrap.style.backgroundImage = `url('${cfg.img}')`;
-  wrap.style.aspectRatio     = cfg.ratio;
-  wrap.style.padding         = cfg.pad;
   document.getElementById('tab-ground').classList.toggle('floor-tab-active', f === 'ground');
-  document.getElementById('tab-first').classList.toggle('floor-tab-active', f === 'first');
-  renderGrid(_lastRooms);
+  document.getElementById('tab-first' ).classList.toggle('floor-tab-active', f === 'first');
+  // Mobile: show only the active floor plan (desktop shows both via CSS)
+  if (window.innerWidth < 768) {
+    document.getElementById('floor-plan-ground').style.display = f === 'ground' ? '' : 'none';
+    document.getElementById('floor-plan-first' ).style.display = f === 'first'  ? '' : 'none';
+  }
 }
 
 // ── Temperature colour ────────────────────────────────────────────────────────
@@ -292,21 +298,27 @@ async function pollStatus() {
 // ── Room grid rendering ───────────────────────────────────────────────────────
 
 function renderGrid(rooms) {
-  const grid = document.getElementById('room-grid');
-  const hint = document.getElementById('no-rooms-hint');
-  const floorRooms = rooms.filter(r => (r.floor || 'ground') === _currentFloor);
+  _renderFloor('ground', rooms);
+  _renderFloor('first',  rooms);
+}
+
+function _renderFloor(floor, rooms) {
+  const grid = document.getElementById(`room-grid-${floor}`);
+  const hint = document.getElementById(`no-rooms-hint-${floor}`);
+  if (!grid) return;
+
+  const floorRooms = rooms.filter(r => (r.floor || 'ground') === floor);
 
   if (!floorRooms.length) {
     grid.innerHTML = '';
-    hint.style.display = 'flex';
+    if (hint) hint.style.display = 'flex';
     return;
   }
-  hint.style.display = 'none';
+  if (hint) hint.style.display = 'none';
 
   const maxCol  = Math.max(...floorRooms.map(r => (r.grid_col  || 0) + (r.grid_col_span  || 1)));
   const numRows = Math.max(...floorRooms.map(r => (r.grid_row  || 0) + (r.grid_row_span  || 1)));
 
-  // Fill the floor-plan container exactly — rows share the available height equally
   grid.style.gridTemplateColumns = `repeat(${maxCol}, 1fr)`;
   grid.style.gridTemplateRows    = `repeat(${numRows}, 1fr)`;
 
