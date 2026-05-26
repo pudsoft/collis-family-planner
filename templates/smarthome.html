@@ -27,7 +27,7 @@
   {% endif %}
 
   <!-- ── Floor tabs ──────────────────────────────────────────────────────── -->
-  <div id="floor-tabs" style="display:flex;gap:6px;margin-bottom:10px">
+  <div style="display:flex;gap:6px;margin-bottom:10px">
     <button id="tab-ground" class="floor-tab floor-tab-active" onclick="setFloor('ground')">
       🏠 Ground Floor
     </button>
@@ -36,23 +36,23 @@
     </button>
   </div>
 
-  <!-- ── Floor plan container ───────────────────────────────────────────── -->
+  <!-- ── Floor plan ─────────────────────────────────────────────────────── -->
   <div id="floor-plan-wrap" style="
-    background: #f6f4ef;
-    border: 3px solid #2d5a3d;
-    border-radius: 6px;
-    padding: 8px;
+    position: relative;
+    background-image: url('/static/images/floorplan-ground.png');
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    border-radius: 8px;
     margin-bottom: 12px;
-    min-height: 140px;
+    aspect-ratio: 1038 / 1516;
+    padding: 4% 6% 7% 6%;
+    box-sizing: border-box;
   ">
-    <div id="room-grid" style="
-      display: grid;
-      grid-template-columns: repeat(var(--grid-cols, 4), 1fr);
-      grid-auto-rows: minmax(110px, auto);
-      gap: 6px;
-    "></div>
-    <div id="no-rooms-hint" style="display:none;text-align:center;padding:24px;color:var(--text-muted);font-size:.85rem">
-      {% if is_admin %}No rooms yet — tap <strong>✏️ Edit</strong> then <strong>Seed rooms</strong> to get started.{% else %}No rooms configured yet.{% endif %}
+    <div id="room-grid" style="width:100%;height:100%;display:grid;gap:3px"></div>
+    <div id="no-rooms-hint" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+      <div style="background:rgba(255,255,255,.88);border-radius:10px;padding:16px 20px;text-align:center;font-size:.85rem;color:var(--text-muted)">
+        {% if is_admin %}No rooms yet — tap <strong>✏️ Edit</strong> then <strong>Seed rooms</strong>.{% else %}No rooms configured.{% endif %}
+      </div>
     </div>
   </div>
 
@@ -158,24 +158,35 @@
   background: #2d5a3d;
   color: #fff;
 }
+
+/* Room tile — transparent overlay on floor plan */
 .room-tile {
-  border: 2px solid #2d5a3d;
-  border-radius: 4px;
-  background: #fff;
-  padding: 10px;
-  box-sizing: border-box;
-  transition: background .4s, border-color .3s;
-  min-height: 110px;
+  background: transparent;
+  border: none;
+  padding: 3px;
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  overflow: hidden;
 }
-.room-tile-heating {
-  background: rgba(239,68,68,0.06) !important;
-  border-color: #ef4444 !important;
+
+/* Info badge — frosted glass floating over the floor plan */
+.room-badge {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: 8px;
+  padding: 5px 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.13);
+  width: 100%;
+  box-sizing: border-box;
 }
-.room-tile-on {
-  border-color: #f59e0b !important;
+.room-badge-heating {
+  background: rgba(254, 226, 226, 0.88);
+}
+.room-badge-on {
+  background: rgba(254, 243, 199, 0.88);
 }
 </style>
 <script>
@@ -183,63 +194,87 @@ const TAPO_CONFIGURED = {{ 'true' if tapo_configured else 'false' }};
 const HIVE_CONFIGURED = {{ 'true' if hive_configured else 'false' }};
 const IS_ADMIN        = {{ 'true' if is_admin else 'false' }};
 
-let _pollTimer   = null;
-let _editMode    = false;
-let _lastRooms   = [];
+// Per-floor config: background image, aspect-ratio, and padding to align
+// the grid with the house outline within the image's white margins.
+const FLOOR_CFG = {
+  ground: {
+    img:    '/static/images/floorplan-ground.png',
+    ratio:  '1038 / 1516',
+    pad:    '4% 6% 7% 6%',
+  },
+  first: {
+    img:    '/static/images/floorplan-first.png',
+    ratio:  '1123 / 1401',
+    pad:    '6% 8% 8% 8%',
+  },
+};
+
+let _pollTimer    = null;
+let _editMode     = false;
+let _lastRooms    = [];
 let _currentFloor = 'ground';
 
-// ── Floor switching ───────────────────────────────────────────────────────────
+// ── Floor switching ────────────────────────────────────────────────────────────
 
 function setFloor(f) {
   _currentFloor = f;
+  const cfg  = FLOOR_CFG[f];
+  const wrap = document.getElementById('floor-plan-wrap');
+  wrap.style.backgroundImage = `url('${cfg.img}')`;
+  wrap.style.aspectRatio     = cfg.ratio;
+  wrap.style.padding         = cfg.pad;
   document.getElementById('tab-ground').classList.toggle('floor-tab-active', f === 'ground');
   document.getElementById('tab-first').classList.toggle('floor-tab-active', f === 'first');
   renderGrid(_lastRooms);
 }
 
-// ── Temperature helpers ────────────────────────────────────────────────────────
+// ── Temperature colour ────────────────────────────────────────────────────────
 
 function tempColour(temp) {
-  if (temp == null) return "var(--border)";
-  if (temp >= 22)   return "#EF4444";
-  if (temp >= 20)   return "#F59E0B";
-  if (temp >= 18)   return "#22C55E";
-  return "#60A5FA";
+  if (temp == null) return 'var(--border)';
+  if (temp >= 22)   return '#EF4444';
+  if (temp >= 20)   return '#F59E0B';
+  if (temp >= 18)   return '#22C55E';
+  return '#60A5FA';
 }
 
 // ── Live poll ─────────────────────────────────────────────────────────────────
 
 async function pollStatus() {
   try {
-    const r = await fetch("/smarthome/status");
+    const r = await fetch('/smarthome/status');
     if (!r.ok) return;
     const data = await r.json();
     _lastRooms = data.rooms || [];
     renderGrid(_lastRooms);
     if (_editMode) renderAdminRoomList(_lastRooms);
-    document.getElementById("poll-status").textContent =
-      "Updated " + new Date().toLocaleTimeString("en-GB", {hour:"2-digit",minute:"2-digit"});
+    document.getElementById('poll-status').textContent =
+      'Updated ' + new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
   } catch {
-    document.getElementById("poll-status").textContent = "Offline";
+    document.getElementById('poll-status').textContent = 'Offline';
   }
 }
 
 // ── Room grid rendering ───────────────────────────────────────────────────────
 
 function renderGrid(rooms) {
-  const grid    = document.getElementById("room-grid");
-  const hint    = document.getElementById("no-rooms-hint");
+  const grid = document.getElementById('room-grid');
+  const hint = document.getElementById('no-rooms-hint');
   const floorRooms = rooms.filter(r => (r.floor || 'ground') === _currentFloor);
 
   if (!floorRooms.length) {
-    grid.innerHTML = "";
-    hint.style.display = "";
+    grid.innerHTML = '';
+    hint.style.display = 'flex';
     return;
   }
-  hint.style.display = "none";
+  hint.style.display = 'none';
 
-  const maxCol = Math.max(...floorRooms.map(r => (r.grid_col || 0) + (r.grid_col_span || 1)));
-  grid.style.setProperty("--grid-cols", Math.max(2, maxCol));
+  const maxCol  = Math.max(...floorRooms.map(r => (r.grid_col  || 0) + (r.grid_col_span  || 1)));
+  const numRows = Math.max(...floorRooms.map(r => (r.grid_row  || 0) + (r.grid_row_span  || 1)));
+
+  // Fill the floor-plan container exactly — rows share the available height equally
+  grid.style.gridTemplateColumns = `repeat(${maxCol}, 1fr)`;
+  grid.style.gridTemplateRows    = `repeat(${numRows}, 1fr)`;
 
   grid.innerHTML = floorRooms.map(room => {
     const hive      = room.hive;
@@ -250,62 +285,64 @@ function renderGrid(rooms) {
     const anyOn     = room.any_on;
 
     const tempStr = temp != null
-      ? `<span style="font-size:1.25rem;font-weight:700;color:${tempColour(temp)}">${temp.toFixed(1)}°</span>`
-      + (target != null ? `<span style="font-size:.7rem;color:var(--text-muted);margin-left:2px">→${target.toFixed(0)}°</span>` : "")
-      : "";
+      ? `<span style="font-size:1.1rem;font-weight:700;color:${tempColour(temp)}">${temp.toFixed(1)}°</span>`
+        + (target != null
+           ? `<span style="font-size:.65rem;color:var(--text-muted);margin-left:1px">→${target.toFixed(0)}°</span>`
+           : '')
+      : '';
 
     const heatingBadge = isHeating
-      ? `<span style="font-size:.62rem;background:#FEE2E2;color:#EF4444;border-radius:4px;padding:1px 5px;font-weight:600">🔥 Heating</span>`
-      : (mode === "OFF" ? `<span style="font-size:.62rem;color:var(--text-muted)">Off</span>` : "");
+      ? `<span style="font-size:.6rem;background:#FEE2E2;color:#EF4444;border-radius:4px;padding:1px 4px;font-weight:600">🔥</span>`
+      : (mode === 'OFF' ? `<span style="font-size:.6rem;color:var(--text-muted)">Off</span>` : '');
 
     const deviceButtons = (room.tapo || []).map(d => `
-      <button onclick="toggleDevice(${d.id})"
-              title="${d.on ? 'Turn off' : 'Turn on'} ${d.name}"
-              style="
-                display:inline-flex;align-items:center;gap:4px;
-                padding:3px 7px;border-radius:6px;cursor:pointer;
-                border:1.5px solid ${d.on ? '#f59e0b' : 'var(--border)'};
-                background:${d.on ? 'rgba(245,158,11,.12)' : 'transparent'};
-                font-size:.7rem;color:${d.on ? '#92400e' : 'var(--text-muted)'};">
+      <button onclick="toggleDevice(${d.id})" title="${d.on ? 'Turn off' : 'Turn on'} ${d.name}"
+              style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;
+                     border-radius:6px;cursor:pointer;font-size:.68rem;
+                     border:1px solid ${d.on ? '#f59e0b' : 'rgba(0,0,0,.15)'};
+                     background:${d.on ? 'rgba(245,158,11,.15)' : 'rgba(255,255,255,.5)'};
+                     color:${d.on ? '#92400e' : 'var(--text-muted)'}">
         ${d.on ? '💡' : '○'} ${d.name}
-      </button>`
-    ).join("");
-
-    let tileClass = "room-tile";
-    if (isHeating) tileClass += " room-tile-heating";
-    else if (anyOn) tileClass += " room-tile-on";
+      </button>`).join('');
 
     const editBtn = IS_ADMIN
       ? `<button onclick='openRoomModal(${JSON.stringify(room).replace(/'/g,"&#39;")})'
-               title="Edit room"
-               style="flex-shrink:0;padding:2px 5px;border-radius:4px;border:1px solid #2d5a3d33;
-                      background:transparent;cursor:pointer;font-size:.72rem;color:#2d5a3d;opacity:.6">✏️</button>`
-      : "";
+                 title="Edit room"
+                 style="padding:1px 4px;border-radius:4px;border:none;background:transparent;
+                        cursor:pointer;font-size:.7rem;opacity:.5;flex-shrink:0">✏️</button>`
+      : '';
+
+    let badgeClass = 'room-badge';
+    if (isHeating) badgeClass = 'room-badge room-badge-heating';
+    else if (anyOn) badgeClass = 'room-badge room-badge-on';
 
     return `
-    <div class="${tileClass}" style="
+    <div class="room-tile" style="
       grid-column: ${(room.grid_col||0)+1} / span ${room.grid_col_span||1};
       grid-row:    ${(room.grid_row||0)+1} / span ${room.grid_row_span||1};
     ">
-      <div>
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:4px;margin-bottom:4px">
-          <div style="font-size:.88rem;font-weight:700;color:#1a3a2a;flex:1;min-width:0">${room.icon} ${room.name}</div>
-          <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
-            <div style="text-align:right;line-height:1">${tempStr}</div>
+      <div class="${badgeClass}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:3px">
+          <div style="font-size:.78rem;font-weight:700;color:#1a3a2a;
+                      flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
+            ${room.icon} ${room.name}
+          </div>
+          <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;line-height:1">
+            ${tempStr}
+            ${heatingBadge}
             ${editBtn}
           </div>
         </div>
-        ${heatingBadge ? `<div style="margin-bottom:4px">${heatingBadge}</div>` : ""}
+        ${deviceButtons ? `<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:3px">${deviceButtons}</div>` : ''}
       </div>
-      ${deviceButtons ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:auto">${deviceButtons}</div>` : ""}
     </div>`;
-  }).join("");
+  }).join('');
 }
 
 // ── Device toggle ─────────────────────────────────────────────────────────────
 
 async function toggleDevice(deviceDbId) {
-  const r = await fetch(`/smarthome/device/${deviceDbId}/toggle`, {method:"POST"});
+  const r = await fetch(`/smarthome/device/${deviceDbId}/toggle`, {method:'POST'});
   if (r.ok) pollStatus();
 }
 
@@ -313,27 +350,24 @@ async function toggleDevice(deviceDbId) {
 
 function toggleEditMode() {
   _editMode = !_editMode;
-  document.getElementById("edit-panel").style.display = _editMode ? "" : "none";
-  document.getElementById("edit-toggle-btn").textContent = _editMode ? "✓ Done" : "✏️ Edit";
+  document.getElementById('edit-panel').style.display = _editMode ? '' : 'none';
+  document.getElementById('edit-toggle-btn').textContent = _editMode ? '✓ Done' : '✏️ Edit';
   if (_editMode) renderAdminRoomList(_lastRooms);
 }
 
-const _FLOOR_LABELS = {ground: "Ground", first: "First"};
+const _FLOOR_LABELS = {ground:'Ground', first:'First'};
 
 function renderAdminRoomList(rooms) {
-  const el = document.getElementById("room-admin-list");
+  const el = document.getElementById('room-admin-list');
   if (!rooms.length) {
     el.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">No rooms yet — click "Seed rooms" to pre-populate from the floor plan.</div>';
     return;
   }
-  // Group by floor
   const byFloor = {};
-  for (const r of rooms) {
-    const f = r.floor || 'ground';
-    (byFloor[f] = byFloor[f] || []).push(r);
-  }
+  for (const r of rooms) { const f = r.floor||'ground'; (byFloor[f]=byFloor[f]||[]).push(r); }
   el.innerHTML = ['ground','first'].filter(f => byFloor[f]).map(f => `
-    <div style="font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;padding:6px 0 4px">${_FLOOR_LABELS[f] || f} floor</div>
+    <div style="font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;
+                letter-spacing:.06em;padding:6px 0 4px">${_FLOOR_LABELS[f]||f} floor</div>
     ${byFloor[f].map(r => `
       <div class="device-item">
         <div style="flex:1">
@@ -342,76 +376,68 @@ function renderAdminRoomList(rooms) {
         </div>
         <button class="btn btn-secondary btn-sm" onclick='openRoomModal(${JSON.stringify(r)})'>Edit</button>
         <button class="btn btn-danger btn-sm" onclick="deleteRoom(${r.id})">✕</button>
-      </div>`).join("")}
-  `).join("");
+      </div>`).join('')}
+  `).join('');
 }
 
 // ── Room CRUD ─────────────────────────────────────────────────────────────────
 
 function openRoomModal(room) {
-  document.getElementById("room-id").value          = room?.id || "";
-  document.getElementById("room-name").value        = room?.name || "";
-  document.getElementById("room-icon").value        = room?.icon || "🏠";
-  document.getElementById("room-floor").value       = room?.floor || "ground";
-  document.getElementById("room-col").value         = room?.grid_col ?? 0;
-  document.getElementById("room-row").value         = room?.grid_row ?? 0;
-  document.getElementById("room-col-span").value    = room?.grid_col_span ?? 1;
-  document.getElementById("room-row-span").value    = room?.grid_row_span ?? 1;
-  document.getElementById("room-modal-title").textContent = room ? "Edit room" : "Add room";
-  document.getElementById("room-modal").classList.add("open");
+  document.getElementById('room-id').value          = room?.id || '';
+  document.getElementById('room-name').value        = room?.name || '';
+  document.getElementById('room-icon').value        = room?.icon || '🏠';
+  document.getElementById('room-floor').value       = room?.floor || 'ground';
+  document.getElementById('room-col').value         = room?.grid_col ?? 0;
+  document.getElementById('room-row').value         = room?.grid_row ?? 0;
+  document.getElementById('room-col-span').value    = room?.grid_col_span ?? 1;
+  document.getElementById('room-row-span').value    = room?.grid_row_span ?? 1;
+  document.getElementById('room-modal-title').textContent = room ? 'Edit room' : 'Add room';
+  document.getElementById('room-modal').classList.add('open');
 }
 
 async function saveRoom() {
   const payload = {
-    id:            parseInt(document.getElementById("room-id").value) || null,
-    name:          document.getElementById("room-name").value.trim(),
-    icon:          document.getElementById("room-icon").value.trim() || "🏠",
-    floor:         document.getElementById("room-floor").value,
-    grid_col:      parseInt(document.getElementById("room-col").value) || 0,
-    grid_row:      parseInt(document.getElementById("room-row").value) || 0,
-    grid_col_span: parseInt(document.getElementById("room-col-span").value) || 1,
-    grid_row_span: parseInt(document.getElementById("room-row-span").value) || 1,
+    id:            parseInt(document.getElementById('room-id').value) || null,
+    name:          document.getElementById('room-name').value.trim(),
+    icon:          document.getElementById('room-icon').value.trim() || '🏠',
+    floor:         document.getElementById('room-floor').value,
+    grid_col:      parseInt(document.getElementById('room-col').value) || 0,
+    grid_row:      parseInt(document.getElementById('room-row').value) || 0,
+    grid_col_span: parseInt(document.getElementById('room-col-span').value) || 1,
+    grid_row_span: parseInt(document.getElementById('room-row-span').value) || 1,
   };
-  const r = await fetch("/admin/smarthome/rooms", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify(payload),
+  const r = await fetch('/admin/smarthome/rooms', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload),
   });
   const data = await r.json();
   if (data.ok) {
-    document.getElementById("room-modal").classList.remove("open");
-    showToast("Room saved ✓");
+    document.getElementById('room-modal').classList.remove('open');
+    showToast('Room saved ✓');
     pollStatus();
   } else {
-    showToast(data.error || "Error saving room", "error");
+    showToast(data.error || 'Error saving room', 'error');
   }
 }
 
 async function deleteRoom(id) {
-  if (!confirm("Delete this room and remove all its device assignments?")) return;
-  const r = await fetch(`/admin/smarthome/rooms/${id}/delete`, {method:"POST"});
-  if (r.ok) { showToast("Room deleted"); pollStatus(); }
+  if (!confirm('Delete this room and remove all its device assignments?')) return;
+  const r = await fetch(`/admin/smarthome/rooms/${id}/delete`, {method:'POST'});
+  if (r.ok) { showToast('Room deleted'); pollStatus(); }
 }
 
 // ── Seed rooms ────────────────────────────────────────────────────────────────
 
 async function seedRooms() {
-  if (!confirm("Pre-populate rooms from the house floor plan?\n\nThis only works if no rooms exist yet.\nYou can edit or delete rooms afterwards.")) return;
-  const btn = document.getElementById("seed-btn");
-  btn.textContent = "Seeding…";
-  btn.disabled = true;
+  if (!confirm('Pre-populate rooms from the house floor plan?\n\nOnly works if no rooms exist yet.\nYou can edit or delete rooms afterwards.')) return;
+  const btn = document.getElementById('seed-btn');
+  btn.textContent = 'Seeding…'; btn.disabled = true;
   try {
-    const r = await fetch("/admin/smarthome/seed", {method:"POST"});
+    const r = await fetch('/admin/smarthome/seed', {method:'POST'});
     const data = await r.json();
-    if (data.ok) {
-      showToast(`${data.seeded} rooms added ✓`);
-      pollStatus();
-    } else {
-      showToast(data.error || "Seed failed", "error");
-    }
+    if (data.ok) { showToast(`${data.seeded} rooms added ✓`); pollStatus(); }
+    else         { showToast(data.error || 'Seed failed', 'error'); }
   } finally {
-    btn.textContent = "🌱 Seed rooms";
-    btn.disabled = false;
+    btn.textContent = '🌱 Seed rooms'; btn.disabled = false;
   }
 }
 
@@ -420,83 +446,67 @@ async function seedRooms() {
 let _discoveredDevices = [];
 
 async function discoverDevices() {
-  const btn = document.getElementById("discover-btn");
-  btn.textContent = "Discovering…";
-  btn.disabled = true;
+  const btn = document.getElementById('discover-btn');
+  btn.textContent = 'Discovering…'; btn.disabled = true;
   try {
-    const r = await fetch("/admin/smarthome/discover", {method:"POST"});
+    const r = await fetch('/admin/smarthome/discover', {method:'POST'});
     if (!r.ok) return;
     const data = await r.json();
-    _discoveredDevices = [...(data.tapo || []), ...(data.hive || [])];
+    _discoveredDevices = [...(data.tapo||[]), ...(data.hive||[])];
     renderDeviceAssignList();
   } catch(e) {
-    showToast("Discover failed: " + e.message, "error");
+    showToast('Discover failed: ' + e.message, 'error');
   } finally {
-    btn.textContent = "Refresh";
-    btn.disabled = false;
+    btn.textContent = 'Refresh'; btn.disabled = false;
   }
 }
 
 function renderDeviceAssignList() {
-  const el    = document.getElementById("device-assign-list");
-  const rooms = _lastRooms;
+  const el = document.getElementById('device-assign-list');
   if (!_discoveredDevices.length) {
     el.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem">No devices found</div>';
     return;
   }
-  el.innerHTML = _discoveredDevices.map((d, i) => {
-    const provBadge = d.provider === "hive"
+  const rooms = _lastRooms;
+  el.innerHTML = _discoveredDevices.map((d,i) => {
+    const provBadge = d.provider === 'hive'
       ? `<span style="font-size:.63rem;background:#FEF9C3;color:#854D0E;border-radius:4px;padding:1px 5px">Hive</span>`
       : `<span style="font-size:.63rem;background:#DBEAFE;color:#1D4ED8;border-radius:4px;padding:1px 5px">Tapo</span>`;
     const statusDot = d.online
       ? `<span style="font-size:.63rem;color:#22C55E">● online</span>`
       : `<span style="font-size:.63rem;color:var(--text-muted)">● offline</span>`;
-    const roomOptions = rooms.map(r =>
-      `<option value="${r.id}">${r.icon} ${r.name}</option>`
-    ).join("");
-    const currentRoom = rooms.find(r =>
-      r.tapo?.some(t => t.device_id === d.device_id) || r.hive?.id === d.device_id
-    );
-    return `<div class="device-item" id="dev-row-${i}">
+    const opts = rooms.map(r => `<option value="${r.id}">${r.icon} ${r.name}</option>`).join('');
+    return `<div class="device-item">
       <div style="flex:1;min-width:0">
         <div class="device-name">${d.name} ${provBadge} ${statusDot}</div>
-        <div class="device-mac">${d.device_type || d.provider}</div>
+        <div class="device-mac">${d.device_type||d.provider}</div>
       </div>
-      <select class="form-select" style="width:130px;font-size:.8rem"
-              data-idx="${i}"
-              onchange="assignDevice(${i}, this.value)">
-        <option value="">— Unassigned —</option>
-        ${roomOptions}
+      <select class="form-select" style="width:130px;font-size:.8rem" onchange="assignDevice(${i},this.value)">
+        <option value="">— Unassigned —</option>${opts}
       </select>
     </div>`;
-  }).join("");
+  }).join('');
 
-  // Set current room values
-  _discoveredDevices.forEach((d, i) => {
-    const sel = el.querySelectorAll("select")[i];
-    if (!sel) return;
-    const curr = rooms.find(r =>
-      r.tapo?.some(t => t.device_id === d.device_id) || r.hive?.id === d.device_id
-    );
-    if (curr) sel.value = curr.id;
+  // Restore current assignments
+  _discoveredDevices.forEach((d,i) => {
+    const sel  = el.querySelectorAll('select')[i];
+    const curr = rooms.find(r => r.tapo?.some(t => t.device_id===d.device_id) || r.hive?.id===d.device_id);
+    if (curr && sel) sel.value = curr.id;
   });
 }
 
 async function assignDevice(idx, roomId) {
   const d = _discoveredDevices[idx];
-  const r = await fetch("/admin/smarthome/assign", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
+  const r = await fetch('/admin/smarthome/assign', {
+    method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({
-      provider:    d.provider,
-      device_id:   d.device_id,
-      name:        d.name,
-      device_type: d.device_type || "",
-      room_id:     roomId ? parseInt(roomId) : null,
+      provider:d.provider, device_id:d.device_id,
+      name:d.name, device_type:d.device_type||'',
+      room_id: roomId ? parseInt(roomId) : null,
     }),
   });
   const data = await r.json();
-  if (data.ok) { showToast("Assigned ✓"); pollStatus(); }
+  if (data.ok) { showToast('Assigned ✓'); pollStatus(); }
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
