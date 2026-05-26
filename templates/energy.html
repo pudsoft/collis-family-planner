@@ -242,14 +242,22 @@ function buildRoomChart(existing, canvasId, roomData, labels, color, yMin, yMax)
   const dataset = {
     label: canvasId,
     data:                 roomData.temps,
-    borderColor:          color,
+    borderColor:          color,   // fallback only
     backgroundColor:      'transparent',
     tension:              0.3,
-    borderWidth:          2,
+    borderWidth:          2.5,
     spanGaps:             true,
+    segment: {
+      borderColor: ctx => {
+        const y = ctx.p0.parsed.y;
+        return (y != null && !isNaN(y)) ? tempColour(y) : undefined;
+      },
+    },
     pointRadius:          roomData.heating.map(h => h ? 4 : 0),
-    pointBackgroundColor: roomData.heating.map(h => h ? '#ef4444' : color),
-    pointBorderColor:     roomData.heating.map(h => h ? '#ef4444' : color),
+    pointBackgroundColor: roomData.heating.map((h, i) =>
+      h ? '#ef4444' : tempColour(roomData.temps[i])),
+    pointBorderColor:     roomData.heating.map((h, i) =>
+      h ? '#ef4444' : tempColour(roomData.temps[i])),
   };
 
   const cfg = {
@@ -456,8 +464,15 @@ async function loadData() {
     _outdoorChart = buildOrUpdate(_outdoorChart, 'outdoor-chart', 'outdoor-empty', labels,
       [{
         label:'🌡️ °C', data:d.outdoor || [],
-        borderColor:'#60a5fa', backgroundColor:'rgba(96,165,250,0.12)',
-        fill:true, tension:0.4, pointRadius:0, borderWidth:2, spanGaps:true,
+        borderColor:'#60a5fa',
+        backgroundColor:'rgba(128,128,128,0.07)',
+        segment:{
+          borderColor: ctx => {
+            const y = ctx.p0.parsed.y;
+            return (y != null && !isNaN(y)) ? tempColour(y) : undefined;
+          },
+        },
+        fill:true, tension:0.4, pointRadius:0, borderWidth:2.5, spanGaps:true,
       }],
       { unit:'°C', yMin:-10, yMax:40 }
     );
