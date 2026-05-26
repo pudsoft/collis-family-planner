@@ -295,15 +295,34 @@ function renderGrid(rooms) {
       ? `<span style="font-size:.6rem;background:#FEE2E2;color:#EF4444;border-radius:4px;padding:1px 4px;font-weight:600">🔥</span>`
       : (mode === 'OFF' ? `<span style="font-size:.6rem;color:var(--text-muted)">Off</span>` : '');
 
-    const deviceButtons = (room.tapo || []).map(d => `
-      <button onclick="toggleDevice(${d.id})" title="${d.on ? 'Turn off' : 'Turn on'} ${d.name}"
-              style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;
-                     border-radius:6px;cursor:pointer;font-size:.68rem;
-                     border:1px solid ${d.on ? '#f59e0b' : 'rgba(0,0,0,.15)'};
-                     background:${d.on ? 'rgba(245,158,11,.15)' : 'rgba(255,255,255,.5)'};
-                     color:${d.on ? '#92400e' : 'var(--text-muted)'}">
-        ${d.on ? '💡' : '○'} ${d.name}
-      </button>`).join('');
+    const deviceButtons = (room.tapo || []).map(d => {
+      const offline = d.online === false;
+      const isOn    = d.on === true;
+
+      const bulbStyle = offline      ? 'filter:grayscale(1) opacity(.3)'  :
+                        isOn         ? ''                                   :
+                        d.on===false ? 'filter:grayscale(1) opacity(.45)'  :
+                                       'filter:opacity(.5)';
+
+      const cross = offline
+        ? `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+                       font-size:.7em;font-weight:900;color:#ef4444;pointer-events:none;
+                       text-shadow:0 0 2px rgba(255,255,255,.9)">✕</span>`
+        : '';
+
+      const clickAttr = offline ? '' : `onclick="toggleDevice(${d.id})"`;
+
+      return `<button ${clickAttr}
+        title="${d.name}${offline ? ' (offline)' : isOn ? ' — on' : ' — off'}"
+        style="position:relative;display:inline-flex;align-items:center;justify-content:center;
+               width:24px;height:24px;padding:0;border-radius:5px;
+               border:1px solid ${isOn && !offline ? '#f59e0b' : 'rgba(0,0,0,.12)'};
+               background:${isOn && !offline ? 'rgba(245,158,11,.18)' : 'rgba(255,255,255,.35)'};
+               cursor:${offline ? 'default' : 'pointer'}">
+        <span style="font-size:.9rem;line-height:1;${bulbStyle}">💡</span>
+        ${cross}
+      </button>`;
+    }).join('');
 
     const editBtn = IS_ADMIN
       ? `<button onclick='openRoomModal(${JSON.stringify(room).replace(/'/g,"&#39;")})'
