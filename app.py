@@ -31,6 +31,31 @@ app.secret_key = config.SECRET_KEY
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 
 
+# ── Lightweight in-memory page/API response cache ─────────────────────────────
+_pcache: dict[str, tuple[float, object]] = {}
+_pcache_lock = threading.Lock()
+
+
+def _pcache_get(key: str, ttl: float):
+    """Return cached payload if age < ttl seconds, else None."""
+    with _pcache_lock:
+        entry = _pcache.get(key)
+    if not entry:
+        return None
+    ts, data = entry
+    return data if (_time.time() - ts) < ttl else None
+
+
+def _pcache_set(key: str, data):
+    with _pcache_lock:
+        _pcache[key] = (_time.time(), data)
+
+
+def _pcache_bust(key: str):
+    with _pcache_lock:
+        _pcache.pop(key, None)
+
+
 @app.template_filter("fromjson")
 def fromjson_filter(s):
     try:
@@ -1248,6 +1273,11 @@ def network_status():
     """Live poll: returns current WiFi states + connected clients + blocked/protected MACs + presence."""
     if current_person() not in config.ADMINS:
         return jsonify({"error": "Admin only"}), 403
+
+    _cached = _pcache_get("network_status", 30)
+    if _cached is not None:
+        return jsonify(_cached)
+
     db = get_db()
     protected_macs = [r["mac"].lower() for r in db.execute(
         "SELECT mac FROM known_devices WHERE protected=1"
@@ -1262,13 +1292,15 @@ def network_status():
         r["person"]: r["presence_mac"].lower() in connected_mac_set
         for r in presence_rows
     }
-    return jsonify({
+    _out = {
         "wlans":          unifi.list_wlans(),
         "clients":        clients,
         "blocked_macs":   list(unifi.list_blocked_macs()),
         "protected_macs": protected_macs,
         "presence":       presence,
-    })
+    }
+    _pcache_set("network_status", _out)
+    return jsonify(_out)
 
 
 @app.route("/admin/presence_mac", methods=["POST"])
@@ -1763,6 +1795,12 @@ def smarthome_status():
     """Live poll — returns room states with Tapo + Hive data merged."""
     if current_person() not in config.ADMINS:
         return jsonify({"error": "Admin only"}), 403
+
+    # Serve cached data if still fresh (30-second TTL)
+    _cached = _pcache_get("smarthome_status", 30)
+    if _cached is not None:
+        return jsonify(_cached)
+
     db = get_db()
 
     # Load room → device assignments
@@ -1779,29 +1817,30 @@ def smarthome_status():
     hive_zones   = {z["id"]: z for z in hive.get_climate_data()} \
         if config.HIVE_EMAIL else {}
 
-    # Temperature trend from logger (last 2 readings per zone)
+    # Temperature trend from logger — last 2 readings per zone.
+    # Avoids ROW_NUMBER() window function for maximum SQLite compatibility.
     _TLOGDB = Path(__file__).parent / "data" / "temperature_log.db"
     trend_map: dict[str, str | None] = {}
     if _TLOGDB.exists():
         try:
             _tc = sqlite3.connect(_TLOGDB)
             _rows = _tc.execute(
-                "SELECT name, temperature FROM ("
-                "  SELECT name, temperature,"
-                "    ROW_NUMBER() OVER (PARTITION BY name ORDER BY recorded_at DESC) rn"
-                "  FROM temperature_log WHERE source='hive'"
-                ") WHERE rn <= 2 ORDER BY name, rn"
+                "SELECT name, temperature FROM temperature_log "
+                "WHERE source='hive' AND recorded_at >= datetime('now','-2 hours') "
+                "ORDER BY name, recorded_at DESC"
             ).fetchall()
             _tc.close()
             _by_name: dict[str, list] = {}
             for _r in _rows:
-                _by_name.setdefault(_r[0], []).append(_r[1])
+                lst = _by_name.setdefault(_r[0], [])
+                if len(lst) < 2:
+                    lst.append(_r[1])
             for _name, _temps in _by_name.items():
                 if len(_temps) >= 2 and _temps[0] is not None and _temps[1] is not None:
-                    _diff = _temps[0] - _temps[1]
-                    trend_map[_name] = "up" if _diff > 0.2 else "down" if _diff < -0.2 else "flat"
-        except Exception:
-            pass
+                    _diff = _temps[0] - _temps[1]   # latest minus previous
+                    trend_map[_name] = "up" if _diff > 0.05 else "down" if _diff < -0.05 else "flat"
+        except Exception as exc:
+            log.warning("smarthome_status trend query failed: %s", exc)
 
     result = []
     for room in rooms:
@@ -1843,7 +1882,9 @@ def smarthome_status():
             "hive":         hive_row,
         })
 
-    return jsonify({"rooms": result})
+    _out = {"rooms": result}
+    _pcache_set("smarthome_status", _out)
+    return jsonify(_out)
 
 
 @app.route("/smarthome/device/<int:device_db_id>/toggle", methods=["POST"])
@@ -1853,17 +1894,30 @@ def smarthome_toggle(device_db_id: int):
     row = db.execute("SELECT * FROM smart_devices WHERE id=?", (device_db_id,)).fetchone()
     if not row or row["provider"] != "tapo":
         return jsonify({"error": "Device not found"}), 404
-    # Get current state then flip
-    cloud_devs = {d["deviceId"]: d for d in tapo.list_cloud_devices()}
+
+    # JS sends desired state in body: {on: true/false}
+    # Fall back to flipping the cached state (or default to ON if unknown)
+    body = request.get_json(silent=True) or {}
+    desired_on = body.get("on")
+    if desired_on is None:
+        cached_dev = next(
+            (d for d in tapo.get_all_device_states() if d["deviceId"] == row["device_id"]),
+            {},
+        )
+        current = cached_dev.get("on")
+        desired_on = (not current) if current is not None else True
+
     dev = next(
         (d for d in tapo.list_cloud_devices() if d["deviceId"] == row["device_id"]),
         None,
     )
     if not dev:
         return jsonify({"error": "Device not found in Tapo cloud"}), 404
-    current = tapo.get_device_state(dev)
-    ok = tapo.set_device_state(dev, not current)
-    return jsonify({"ok": ok, "now_on": not current})
+
+    ok = tapo.set_device_state(dev, bool(desired_on))
+    if ok:
+        _pcache_bust("smarthome_status")
+    return jsonify({"ok": ok, "now_on": bool(desired_on)})
 
 
 # ── Smart home admin ──────────────────────────────────────────────────────────
@@ -2084,6 +2138,11 @@ def energy_data():
     if current_person() not in config.ADMINS:
         return jsonify({"error": "forbidden"}), 403
 
+    # Serve cached data if fresh (5-minute TTL — data logger runs every 15 min)
+    _cached = _pcache_get("energy_data", 300)
+    if _cached is not None:
+        return jsonify(_cached)
+
     TEMP_DB   = Path(__file__).parent / "data" / "temperature_log.db"
     ENERGY_DB = Path(__file__).parent / "data" / "energy.db"
 
@@ -2272,11 +2331,12 @@ def energy_data():
     }
 
     # ── Trend: direction between the last two non-null readings ─────────────
+    # 0.05 °C threshold — small enough to catch typical Hive sensor resolution
     for _name, _data in out["rooms"].items():
         _recent = [t for t in _data["temps"] if t is not None]
         if len(_recent) >= 2:
             _diff = _recent[-1] - _recent[-2]
-            _trend = "up" if _diff > 0.2 else "down" if _diff < -0.2 else "flat"
+            _trend = "up" if _diff > 0.05 else "down" if _diff < -0.05 else "flat"
         else:
             _trend = None
         out["room_stats"][_name]["trend"] = _trend
@@ -2324,6 +2384,7 @@ def energy_data():
     else:
         out["extremes"] = None
 
+    _pcache_set("energy_data", out)
     return jsonify(out)
 
 

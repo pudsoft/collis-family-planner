@@ -43,45 +43,78 @@
 </main>
 
 <!-- ── Bottom nav ───────────────────────────────────────────────────────────── -->
-<nav class="bottom-nav">
-  <a href="{{ url_for('dashboard') }}?person={{ person }}"
-     class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
-    <span class="nav-icon">🏠</span>Home
-  </a>
-  <a href="{{ url_for('calendar_view') }}?person={{ person }}"
-     class="nav-item {% if request.endpoint == 'calendar_view' %}active{% endif %}">
-    <span class="nav-icon">📅</span>Calendar
-  </a>
-  <a href="{{ url_for('tasks_view') }}?person={{ person }}"
-     class="nav-item {% if request.endpoint == 'tasks_view' %}active{% endif %}">
-    <span class="nav-icon">✅</span>Tasks
-  </a>
-  <a href="{{ url_for('meals_view') }}?person={{ person }}"
-     class="nav-item {% if request.endpoint == 'meals_view' %}active{% endif %}">
-    <span class="nav-icon">🍽️</span>Meals
-  </a>
-  <a href="{{ url_for('medicines_view') }}?person={{ person }}"
-     class="nav-item {% if request.endpoint == 'medicines_view' %}active{% endif %}">
-    <span class="nav-icon">💊</span>Meds
-  </a>
+<nav class="bottom-nav{% if is_admin %} bottom-nav-two-row{% endif %}">
+  <div class="bottom-nav-row">
+    <a href="{{ url_for('dashboard') }}?person={{ person }}"
+       class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+      <span class="nav-icon">🏠</span>Home
+    </a>
+    <a href="{{ url_for('calendar_view') }}?person={{ person }}"
+       class="nav-item {% if request.endpoint == 'calendar_view' %}active{% endif %}">
+      <span class="nav-icon">📅</span>Calendar
+    </a>
+    <a href="{{ url_for('tasks_view') }}?person={{ person }}"
+       class="nav-item {% if request.endpoint == 'tasks_view' %}active{% endif %}">
+      <span class="nav-icon">✅</span>Tasks
+    </a>
+    <a href="{{ url_for('meals_view') }}?person={{ person }}"
+       class="nav-item {% if request.endpoint == 'meals_view' %}active{% endif %}">
+      <span class="nav-icon">🍽️</span>Meals
+    </a>
+    <a href="{{ url_for('medicines_view') }}?person={{ person }}"
+       class="nav-item {% if request.endpoint == 'medicines_view' %}active{% endif %}">
+      <span class="nav-icon">💊</span>Meds
+    </a>
+  </div>
   {% if is_admin %}
-  <a href="{{ url_for('network_view') }}"
-     class="nav-item {% if request.endpoint == 'network_view' %}active{% endif %}">
-    <span class="nav-icon">📶</span>Network
-  </a>
-  <a href="{{ url_for('smarthome_view') }}"
-     class="nav-item {% if request.endpoint == 'smarthome_view' %}active{% endif %}">
-    <span class="nav-icon">🏡</span>Smart Home
-  </a>
-  <a href="{{ url_for('energy_view') }}"
-     class="nav-item {% if request.endpoint == 'energy_view' %}active{% endif %}">
-    <span class="nav-icon">☀️</span>Energy
-  </a>
+  <div class="bottom-nav-row bottom-nav-house-row">
+    <a href="{{ url_for('network_view') }}"
+       class="nav-item {% if request.endpoint == 'network_view' %}active{% endif %}">
+      <span class="nav-icon">📶</span>Network
+    </a>
+    <a href="{{ url_for('smarthome_view') }}"
+       class="nav-item {% if request.endpoint == 'smarthome_view' %}active{% endif %}">
+      <span class="nav-icon">🏡</span>Smart
+    </a>
+    <a href="{{ url_for('energy_view') }}"
+       class="nav-item {% if request.endpoint == 'energy_view' %}active{% endif %}">
+      <span class="nav-icon">☀️</span>Energy
+    </a>
+  </div>
   {% endif %}
 </nav>
 
 <div class="toast-container" id="toast-container"></div>
 
+<style>
+/* ── Two-row bottom nav (admin users) ──────────────────────────────────────── */
+.bottom-nav-two-row {
+  flex-direction: column;
+}
+.bottom-nav-row {
+  display: flex;
+  width: 100%;
+  justify-content: space-around;
+  align-items: stretch;
+}
+.bottom-nav-house-row {
+  border-top: 1px solid var(--border);
+  padding-top: 2px;
+  padding-bottom: 2px;
+  background: var(--surface);
+}
+.bottom-nav-house-row .nav-item {
+  font-size: 0.68rem;
+  padding: 3px 2px;
+}
+.bottom-nav-house-row .nav-item .nav-icon {
+  font-size: 1rem;
+}
+/* Extra main padding for admins with two-row nav */
+{% if is_admin %}
+main { padding-bottom: 130px !important; }
+{% endif %}
+</style>
 
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 {% block extra_js %}{% endblock %}

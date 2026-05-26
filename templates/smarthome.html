@@ -43,7 +43,7 @@
       position:relative;
       background-image:url('/static/images/floorplan-ground.png');
       background-size:100% 100%; background-repeat:no-repeat;
-      border-radius:8px; aspect-ratio:966/1473;
+      border-radius:8px; aspect-ratio:179/255;
       padding:4% 6% 7% 6%; box-sizing:border-box;
     ">
       <div id="room-grid-ground" style="width:100%;height:100%;display:grid;gap:3px"></div>
@@ -59,8 +59,8 @@
       position:relative;
       background-image:url('/static/images/floorplan-first.png');
       background-size:100% 100%; background-repeat:no-repeat;
-      border-radius:8px; aspect-ratio:878/1280;
-      padding:6% 8% 8% 8%; box-sizing:border-box;
+      border-radius:8px; aspect-ratio:179/255;
+      padding:4% 6% 7% 6%; box-sizing:border-box;
     ">
       <div id="room-grid-first" style="width:100%;height:100%;display:grid;gap:3px"></div>
       <div id="no-rooms-hint-first" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center">
@@ -199,12 +199,12 @@
   .floor-tabs-row  { display: none !important; }
   #floor-plans-row { display: flex !important; gap: 16px; align-items: flex-start; }
 
-  /* Force identical aspect ratio so both plans are the same height */
+  /* Force identical aspect ratio so both plans are the same visual size */
   #floor-plan-ground,
   #floor-plan-first  {
     display: block !important;
     flex: 1;
-    aspect-ratio: 966 / 1473 !important;  /* ground floor's actual pixel ratio */
+    aspect-ratio: 179 / 255 !important;
   }
 }
 
@@ -379,7 +379,7 @@ function _renderFloor(floor, rooms) {
                         isOff ? 'filter:grayscale(1) opacity(.45)' :
                                 'filter:opacity(.7)';   // unknown state
 
-      return `<button onclick="toggleDevice(${d.id})"
+      return `<button onclick="toggleDevice(${d.id}, ${d.on === true ? 'true' : d.on === false ? 'false' : 'null'})"
         title="${d.name}${isOn ? ' — on' : isOff ? ' — off' : ''}"
         style="position:relative;display:inline-flex;align-items:center;justify-content:center;
                width:24px;height:24px;padding:0;border-radius:5px;
@@ -428,10 +428,25 @@ function _renderFloor(floor, rooms) {
 }
 
 // ── Device toggle ─────────────────────────────────────────────────────────────
+// currentOn: true = on, false = off, null = unknown (defaults to turning on)
 
-async function toggleDevice(deviceDbId) {
-  const r = await fetch(`/smarthome/device/${deviceDbId}/toggle`, {method:'POST'});
-  if (r.ok) pollStatus();
+async function toggleDevice(deviceDbId, currentOn) {
+  const desiredOn = currentOn === true ? false : currentOn === false ? true : true;
+  try {
+    const r = await fetch(`/smarthome/device/${deviceDbId}/toggle`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({on: desiredOn}),
+    });
+    const data = await r.json();
+    if (data.ok) {
+      pollStatus();
+    } else {
+      showToast(data.error || 'Toggle failed', 'error');
+    }
+  } catch(e) {
+    showToast('Network error — could not toggle device', 'error');
+  }
 }
 
 // ── Edit mode ─────────────────────────────────────────────────────────────────
