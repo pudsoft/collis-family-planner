@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 _CACHE_FILE      = Path(__file__).parent.parent / "data" / "weather_cache.json"
 _REFRESH_INTERVAL = 3600   # background refresh every hour
 _FAIL_RETRY       = 300    # retry interval after a failed fetch (5 minutes)
-_HTTP_TIMEOUT     = 5      # seconds
+_HTTP_TIMEOUT     = 15     # seconds (background thread — latency doesn't matter)
 
 _cache:     dict  = {}
 _cache_lock = threading.Lock()
