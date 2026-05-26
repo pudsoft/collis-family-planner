@@ -2,26 +2,34 @@
 
 Caching strategy
 ----------------
-* Successful fetch  → cached for _CACHE_TTL (1 hour)
-* Failed fetch      → back-off for _FAIL_TTL (5 minutes) then retry
-* Both cases update _cache_ts immediately so the *next* request is never
-  blocked — we always return stale data rather than waiting for a timeout.
+* Weather is written to disk (weather_cache.json) after every successful fetch
+  so it survives server restarts.
+* On import the disk cache is loaded immediately — get_weather() is always
+  instant, it never blocks a dashboard request.
+* A background thread refreshes the cache every _REFRESH_INTERVAL seconds.
+  If Open-Meteo is unavailable, the previous data is served and the thread
+  retries every _FAIL_RETRY seconds without touching user requests.
 """
 from __future__ import annotations
 
-import time
+import json
 import logging
+import threading
+import time
+from pathlib import Path
+
 import requests
 from config import WEATHER_LAT, WEATHER_LON
 
 log = logging.getLogger(__name__)
 
-_CACHE_TTL   = 3600   # seconds before a successful response expires
-_FAIL_TTL    = 300    # back-off after a failed fetch (5 minutes)
-_HTTP_TIMEOUT = 5     # seconds — short so a bad API never blocks the dashboard
+_CACHE_FILE      = Path(__file__).parent.parent / "data" / "weather_cache.json"
+_REFRESH_INTERVAL = 3600   # background refresh every hour
+_FAIL_RETRY       = 300    # retry interval after a failed fetch (5 minutes)
+_HTTP_TIMEOUT     = 5      # seconds
 
-_cache:    dict  = {}
-_cache_ts: float = 0.0   # timestamp of last successful OR failed fetch
+_cache:     dict  = {}
+_cache_lock = threading.Lock()
 
 WMO_DESCRIPTIONS = {
     0: ("Clear sky", "☀️"),
@@ -50,18 +58,35 @@ WMO_DESCRIPTIONS = {
     99: ("Thunderstorm + heavy hail", "⛈️"),
 }
 
-_FALLBACK = {"current": {"temp": None, "desc": "Unavailable", "emoji": "❓", "wind": 0},
-             "forecast": []}
+_FALLBACK = {
+    "current":  {"temp": None, "desc": "Unavailable", "emoji": "❓", "wind": 0},
+    "forecast": [],
+}
 
 
-def get_weather() -> dict:
-    global _cache, _cache_ts
+# ── Disk cache ────────────────────────────────────────────────────────────────
 
-    # Use cached data if it's still fresh (success TTL or failure back-off)
-    ttl = _CACHE_TTL if _cache else _FAIL_TTL
-    if _cache_ts > 0 and (time.time() - _cache_ts) < ttl:
-        return _cache or _FALLBACK
+def _load_disk() -> dict:
+    try:
+        if _CACHE_FILE.exists():
+            return json.loads(_CACHE_FILE.read_text())
+    except Exception as exc:
+        log.warning("weather: could not read disk cache: %s", exc)
+    return {}
 
+
+def _save_disk(data: dict):
+    try:
+        _CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _CACHE_FILE.write_text(json.dumps(data))
+    except Exception as exc:
+        log.warning("weather: could not write disk cache: %s", exc)
+
+
+# ── Live fetch ────────────────────────────────────────────────────────────────
+
+def _fetch_live() -> dict | None:
+    """Fetch from Open-Meteo. Returns a cache dict on success, None on failure."""
     url = (
         f"https://api.open-meteo.com/v1/forecast"
         f"?latitude={WEATHER_LAT}&longitude={WEATHER_LON}"
@@ -89,19 +114,19 @@ def get_weather() -> dict:
         rain_mm   = daily.get("precipitation_sum", [])
         rain_pct  = daily.get("precipitation_probability_max", [])
 
-        for i, date in enumerate(dates):
-            d, e = WMO_DESCRIPTIONS.get(int(codes[i]) if i < len(codes) else 0, ("?", "❓"))
+        for i, d in enumerate(dates):
+            dc, ec = WMO_DESCRIPTIONS.get(int(codes[i]) if i < len(codes) else 0, ("?", "❓"))
             forecast.append({
-                "date":     date,
-                "desc":     d,
-                "emoji":    e,
+                "date":     d,
+                "desc":     dc,
+                "emoji":    ec,
                 "max":      round(max_temps[i], 1) if i < len(max_temps) else None,
                 "min":      round(min_temps[i], 1) if i < len(min_temps) else None,
                 "rain_mm":  round(rain_mm[i], 1)   if i < len(rain_mm)   else None,
                 "rain_pct": int(rain_pct[i])        if i < len(rain_pct)  else None,
             })
 
-        _cache = {
+        result = {
             "current": {
                 "temp":  round(current.get("temperature", 0), 1),
                 "desc":  desc,
@@ -109,14 +134,44 @@ def get_weather() -> dict:
                 "wind":  round(current.get("windspeed", 0), 1),
             },
             "forecast": forecast,
+            "fetched_at": time.time(),
         }
-        _cache_ts = time.time()   # full TTL on success
-        log.debug("Weather fetched OK")
-        return _cache
+        log.debug("weather: fetched OK")
+        return result
 
     except Exception as exc:
-        log.warning("Weather fetch failed: %s", exc)
-        # Update timestamp so we back off for _FAIL_TTL before retrying —
-        # this prevents every dashboard request from blocking on a dead API.
-        _cache_ts = time.time()
-        return _cache or _FALLBACK
+        log.warning("weather: fetch failed: %s", exc)
+        return None
+
+
+# ── Background refresh loop ───────────────────────────────────────────────────
+
+def _refresh_loop():
+    while True:
+        result = _fetch_live()
+        if result:
+            with _cache_lock:
+                global _cache
+                _cache = result
+            _save_disk(result)
+            time.sleep(_REFRESH_INTERVAL)
+        else:
+            time.sleep(_FAIL_RETRY)
+
+
+# ── Public API ────────────────────────────────────────────────────────────────
+
+def get_weather() -> dict:
+    """Return cached weather instantly. Never blocks."""
+    with _cache_lock:
+        return dict(_cache) if _cache else _FALLBACK
+
+
+# ── Startup: load disk cache then launch background refresh ───────────────────
+_disk = _load_disk()
+if _disk:
+    _cache = _disk
+    log.info("weather: loaded from disk cache (fetched_at=%s)",
+             time.strftime("%H:%M", time.localtime(_disk.get("fetched_at", 0))))
+
+threading.Thread(target=_refresh_loop, daemon=True, name="weather-refresh").start()
