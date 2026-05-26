@@ -1801,6 +1801,7 @@ def smarthome_status():
             "id":           room_id,
             "name":         room["name"],
             "icon":         room["icon"],
+            "floor":        room.get("floor", "ground"),
             "grid_col":     room["grid_col"],
             "grid_row":     room["grid_row"],
             "grid_col_span": room["grid_col_span"],
