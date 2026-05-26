@@ -172,18 +172,18 @@
         <div>
           <div style="font-size:.75rem;font-weight:600;margin-bottom:4px">Ground floor</div>
           <div style="display:flex;align-items:center;gap:6px">
-            <input class="form-input" id="grid-ground-cols" type="number" min="1" max="12" style="width:60px"
+            <input class="form-input" id="grid-ground-cols" type="number" min="1" max="20" style="width:60px"
                    value="{{ grid_cols_ground }}"> cols ×
-            <input class="form-input" id="grid-ground-rows" type="number" min="1" max="12" style="width:60px"
+            <input class="form-input" id="grid-ground-rows" type="number" min="1" max="20" style="width:60px"
                    value="{{ grid_rows_ground }}"> rows
           </div>
         </div>
         <div>
           <div style="font-size:.75rem;font-weight:600;margin-bottom:4px">First floor</div>
           <div style="display:flex;align-items:center;gap:6px">
-            <input class="form-input" id="grid-first-cols" type="number" min="1" max="12" style="width:60px"
+            <input class="form-input" id="grid-first-cols" type="number" min="1" max="20" style="width:60px"
                    value="{{ grid_cols_first }}"> cols ×
-            <input class="form-input" id="grid-first-rows" type="number" min="1" max="12" style="width:60px"
+            <input class="form-input" id="grid-first-rows" type="number" min="1" max="20" style="width:60px"
                    value="{{ grid_rows_first }}"> rows
           </div>
         </div>
@@ -543,7 +543,13 @@ function windowAdvice(indoorTemp, outdoorTemp) {
   // Comfortable inside but cold outside — preserve heat
   if (outdoorTemp < 15 && indoorTemp >= 16)
     return {open:false, label:`Close — keep heat in`};
-  return null;
+  // Moderate conditions — open if outside is cooler, close if warmer
+  if (diff >= 1)
+    return {open:true,  label:`Open — slightly cooler outside`};
+  if (diff <= -1)
+    return {open:false, label:`Close — slightly warmer outside`};
+  // Temps are essentially equal — fresh air is fine
+  return {open:true, label:`Open — similar temperature outside`};
 }
 
 // ── Floor switching (mobile tab toggle) ───────────────────────────────────────
@@ -733,8 +739,8 @@ function _renderFloor(floor, rooms) {
     const adv = windowAdvice(temp, _outdoorTemp);
     const windowIcon = adv ? (() => {
       const src = adv.open
-        ? 'https://img.icons8.com/ios/100/open-window.png'
-        : 'https://img.icons8.com/ios-filled/100/closed-window.png';
+        ? '/static/images/icons8-open-window-100.png'
+        : '/static/images/icons8-closed-window-100.png';
       return `<img src="${src}" title="${adv.label}"
                    style="width:18px;height:18px;object-fit:contain;cursor:default;
                           opacity:${adv.open ? '1' : '.65'}">`;
