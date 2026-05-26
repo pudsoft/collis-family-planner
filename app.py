@@ -1737,6 +1737,11 @@ def smarthome_view():
         dev_by_room.setdefault(d["room_id"], []).append(d)
     for r in rooms:
         r["devices"] = dev_by_room.get(r["id"], [])
+    def _setting_float(key, default):
+        row = db.execute("SELECT value FROM app_settings WHERE key=?", (key,)).fetchone()
+        try:    return float(row["value"]) if row else default
+        except: return default
+
     return render_template(
         "smarthome.html",
         person=current_person(),
@@ -1747,6 +1752,8 @@ def smarthome_view():
         rooms=rooms,
         tapo_configured=bool(config.TAPO_EMAIL),
         hive_configured=bool(config.HIVE_EMAIL),
+        zone_temp_min=_setting_float("zone_temp_min", 17.5),
+        zone_temp_max=_setting_float("zone_temp_max", 19.0),
     )
 
 
@@ -1973,6 +1980,26 @@ def admin_smarthome_assign():
             " VALUES (?,?,?,?,?)",
             (provider, device_id, name, device_type, room_id),
         )
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/admin/smarthome/settings", methods=["POST"])
+@require_admin
+def admin_smarthome_settings():
+    """Save global smart home settings (zone temp range, etc.)."""
+    db = get_db()
+    d  = request.json or {}
+    for key in ("zone_temp_min", "zone_temp_max"):
+        val = d.get(key)
+        if val is not None:
+            try:
+                db.execute(
+                    "INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)",
+                    (key, str(float(val))),
+                )
+            except (TypeError, ValueError):
+                pass
     db.commit()
     return jsonify({"ok": True})
 

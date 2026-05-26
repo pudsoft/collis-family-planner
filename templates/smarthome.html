@@ -75,6 +75,23 @@
 
     <div class="card admin-section">
       <div class="card-header">
+        <span class="admin-section-title" style="border:none;margin:0">🌡️ Zone temperature</span>
+        <button class="btn btn-primary btn-sm" onclick="saveZoneSettings()">Save</button>
+      </div>
+      <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px">
+        "In-Zone" range for room cards. Below = Cold, above = Hot.
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <label style="font-size:.85rem">Min</label>
+        <input class="form-input" id="zone-min" type="number" step="0.5" min="5" max="35" style="width:70px">
+        <label style="font-size:.85rem">°C &nbsp;to</label>
+        <input class="form-input" id="zone-max" type="number" step="0.5" min="5" max="35" style="width:70px">
+        <label style="font-size:.85rem">°C</label>
+      </div>
+    </div>
+
+    <div class="card admin-section">
+      <div class="card-header">
         <span class="admin-section-title" style="border:none;margin:0">🔌 Assign devices</span>
         <button class="btn btn-secondary btn-sm" id="discover-btn" onclick="discoverDevices()">Discover</button>
       </div>
@@ -193,6 +210,8 @@
 const TAPO_CONFIGURED = {{ 'true' if tapo_configured else 'false' }};
 const HIVE_CONFIGURED = {{ 'true' if hive_configured else 'false' }};
 const IS_ADMIN        = {{ 'true' if is_admin else 'false' }};
+let ZONE_MIN = {{ zone_temp_min }};
+let ZONE_MAX = {{ zone_temp_max }};
 
 // Per-floor config: background image, aspect-ratio, and padding to align
 // the grid with the house outline within the image's white margins.
@@ -236,6 +255,13 @@ function tempColour(temp) {
   if (temp >= 20)   return '#F59E0B';
   if (temp >= 18)   return '#22C55E';
   return '#60A5FA';
+}
+
+function tempStatus(temp) {
+  if (temp == null) return '';
+  if (temp < ZONE_MIN)  return `<span style="font-size:.82rem;font-weight:600;color:#60A5FA">❄ Cold</span>`;
+  if (temp > ZONE_MAX)  return `<span style="font-size:.82rem;font-weight:600;color:#EF4444">Hot</span>`;
+  return `<span style="font-size:.82rem;font-weight:600;color:#22C55E">✓ In-Zone</span>`;
 }
 
 // ── Live poll ─────────────────────────────────────────────────────────────────
@@ -285,15 +311,17 @@ function renderGrid(rooms) {
     const anyOn     = room.any_on;
 
     const tempStr = temp != null
-      ? `<span style="font-size:1.1rem;font-weight:700;color:${tempColour(temp)}">${temp.toFixed(1)}°</span>`
+      ? `<span style="font-size:1.25rem;font-weight:700;color:${tempColour(temp)}">${temp.toFixed(1)}°</span>`
         + (target != null
-           ? `<span style="font-size:.65rem;color:var(--text-muted);margin-left:1px">→${target.toFixed(0)}°</span>`
+           ? `<span style="font-size:.8rem;color:var(--text-muted);margin-left:1px">→${target.toFixed(0)}°</span>`
            : '')
       : '';
 
+    const statusStr = tempStatus(temp);
+
     const heatingBadge = isHeating
-      ? `<span style="font-size:.6rem;background:#FEE2E2;color:#EF4444;border-radius:4px;padding:1px 4px;font-weight:600">🔥</span>`
-      : (mode === 'OFF' ? `<span style="font-size:.6rem;color:var(--text-muted)">Off</span>` : '');
+      ? `<span style="font-size:.75rem;background:#FEE2E2;color:#EF4444;border-radius:4px;padding:1px 4px;font-weight:600">🔥</span>`
+      : (mode === 'OFF' ? `<span style="font-size:.75rem;color:var(--text-muted)">Off</span>` : '');
 
     const deviceButtons = (room.tapo || []).map(d => {
       const offline = d.online === false;
@@ -341,17 +369,18 @@ function renderGrid(rooms) {
       grid-row:    ${(room.grid_row||0)+1} / span ${room.grid_row_span||1};
     ">
       <div class="${badgeClass}" style="
-        width:50%; height:82%;
+        width:50%; height:62%;
         display:flex; flex-direction:column;
         align-items:center; justify-content:center;
         text-align:center; gap:3px;
       ">
-        <div style="font-size:1rem;line-height:1">${room.icon}</div>
-        <div style="font-size:.68rem;font-weight:700;color:#1a3a2a;line-height:1.2;
+        <div style="font-size:1.15rem;line-height:1">${room.icon}</div>
+        <div style="font-size:.85rem;font-weight:700;color:#1a3a2a;line-height:1.2;
                     overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">
           ${room.name}
         </div>
         ${tempStr ? `<div style="line-height:1.1">${tempStr}</div>` : ''}
+        ${statusStr}
         ${heatingBadge}
         ${deviceButtons ? `<div style="display:flex;flex-wrap:wrap;gap:2px;justify-content:center">${deviceButtons}</div>` : ''}
         ${editBtn}
@@ -373,7 +402,31 @@ function toggleEditMode() {
   _editMode = !_editMode;
   document.getElementById('edit-panel').style.display = _editMode ? '' : 'none';
   document.getElementById('edit-toggle-btn').textContent = _editMode ? '✓ Done' : '✏️ Edit';
-  if (_editMode) renderAdminRoomList(_lastRooms);
+  if (_editMode) {
+    renderAdminRoomList(_lastRooms);
+    document.getElementById('zone-min').value = ZONE_MIN;
+    document.getElementById('zone-max').value = ZONE_MAX;
+  }
+}
+
+async function saveZoneSettings() {
+  const min = parseFloat(document.getElementById('zone-min').value);
+  const max = parseFloat(document.getElementById('zone-max').value);
+  if (isNaN(min) || isNaN(max) || min >= max) {
+    showToast('Min must be less than max', 'error'); return;
+  }
+  const r = await fetch('/admin/smarthome/settings', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({zone_temp_min: min, zone_temp_max: max}),
+  });
+  const data = await r.json();
+  if (data.ok) {
+    ZONE_MIN = min; ZONE_MAX = max;
+    showToast('Zone range saved ✓');
+    renderGrid(_lastRooms);
+  } else {
+    showToast('Save failed', 'error');
+  }
 }
 
 const _FLOOR_LABELS = {ground:'Ground', first:'First'};
