@@ -259,6 +259,8 @@ function buildOrUpdate(existing, id, emptyId, labels, datasets, yOpts) {
           ticks: { font: { size: 10 } },
           grid:  { color: 'rgba(128,128,128,0.1)' },
           title: { display: !!yOpts.yLabel, text: yOpts.yLabel || '', font: { size: 10 } },
+          ...(yOpts.yMin != null ? { min: yOpts.yMin } : {}),
+          ...(yOpts.yMax != null ? { max: yOpts.yMax } : {}),
         },
       },
     },
@@ -317,7 +319,7 @@ function buildRoomChart(existing, chartId, emptyId, roomsObj, labels) {
   ];
 
   return buildOrUpdate(existing, chartId, emptyId, labels, datasets,
-    { unit: '°C', legend: true, annotations: nhsAnnotations() });
+    { unit: '°C', legend: true, annotations: nhsAnnotations(), yMin: -10, yMax: 40 });
 }
 
 // ── Per-room stat cards ───────────────────────────────────────────────────────
@@ -418,7 +420,7 @@ async function loadData() {
         borderWidth:     2,
         spanGaps:        true,
       }],
-      { unit: '°C' }
+      { unit: '°C', yMin: -10, yMax: 40 }
     );
 
     // ── Room charts ────────────────────────────────────────────────────────
