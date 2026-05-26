@@ -249,19 +249,27 @@ function setFloor(f) {
 
 // ── Temperature colour ────────────────────────────────────────────────────────
 
+// NHS sleep temperature bands (waltonsurgery.co.uk / NHS 2026)
 function tempColour(temp) {
   if (temp == null) return 'var(--border)';
-  if (temp >= 22)   return '#EF4444';
-  if (temp >= 20)   return '#F59E0B';
-  if (temp >= 18)   return '#22C55E';
-  return '#60A5FA';
+  if (temp >= 27)   return '#dc2626'; // too hot
+  if (temp >= 24)   return '#f97316'; // warm
+  if (temp >= 21)   return '#f59e0b'; // mild
+  if (temp >= 18)   return '#22c55e'; // just right
+  if (temp >= 16)   return '#60a5fa'; // cool
+  if (temp >= 14)   return '#3b82f6'; // cold
+  return '#1d4ed8';
 }
 
 function tempStatus(temp) {
   if (temp == null) return '';
-  if (temp < ZONE_MIN)  return `<span style="font-size:.82rem;font-weight:600;color:#60A5FA">❄ Cold</span>`;
-  if (temp > ZONE_MAX)  return `<span style="font-size:.82rem;font-weight:600;color:#EF4444">Hot</span>`;
-  return `<span style="font-size:.82rem;font-weight:600;color:#22C55E">✓ In-Zone</span>`;
+  if (temp >= 27) return `<span style="font-size:.78rem;font-weight:600;color:#dc2626">🥵 Too hot</span>`;
+  if (temp >= 24) return `<span style="font-size:.78rem;font-weight:600;color:#f97316">🌞 Warm</span>`;
+  if (temp >= 21) return `<span style="font-size:.78rem;font-weight:600;color:#f59e0b">☀️ Mild</span>`;
+  if (temp >= 18) return `<span style="font-size:.78rem;font-weight:600;color:#22c55e">✅ Just right</span>`;
+  if (temp >= 16) return `<span style="font-size:.78rem;font-weight:600;color:#60a5fa">🌧️ Cool</span>`;
+  if (temp >= 14) return `<span style="font-size:.78rem;font-weight:600;color:#3b82f6">❄️ Cold</span>`;
+  return `<span style="font-size:.78rem;font-weight:600;color:#1d4ed8">🥶 Very cold</span>`;
 }
 
 // ── Live poll ─────────────────────────────────────────────────────────────────

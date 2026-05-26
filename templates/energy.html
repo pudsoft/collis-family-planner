@@ -47,7 +47,8 @@
   <div class="card" style="padding:10px 12px;margin-bottom:10px">
     <div class="chart-title">🏠 Room temperatures — last 24h
       <span style="font-size:.7rem;color:var(--text-muted);font-weight:400;margin-left:6px">
-        ● red dot = actively heating
+        ● red dot = heating &nbsp;· &nbsp;
+        <span style="color:#22c55e">━</span> NHS ideal (18–20°C)
       </span>
     </div>
     <div style="position:relative;height:240px">
@@ -232,7 +233,30 @@ async function loadData() {
         const firstPts = d.room_series[roomNames[0]];
         const labels   = firstPts.map(p => fmtTime(p.t));
 
-        const datasets = roomNames.map((name, i) => {
+        const n = labels.length;
+        // NHS reference band — dashed lines at 18°C and 20°C
+        const nhsTop = {
+          label: '20°C (NHS upper)',
+          data:  Array(n).fill(20),
+          borderColor:     'rgba(34,197,94,0.55)',
+          backgroundColor: 'transparent',
+          borderDash:      [5, 4],
+          borderWidth:     1.5,
+          pointRadius:     0,
+          order:           99,
+        };
+        const nhsBot = {
+          label: '18°C (NHS lower)',
+          data:  Array(n).fill(18),
+          borderColor:     'rgba(34,197,94,0.55)',
+          backgroundColor: 'transparent',
+          borderDash:      [5, 4],
+          borderWidth:     1.5,
+          pointRadius:     0,
+          order:           99,
+        };
+
+        const datasets = [nhsTop, nhsBot, ...roomNames.map((name, i) => {
           const pts   = d.room_series[name];
           const color = ROOM_COLORS[i % ROOM_COLORS.length];
           return {
@@ -242,12 +266,11 @@ async function loadData() {
             backgroundColor:      'transparent',
             tension:              0.3,
             borderWidth:          2,
-            // Red dot when heating, otherwise invisible
             pointRadius:          pts.map(p => p.h ? 4 : 0),
             pointBackgroundColor: pts.map(p => p.h ? '#ef4444' : color),
             pointBorderColor:     pts.map(p => p.h ? '#ef4444' : color),
           };
-        });
+        })];
 
         _roomsChart = buildOrUpdate(_roomsChart, 'rooms-chart', 'rooms-empty',
                                     labels, datasets,
