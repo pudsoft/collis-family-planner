@@ -3,9 +3,15 @@
 Uses the V1 cloud endpoint (wap.tplinkcloud.com) which requires no request
 signing. Device on/off state is retrieved via cloud passthrough — no local
 network access needed, IoT VLAN isolation is fully maintained.
+
+Known V1 API quirk: getDeviceList always returns status=0 for every device
+regardless of actual connectivity. Online/offline is therefore determined by
+whether the passthrough call succeeds, not by the status field.
+Aliases are returned Base64-encoded and decoded automatically.
 """
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import time
@@ -23,6 +29,22 @@ _CACHE_TTL  = 30   # seconds between full device state refreshes
 _token: str | None       = None
 _cache_ts: float         = 0.0
 _cache_devices: list     = []
+
+
+# ── Alias decoding ────────────────────────────────────────────────────────────
+
+def _decode_alias(alias: str) -> str:
+    """Tapo cloud V1 returns device names Base64-encoded. Decode if possible."""
+    if not alias:
+        return alias
+    try:
+        padded  = alias + "=" * (-len(alias) % 4)
+        decoded = base64.b64decode(padded).decode("utf-8")
+        if decoded.isprintable() and any(c.isalpha() for c in decoded):
+            return decoded
+    except Exception:
+        pass
+    return alias
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
@@ -45,7 +67,7 @@ def _get_token() -> str:
     result = _post({
         "method": "login",
         "params": {
-            "appType":      "Kasa_Android",
+            "appType":       "Kasa_Android",
             "cloudUserName": config.TAPO_EMAIL,
             "cloudPassword": config.TAPO_PASSWORD,
             "terminalUUID":  _TERM_UUID,
@@ -64,13 +86,18 @@ def _invalidate_token():
 # ── Device listing ────────────────────────────────────────────────────────────
 
 def list_cloud_devices() -> list[dict]:
-    """Return raw device list from Tapo cloud (no state, just metadata)."""
+    """Return device list from Tapo cloud with decoded aliases."""
     if not config.TAPO_EMAIL or not config.TAPO_PASSWORD:
         return []
     try:
-        token  = _get_token()
-        result = _post({"method": "getDeviceList", "params": {}}, token=token)
-        return result.get("deviceList", [])
+        token   = _get_token()
+        result  = _post({"method": "getDeviceList", "params": {}}, token=token)
+        devices = result.get("deviceList", [])
+        # Decode Base64-encoded aliases in-place
+        for d in devices:
+            if d.get("alias"):
+                d["alias"] = _decode_alias(d["alias"])
+        return devices
     except Exception as exc:
         log.warning("Tapo list_cloud_devices failed: %s", exc)
         _invalidate_token()
@@ -103,17 +130,19 @@ def _passthrough(device: dict, request_data: dict) -> dict | None:
         return None
 
 
-def get_device_state(device: dict) -> bool | None:
-    """Return True (on) / False (off) / None (unknown) for a device."""
-    resp = _passthrough(device, {"system": {"get_sysinfo": {}}})
-    if resp is None:
-        return None
+def _parse_on_state(resp: dict) -> bool | None:
+    """Extract on/off boolean from a get_sysinfo passthrough response."""
     sysinfo = resp.get("system", {}).get("get_sysinfo", {})
     relay   = sysinfo.get("relay_state")
-    # Some bulbs use a different field
     if relay is None:
         relay = sysinfo.get("device_on")
     return bool(relay) if relay is not None else None
+
+
+def get_device_state(device: dict) -> bool | None:
+    """Return True (on) / False (off) / None (unknown) for a device."""
+    resp = _passthrough(device, {"system": {"get_sysinfo": {}}})
+    return None if resp is None else _parse_on_state(resp)
 
 
 def set_device_state(device: dict, on: bool) -> bool:
@@ -151,7 +180,11 @@ def _bust_cache():
 def get_all_device_states() -> list[dict]:
     """
     Return all devices with live on/off state, cached for _CACHE_TTL seconds.
-    Each dict: {deviceId, alias, deviceType, deviceModel, status, on}
+
+    Online/offline is determined by whether the passthrough responds —
+    the V1 cloud API status field is unreliable (always returns 0).
+
+    Each dict: {deviceId, alias, deviceType, deviceModel, online, on}
     """
     global _cache_ts, _cache_devices
     now = time.time()
@@ -161,16 +194,22 @@ def get_all_device_states() -> list[dict]:
     devices = list_cloud_devices()
     results = []
     for d in devices:
-        state = get_device_state(d) if d.get("status") == 1 else None
+        resp   = _passthrough(d, {"system": {"get_sysinfo": {}}})
+        online = resp is not None
+        on     = _parse_on_state(resp) if resp is not None else None
+
         results.append({
             "deviceId":    d.get("deviceId", ""),
             "alias":       d.get("alias", d.get("deviceName", "Device")),
             "deviceType":  d.get("deviceType", ""),
             "deviceModel": d.get("deviceModel", ""),
-            "online":      d.get("status") == 1,
-            "on":          state,
+            "online":      online,
+            "on":          on,
         })
+        log.debug("Tapo %-26s  online=%-5s  on=%s", d.get("alias"), online, on)
 
     _cache_devices = results
     _cache_ts      = now
+    log.info("Tapo: polled %d devices (%d online)",
+             len(results), sum(1 for r in results if r["online"]))
     return results
