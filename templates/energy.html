@@ -9,7 +9,7 @@
     <div id="poll-status" style="font-size:.75rem;color:var(--text-muted)">Loading…</div>
   </div>
 
-  <!-- ── Stat chips ──────────────────────────────────────────────────────── -->
+  <!-- ── Top stat chips ─────────────────────────────────────────────────── -->
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
     <div class="stat-chip">
       <span class="stat-label">🌡️ Outside</span>
@@ -28,56 +28,23 @@
   <!-- ── Solar chart ───────────────────────────────────────────────────── -->
   <div class="card" style="padding:10px 12px;margin-bottom:10px">
     <div class="chart-title">☀️ Solar generation today</div>
-    <div style="position:relative;height:180px">
+    <div style="position:relative;height:160px">
       <canvas id="solar-chart"></canvas>
       <div id="solar-empty" class="chart-empty" style="display:none">No solar data yet</div>
     </div>
   </div>
 
   <!-- ── Outdoor temp chart ─────────────────────────────────────────────── -->
-  <div class="card" style="padding:10px 12px;margin-bottom:10px">
+  <div class="card" style="padding:10px 12px;margin-bottom:14px">
     <div class="chart-title">🌡️ Outdoor temperature</div>
-    <div style="position:relative;height:180px">
+    <div style="position:relative;height:160px">
       <canvas id="outdoor-chart"></canvas>
       <div id="outdoor-empty" class="chart-empty" style="display:none">No outdoor data yet</div>
     </div>
   </div>
 
-  <!-- ── Ground floor chart ────────────────────────────────────────────── -->
-  <div class="card" style="padding:10px 12px;margin-bottom:10px" id="ground-card">
-    <div class="chart-title">🏠 Ground floor — temperatures
-      <span class="legend-hint">● red dot = heating</span>
-    </div>
-    <div style="position:relative;height:240px">
-      <canvas id="ground-chart"></canvas>
-      <div id="ground-empty" class="chart-empty" style="display:none">No ground floor data</div>
-    </div>
-  </div>
-  <div id="ground-stats" class="stat-row" style="margin-bottom:12px"></div>
-
-  <!-- ── First floor chart ─────────────────────────────────────────────── -->
-  <div class="card" style="padding:10px 12px;margin-bottom:10px" id="first-card">
-    <div class="chart-title">🛏️ First floor — temperatures
-      <span class="legend-hint">● red dot = heating</span>
-    </div>
-    <div style="position:relative;height:240px">
-      <canvas id="first-chart"></canvas>
-      <div id="first-empty" class="chart-empty" style="display:none">No first floor data</div>
-    </div>
-  </div>
-  <div id="first-stats" class="stat-row" style="margin-bottom:12px"></div>
-
-  <!-- ── Other / unassigned rooms chart ───────────────────────────────── -->
-  <div class="card" style="padding:10px 12px;margin-bottom:10px;display:none" id="other-card">
-    <div class="chart-title" id="other-title">🏠 Room temperatures
-      <span class="legend-hint">● red dot = heating</span>
-    </div>
-    <div style="position:relative;height:240px">
-      <canvas id="other-chart"></canvas>
-      <div id="other-empty" class="chart-empty" style="display:none">No room data yet — logger runs every 15 min</div>
-    </div>
-  </div>
-  <div id="other-stats" class="stat-row" style="margin-bottom:12px;display:none"></div>
+  <!-- ── Per-room rows (built by JS) ───────────────────────────────────── -->
+  <div id="rooms-container"></div>
 
 </div>
 {% endblock %}
@@ -86,78 +53,62 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 <style>
+/* ── Top stat chips ────────────────────────────────────────────────────── */
 .stat-chip {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 8px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 90px;
+  background:var(--card-bg); border:1px solid var(--border);
+  border-radius:10px; padding:8px 14px;
+  display:flex; flex-direction:column; gap:2px; min-width:90px;
 }
 .stat-label { font-size:.72rem; color:var(--text-muted); }
 .stat-value { font-size:1.05rem; font-weight:700; color:var(--text); }
 
-.chart-title {
-  font-size:.82rem;
-  font-weight:600;
-  color:var(--text);
-  margin-bottom:8px;
-}
-.legend-hint {
-  font-size:.7rem;
-  color:var(--text-muted);
-  font-weight:400;
-  margin-left:6px;
-}
+/* ── Chart title / empty ───────────────────────────────────────────────── */
+.chart-title { font-size:.82rem; font-weight:600; color:var(--text); margin-bottom:8px; }
 .chart-empty {
   position:absolute; inset:0;
   display:flex; align-items:center; justify-content:center;
   font-size:.8rem; color:var(--text-muted);
 }
 
-/* ── NHS zone legend strip ────────────────────────────────────────────── */
-.nhs-legend {
-  display:flex; gap:4px; flex-wrap:wrap;
-  font-size:.62rem; margin-bottom:6px; margin-top:-2px;
-}
-.nhs-badge {
-  padding:2px 6px; border-radius:4px; font-weight:600;
-  color:#fff;
-}
-
-/* ── Stat row (room cards) ────────────────────────────────────────────── */
-.stat-row {
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:8px;
+/* ── Floor section header ──────────────────────────────────────────────── */
+.floor-header {
+  font-size:.78rem; font-weight:700; color:var(--text-muted);
+  text-transform:uppercase; letter-spacing:.05em;
+  padding:2px 0 6px;
+  border-bottom:1px solid var(--border);
+  margin-bottom:8px;
 }
 
+/* ── Room row: card left, chart right ─────────────────────────────────── */
+.room-row {
+  display:flex; gap:8px; margin-bottom:8px; align-items:stretch;
+}
 .room-stat-card {
-  background:var(--card-bg);
-  border:1px solid var(--border);
-  border-radius:10px;
-  padding:10px 12px;
-  min-width:0;
+  flex:0 0 145px;
+  background:var(--card-bg); border:1px solid var(--border);
+  border-radius:10px; padding:9px 10px; min-width:0;
 }
+.room-chart-wrap {
+  flex:1; min-width:0;
+  background:var(--card-bg); border:1px solid var(--border);
+  border-radius:10px; padding:8px 10px;
+  position:relative; height:145px;
+}
+
+/* ── Stat card internals ───────────────────────────────────────────────── */
 .rsc-name {
-  font-size:.78rem; font-weight:700;
-  color:var(--text); margin-bottom:6px;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  font-size:.76rem; font-weight:700; color:var(--text);
+  margin-bottom:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
-.rsc-periods { display:flex; gap:8px; }
+.rsc-periods { display:flex; gap:6px; }
 .rsc-period  { flex:1; min-width:0; }
-.rsc-period-lbl {
-  font-size:.68rem; font-weight:600;
-  color:var(--text-muted); margin-bottom:3px;
-}
+.rsc-period-lbl { font-size:.64rem; font-weight:600; color:var(--text-muted); margin-bottom:2px; }
 .rsc-row {
-  display:flex; align-items:baseline; gap:3px;
-  font-size:.74rem; margin-bottom:2px; white-space:nowrap;
+  display:flex; align-items:baseline; gap:2px;
+  font-size:.71rem; margin-bottom:1px; white-space:nowrap;
 }
-.rsc-lbl { font-size:.64rem; color:var(--text-muted); min-width:28px; }
-.rsc-time { font-size:.64rem; color:var(--text-muted); margin-left:2px; }
+.rsc-lbl  { font-size:.61rem; color:var(--text-muted); min-width:24px; }
+.rsc-time { font-size:.61rem; color:var(--text-muted); margin-left:1px; }
 </style>
 
 <script>
@@ -166,102 +117,85 @@ const ROOM_COLORS = [
   '#0891b2','#65a30d','#9333ea','#dc2626',
 ];
 
-// ── NHS colour scale ──────────────────────────────────────────────────────────
-function tempColour(t) {
-  if (t == null) return 'var(--text-muted)';
-  if (t >= 27)   return '#dc2626';
-  if (t >= 24)   return '#f97316';
-  if (t >= 21)   return '#f59e0b';
-  if (t >= 18)   return '#22c55e';
-  if (t >= 16)   return '#60a5fa';
-  if (t >= 14)   return '#3b82f6';
-  return '#1d4ed8';
-}
+let _solarChart   = null;
+let _outdoorChart = null;
+let _roomCharts   = {};     // canvasId → Chart instance
+let _renderedRooms = null;  // comma-joined name list for change detection
 
-// ── NHS annotation bands (for room temperature charts) ────────────────────────
+// ── NHS shading annotations ───────────────────────────────────────────────────
 function nhsAnnotations() {
-  const band = (yMin, yMax, rgba) => ({
-    type: 'box', yMin, yMax,
-    backgroundColor: rgba, borderWidth: 0,
-    drawTime: 'beforeDatasetsDraw',
+  const b = (yMin, yMax, rgba) => ({
+    type:'box', yMin, yMax, backgroundColor:rgba, borderWidth:0,
+    drawTime:'beforeDatasetsDraw',
   });
   return {
-    nhs_hot:   band(27,  60,  'rgba(220,38,38,0.07)'),
-    nhs_warm:  band(24,  27,  'rgba(249,115,22,0.07)'),
-    nhs_mild:  band(21,  24,  'rgba(245,158,11,0.07)'),
-    nhs_just:  band(18,  21,  'rgba(34,197,94,0.10)'),
-    nhs_cool:  band(16,  18,  'rgba(96,165,250,0.08)'),
-    nhs_cold:  band(14,  16,  'rgba(59,130,246,0.08)'),
-    nhs_vcold: band(-10, 14,  'rgba(29,78,216,0.08)'),
+    nhs_hot:   b(27, 60,  'rgba(220,38,38,0.07)'),
+    nhs_warm:  b(24, 27,  'rgba(249,115,22,0.07)'),
+    nhs_mild:  b(21, 24,  'rgba(245,158,11,0.07)'),
+    nhs_just:  b(18, 21,  'rgba(34,197,94,0.10)'),
+    nhs_cool:  b(16, 18,  'rgba(96,165,250,0.08)'),
+    nhs_cold:  b(14, 16,  'rgba(59,130,246,0.08)'),
+    nhs_vcold: b(-10,14,  'rgba(29,78,216,0.08)'),
   };
 }
 
-// ── Time formatting ───────────────────────────────────────────────────────────
+// ── Time helpers ──────────────────────────────────────────────────────────────
 function fmtTime(ts) {
   if (!ts) return '';
   const s = ts.endsWith('Z') ? ts : ts + 'Z';
-  return new Date(s).toLocaleTimeString('en-GB', {
-    hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London',
-  });
+  return new Date(s).toLocaleTimeString('en-GB',
+    { hour:'2-digit', minute:'2-digit', timeZone:'Europe/London' });
 }
 
-// ── Chart builder ─────────────────────────────────────────────────────────────
-let _solarChart   = null;
-let _outdoorChart = null;
-let _groundChart  = null;
-let _firstChart   = null;
-let _otherChart   = null;
+// ── NHS colour ────────────────────────────────────────────────────────────────
+function tempColour(t) {
+  if (t == null) return 'var(--text-muted)';
+  if (t >= 27) return '#dc2626';
+  if (t >= 24) return '#f97316';
+  if (t >= 21) return '#f59e0b';
+  if (t >= 18) return '#22c55e';
+  if (t >= 16) return '#60a5fa';
+  if (t >= 14) return '#3b82f6';
+  return '#1d4ed8';
+}
 
+// ── Generic chart builder (solar / outdoor) ───────────────────────────────────
 function buildOrUpdate(existing, id, emptyId, labels, datasets, yOpts) {
   const el    = document.getElementById(id);
   const empty = document.getElementById(emptyId);
   if (!el) return null;
 
-  if (!labels.length || !datasets.length) {
-    el.style.display    = 'none';
+  if (!labels.length) {
+    el.style.display = 'none';
     if (empty) empty.style.display = 'flex';
     return existing;
   }
   el.style.display = '';
   if (empty) empty.style.display = 'none';
 
-  const annotationPlugin = yOpts.annotations
-    ? { annotation: { annotations: yOpts.annotations } }
-    : {};
-
   const cfg = {
     type: 'line',
     data: { labels, datasets },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: {
-          display: yOpts.legend || false,
-          labels: { boxWidth: 12, font: { size: 10 } },
-        },
-        tooltip: {
-          mode: 'index',
-          callbacks: {
+      responsive:true, maintainAspectRatio:false, animation:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{
+        legend:{ display: yOpts.legend || false, labels:{ boxWidth:12, font:{ size:10 } } },
+        tooltip:{
+          mode:'index',
+          callbacks:{
             label: ctx => {
               const v = ctx.parsed.y;
               return ` ${ctx.dataset.label}: ${v != null ? v.toFixed(1) : '--'}${yOpts.unit || ''}`;
             },
           },
         },
-        ...annotationPlugin,
       },
-      scales: {
-        x: {
-          ticks: { maxTicksLimit: 6, maxRotation: 0, font: { size: 10 } },
-          grid:  { display: false },
-        },
-        y: {
-          ticks: { font: { size: 10 } },
-          grid:  { color: 'rgba(128,128,128,0.1)' },
-          title: { display: !!yOpts.yLabel, text: yOpts.yLabel || '', font: { size: 10 } },
+      scales:{
+        x:{ ticks:{ maxTicksLimit:6, maxRotation:0, font:{ size:10 } }, grid:{ display:false } },
+        y:{
+          ticks:{ font:{ size:10 } },
+          grid:{ color:'rgba(128,128,128,0.1)' },
           ...(yOpts.yMin != null ? { min: yOpts.yMin } : {}),
           ...(yOpts.yMax != null ? { max: yOpts.yMax } : {}),
         },
@@ -269,107 +203,156 @@ function buildOrUpdate(existing, id, emptyId, labels, datasets, yOpts) {
     },
   };
 
-  if (existing) {
-    existing.data    = cfg.data;
-    existing.options = cfg.options;
-    existing.update('none');
-    return existing;
-  }
+  if (existing) { existing.data = cfg.data; existing.options = cfg.options; existing.update('none'); return existing; }
   return new Chart(el, cfg);
 }
 
-// ── Room chart builder ────────────────────────────────────────────────────────
-function buildRoomChart(existing, chartId, emptyId, roomsObj, labels) {
-  const names = Object.keys(roomsObj).sort();
-  const n     = labels.length;
+// ── Single-room chart builder ─────────────────────────────────────────────────
+function buildRoomChart(existing, canvasId, roomData, labels, color, yMin, yMax) {
+  const el = document.getElementById(canvasId);
+  if (!el) return null;
 
-  if (!names.length) {
-    buildOrUpdate(existing, chartId, emptyId, [], [], {});
-    return existing;
-  }
+  if (!labels.length) return existing;
 
-  const nhsRef = (val, lbl) => ({
-    label: lbl,
-    data:            Array(n).fill(val),
-    borderColor:     'rgba(34,197,94,0.55)',
-    backgroundColor: 'transparent',
-    borderDash:      [5, 4],
-    borderWidth:     1.5,
-    pointRadius:     0,
-    spanGaps:        false,
-    order:           99,
-  });
+  const dataset = {
+    label: canvasId,
+    data:                 roomData.temps,
+    borderColor:          color,
+    backgroundColor:      'transparent',
+    tension:              0.3,
+    borderWidth:          2,
+    spanGaps:             true,
+    pointRadius:          roomData.heating.map(h => h ? 4 : 0),
+    pointBackgroundColor: roomData.heating.map(h => h ? '#ef4444' : color),
+    pointBorderColor:     roomData.heating.map(h => h ? '#ef4444' : color),
+  };
 
-  const datasets = [
-    nhsRef(20, '20°C (NHS upper)'),
-    nhsRef(18, '18°C (NHS lower)'),
-    ...names.map((name, i) => {
-      const room  = roomsObj[name];
-      const color = ROOM_COLORS[i % ROOM_COLORS.length];
-      return {
-        label:                name,
-        data:                 room.temps,
-        borderColor:          color,
-        backgroundColor:      'transparent',
-        tension:              0.3,
-        borderWidth:          2,
-        spanGaps:             true,
-        pointRadius:          room.heating.map(h => h ? 4 : 0),
-        pointBackgroundColor: room.heating.map(h => h ? '#ef4444' : color),
-        pointBorderColor:     room.heating.map(h => h ? '#ef4444' : color),
-      };
-    }),
-  ];
+  const cfg = {
+    type: 'line',
+    data: { labels, datasets: [dataset] },
+    options: {
+      responsive:true, maintainAspectRatio:false, animation:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{
+        legend:{ display:false },
+        tooltip:{
+          callbacks:{
+            label: ctx => {
+              const v = ctx.parsed.y;
+              return ` ${v != null ? v.toFixed(1) : '--'}°C${roomData.heating[ctx.dataIndex] ? ' 🔥' : ''}`;
+            },
+          },
+        },
+        annotation:{ annotations: nhsAnnotations() },
+      },
+      scales:{
+        x:{ ticks:{ maxTicksLimit:5, maxRotation:0, font:{ size:9 } }, grid:{ display:false } },
+        y:{
+          ticks:{ font:{ size:9 } },
+          grid:{ color:'rgba(128,128,128,0.1)' },
+          min: yMin, max: yMax,
+        },
+      },
+    },
+  };
 
-  return buildOrUpdate(existing, chartId, emptyId, labels, datasets,
-    { unit: '°C', legend: true, annotations: nhsAnnotations(), yMin: -10, yMax: 40 });
+  if (existing) { existing.data = cfg.data; existing.options = cfg.options; existing.update('none'); return existing; }
+  return new Chart(el, cfg);
 }
 
-// ── Per-room stat cards ───────────────────────────────────────────────────────
-function renderStats(containerId, roomsObj, statsData) {
-  const el    = document.getElementById(containerId);
-  if (!el) return;
-  const names = Object.keys(roomsObj).sort();
-  if (!names.length) { el.style.display = 'none'; return; }
-  el.style.display = '';
+// ── Stat card HTML ────────────────────────────────────────────────────────────
+function statCardHtml(name, s) {
+  const day = s.day   || {};
+  const ngt = s.night || {};
+  const ti  = s.trend === 'up' ? '↗️' : s.trend === 'down' ? '↘️' : s.trend === 'flat' ? '➡️' : '';
+  const tc  = s.trend === 'up' ? '#f97316' : s.trend === 'down' ? '#60a5fa' : 'var(--text-muted)';
 
-  el.innerHTML = names.map(name => {
-    const s   = (statsData || {})[name] || {};
-    const day = s.day   || {};
-    const ngt = s.night || {};
-    const trendIcon  = s.trend === 'up'   ? '↗️' : s.trend === 'down' ? '↘️' : s.trend === 'flat' ? '➡️' : '';
-    const trendColor = s.trend === 'up'   ? '#f97316'
-                     : s.trend === 'down' ? '#60a5fa' : 'var(--text-muted)';
+  const val = v => v != null
+    ? `<span style="font-weight:700;color:${tempColour(v)}">${v.toFixed(1)}°</span>`
+    : `<span style="color:var(--text-muted)">--</span>`;
 
-    const valHtml = (v) => v != null
-      ? `<span style="font-weight:700;color:${tempColour(v)}">${v.toFixed(1)}°</span>`
-      : `<span style="color:var(--text-muted)">--</span>`;
+  const row = (lbl, v, ts) =>
+    `<div class="rsc-row"><span class="rsc-lbl">${lbl}</span>${val(v)}${ts
+      ? `<span class="rsc-time">${fmtTime(ts)}</span>` : ''}</div>`;
 
-    const row = (lbl, val, ts) =>
-      `<div class="rsc-row">
-        <span class="rsc-lbl">${lbl}</span>
-        ${valHtml(val)}
-        ${ts ? `<span class="rsc-time">${fmtTime(ts)}</span>` : ''}
-      </div>`;
-
-    return `<div class="room-stat-card">
-      <div class="rsc-name">${name} <span style="color:${trendColor};font-size:.85rem">${trendIcon}</span></div>
-      <div class="rsc-periods">
-        <div class="rsc-period">
-          <div class="rsc-period-lbl">🌅 Day</div>
-          ${row('↓ Min', day.min, day.min_t)}
-          ${row('↑ Max', day.max, day.max_t)}
-          ${row('~ Avg', day.avg, null)}
-        </div>
-        <div class="rsc-period">
-          <div class="rsc-period-lbl">🌙 Night</div>
-          ${row('↓ Min', ngt.min, ngt.min_t)}
-          ${row('↑ Max', ngt.max, ngt.max_t)}
-          ${row('~ Avg', ngt.avg, null)}
-        </div>
+  return `
+    <div class="rsc-name">${name} <span style="color:${tc};font-size:.82rem">${ti}</span></div>
+    <div class="rsc-periods">
+      <div class="rsc-period">
+        <div class="rsc-period-lbl">🌅 Day</div>
+        ${row('↓',day.min,day.min_t)}
+        ${row('↑',day.max,day.max_t)}
+        ${row('~',day.avg,null)}
+      </div>
+      <div class="rsc-period">
+        <div class="rsc-period-lbl">🌙 Night</div>
+        ${row('↓',ngt.min,ngt.min_t)}
+        ${row('↑',ngt.max,ngt.max_t)}
+        ${row('~',ngt.avg,null)}
       </div>
     </div>`;
-  }).join('');
+}
+
+// ── Room canvas ID ────────────────────────────────────────────────────────────
+function roomCid(name) { return 'rc_' + name.replace(/[^a-z0-9]/gi,'_'); }
+
+// ── Render / update room rows ─────────────────────────────────────────────────
+function renderRooms(groundRooms, firstRooms, otherRooms, roomStats, labels, yMin, yMax) {
+  // Build ordered list: ground → first → other, each bucket sorted by name
+  const ordered = [];
+  const addBucket = (bucket, floor) =>
+    Object.keys(bucket).sort().forEach(name =>
+      ordered.push({ name, data:bucket[name], floor }));
+  addBucket(groundRooms, 'ground');
+  addBucket(firstRooms,  'first');
+  addBucket(otherRooms,  'other');
+
+  const nameKey = ordered.map(r => r.name).join('|');
+  const container = document.getElementById('rooms-container');
+
+  // Rebuild DOM only when room list changes
+  if (nameKey !== _renderedRooms) {
+    Object.values(_roomCharts).forEach(c => { try { c.destroy(); } catch(_) {} });
+    _roomCharts = {};
+
+    let html = '';
+    let lastFloor = null;
+    const hasSplit = Object.keys(groundRooms).length + Object.keys(firstRooms).length > 0;
+
+    ordered.forEach((room, i) => {
+      if (hasSplit && room.floor !== lastFloor) {
+        lastFloor = room.floor;
+        const label = room.floor === 'ground' ? '🏠 Ground floor'
+                    : room.floor === 'first'  ? '🛏️ First floor'
+                    :                            '📍 Other rooms';
+        html += `<div class="floor-header">${label}</div>`;
+      }
+      const cid   = roomCid(room.name);
+      const color = ROOM_COLORS[i % ROOM_COLORS.length];
+      html += `
+        <div class="room-row">
+          <div class="room-stat-card" id="rsc_${cid}"></div>
+          <div class="room-chart-wrap">
+            <canvas id="${cid}" data-color="${color}"></canvas>
+          </div>
+        </div>`;
+    });
+    container.innerHTML = html;
+    _renderedRooms = nameKey;
+  }
+
+  // Update stat cards and charts
+  ordered.forEach((room, i) => {
+    const cid   = roomCid(room.name);
+    const color = ROOM_COLORS[i % ROOM_COLORS.length];
+
+    const statEl = document.getElementById('rsc_' + cid);
+    if (statEl) statEl.innerHTML = statCardHtml(room.name, roomStats[room.name] || {});
+
+    _roomCharts[cid] = buildRoomChart(
+      _roomCharts[cid] || null, cid, room.data, labels, color, yMin, yMax
+    );
+  });
 }
 
 // ── Main data load ────────────────────────────────────────────────────────────
@@ -379,7 +362,6 @@ async function loadData() {
     if (!r.ok) return;
     const d = await r.json();
 
-    // Stat chips
     document.getElementById('stat-outdoor').textContent =
       d.outdoor_current != null ? d.outdoor_current.toFixed(1) + '°C' : '--';
     document.getElementById('stat-solar-now').textContent =
@@ -388,91 +370,44 @@ async function loadData() {
       d.solar_today_kwh != null ? d.solar_today_kwh.toFixed(1) + ' kWh' : '--';
 
     const labels = (d.timeline || []).map(t => fmtTime(t));
-    const n      = labels.length;
-
-    if (!n) {
+    if (!labels.length) {
       document.getElementById('poll-status').textContent = 'No data yet';
       return;
     }
 
     // ── Solar ──────────────────────────────────────────────────────────────
-    _solarChart = buildOrUpdate(_solarChart, 'solar-chart', 'solar-empty',
-      labels,
+    _solarChart = buildOrUpdate(_solarChart, 'solar-chart', 'solar-empty', labels,
       [{
-        label: '☀️ kW',
-        data:            d.solar || [],
-        borderColor:     '#f59e0b',
-        backgroundColor: 'rgba(245,158,11,0.15)',
-        fill:            true,
-        tension:         0.4,
-        pointRadius:     0,
-        borderWidth:     2,
-        spanGaps:        false,
+        label:'☀️ kW', data:d.solar || [],
+        borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,0.15)',
+        fill:true, tension:0.4, pointRadius:0, borderWidth:2, spanGaps:false,
       }],
-      { unit: ' kW' }
+      { unit:' kW' }
     );
 
     // ── Outdoor ────────────────────────────────────────────────────────────
-    _outdoorChart = buildOrUpdate(_outdoorChart, 'outdoor-chart', 'outdoor-empty',
-      labels,
+    _outdoorChart = buildOrUpdate(_outdoorChart, 'outdoor-chart', 'outdoor-empty', labels,
       [{
-        label: '🌡️ °C',
-        data:            d.outdoor || [],
-        borderColor:     '#60a5fa',
-        backgroundColor: 'rgba(96,165,250,0.12)',
-        fill:            true,
-        tension:         0.4,
-        pointRadius:     0,
-        borderWidth:     2,
-        spanGaps:        true,
+        label:'🌡️ °C', data:d.outdoor || [],
+        borderColor:'#60a5fa', backgroundColor:'rgba(96,165,250,0.12)',
+        fill:true, tension:0.4, pointRadius:0, borderWidth:2, spanGaps:true,
       }],
-      { unit: '°C', yMin: -10, yMax: 40 }
+      { unit:'°C', yMin:-10, yMax:40 }
     );
 
-    // ── Room charts ────────────────────────────────────────────────────────
-    const groundRooms = d.ground_rooms || {};
-    const firstRooms  = d.first_rooms  || {};
-    const otherRooms  = d.other_rooms  || {};
-    const stats       = d.room_stats   || {};
-
-    const hasGround = Object.keys(groundRooms).length > 0;
-    const hasFirst  = Object.keys(firstRooms ).length > 0;
-    const hasOther  = Object.keys(otherRooms ).length > 0;
-
-    // If rooms have been assigned to floors, show split charts;
-    // otherwise fall back to a single "Room temperatures" chart.
-    const hasSplit = hasGround || hasFirst;
-
-    document.getElementById('ground-card').style.display = hasGround ? '' : 'none';
-    document.getElementById('ground-stats').style.display = hasGround ? '' : 'none';
-    document.getElementById('first-card').style.display  = hasFirst  ? '' : 'none';
-    document.getElementById('first-stats').style.display  = hasFirst  ? '' : 'none';
-
-    const otherCard  = document.getElementById('other-card');
-    const otherStats = document.getElementById('other-stats');
-    if (otherCard) {
-      const showOther = hasOther && (!hasSplit || hasOther);
-      otherCard.style.display  = showOther ? '' : 'none';
-      if (otherStats) otherStats.style.display = showOther ? '' : 'none';
-      // If all rooms are unassigned, relabel to generic title
-      if (!hasSplit && hasOther) {
-        const titleNode = otherCard.querySelector('#other-title');
-        if (titleNode) titleNode.firstChild.textContent = '🏠 Room temperatures ';
-      }
-    }
-
-    _groundChart = buildRoomChart(_groundChart, 'ground-chart', 'ground-empty', groundRooms, labels);
-    _firstChart  = buildRoomChart(_firstChart,  'first-chart',  'first-empty',  firstRooms,  labels);
-    _otherChart  = buildRoomChart(_otherChart,  'other-chart',  'other-empty',  otherRooms,  labels);
-
-    renderStats('ground-stats', groundRooms, stats);
-    renderStats('first-stats',  firstRooms,  stats);
-    renderStats('other-stats',  otherRooms,  stats);
+    // ── Per-room charts ────────────────────────────────────────────────────
+    renderRooms(
+      d.ground_rooms || {}, d.first_rooms || {}, d.other_rooms || {},
+      d.room_stats   || {},
+      labels,
+      d.y_min != null ? d.y_min : 14,
+      d.y_max != null ? d.y_max : 25,
+    );
 
     document.getElementById('poll-status').textContent =
-      'Updated ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      'Updated ' + new Date().toLocaleTimeString('en-GB',{ hour:'2-digit', minute:'2-digit' });
 
-  } catch (e) {
+  } catch(e) {
     document.getElementById('poll-status').textContent = 'Error loading data';
     console.error(e);
   }

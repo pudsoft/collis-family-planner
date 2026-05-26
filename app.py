@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import sqlite3
 import threading
 import time as _time
@@ -2254,6 +2255,15 @@ def energy_data():
         else:
             _trend = None
         out["room_stats"][_name]["trend"] = _trend
+
+    # ── Shared y-axis range across all room datasets ─────────────────────────
+    _all_temps = [t for _d in out["rooms"].values() for t in _d["temps"] if t is not None]
+    if _all_temps:
+        out["y_min"] = math.floor(min(_all_temps)) - 1
+        out["y_max"] = math.ceil(max(_all_temps))  + 1
+    else:
+        out["y_min"] = 14
+        out["y_max"] = 25
 
     return jsonify(out)
 
