@@ -24,7 +24,7 @@ from config import WEATHER_LAT, WEATHER_LON
 log = logging.getLogger(__name__)
 
 _CACHE_FILE       = Path(__file__).parent.parent / "data" / "weather_cache.json"
-_REFRESH_INTERVAL = 3600   # background refresh every hour
+_REFRESH_INTERVAL = 900    # background refresh every 15 minutes
 _FAIL_RETRY       = 300    # retry interval after a failed fetch (5 minutes)
 _HTTP_TIMEOUT     = 15     # seconds (background thread — latency doesn't matter)
 
