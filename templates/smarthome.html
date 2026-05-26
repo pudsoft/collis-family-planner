@@ -642,13 +642,15 @@ function renderAdminRoomList(rooms) {
           <div class="device-name">${r.icon} ${r.name}</div>
           <div class="device-mac">Col ${r.grid_col}, Row ${r.grid_row} · ${r.grid_col_span}×${r.grid_row_span}</div>
         </div>
-        <button class="btn btn-secondary btn-sm" onclick='openRoomModal(${JSON.stringify(r)})'>Edit</button>
+        <button class="btn btn-secondary btn-sm" onclick="openRoomModal(_roomById(${r.id}))">Edit</button>
         <button class="btn btn-danger btn-sm" onclick="deleteRoom(${r.id})">✕</button>
       </div>`).join('')}
   `).join('');
 }
 
 // ── Room CRUD ─────────────────────────────────────────────────────────────────
+
+function _roomById(id) { return _lastRooms.find(r => r.id === id) || null; }
 
 function openRoomModal(room) {
   document.getElementById('room-id').value          = room?.id || '';
