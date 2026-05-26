@@ -160,13 +160,17 @@ def set_device_state(device: dict, on: bool) -> bool:
                 ),
             },
         }
-        r = requests.post(url, json=payload, timeout=8)
-        ok = r.json().get("error_code", -1) == 0
-        if ok:
-            _bust_cache()
-        return ok
+        r    = requests.post(url, json=payload, timeout=8)
+        body = r.json()
+        ec   = body.get("error_code", -1)
+        if ec != 0:
+            log.warning("Tapo set_device_state failed: error_code=%s msg=%s",
+                        ec, body.get("msg", ""))
+            return False
+        _bust_cache()
+        return True
     except Exception as exc:
-        log.warning("Tapo set_device_state failed: %s", exc)
+        log.warning("Tapo set_device_state exception: %s", exc)
         return False
 
 
