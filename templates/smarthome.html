@@ -181,6 +181,7 @@
 <script>
 const TAPO_CONFIGURED = {{ 'true' if tapo_configured else 'false' }};
 const HIVE_CONFIGURED = {{ 'true' if hive_configured else 'false' }};
+const IS_ADMIN        = {{ 'true' if is_admin else 'false' }};
 
 let _pollTimer   = null;
 let _editMode    = false;
@@ -274,15 +275,25 @@ function renderGrid(rooms) {
     if (isHeating) tileClass += " room-tile-heating";
     else if (anyOn) tileClass += " room-tile-on";
 
+    const editBtn = IS_ADMIN
+      ? `<button onclick='openRoomModal(${JSON.stringify(room).replace(/'/g,"&#39;")})'
+               title="Edit room"
+               style="flex-shrink:0;padding:2px 5px;border-radius:4px;border:1px solid #2d5a3d33;
+                      background:transparent;cursor:pointer;font-size:.72rem;color:#2d5a3d;opacity:.6">✏️</button>`
+      : "";
+
     return `
     <div class="${tileClass}" style="
       grid-column: ${(room.grid_col||0)+1} / span ${room.grid_col_span||1};
       grid-row:    ${(room.grid_row||0)+1} / span ${room.grid_row_span||1};
     ">
       <div>
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px">
-          <div style="font-size:.88rem;font-weight:700;color:#1a3a2a">${room.icon} ${room.name}</div>
-          <div style="text-align:right;line-height:1">${tempStr}</div>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:4px;margin-bottom:4px">
+          <div style="font-size:.88rem;font-weight:700;color:#1a3a2a;flex:1;min-width:0">${room.icon} ${room.name}</div>
+          <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+            <div style="text-align:right;line-height:1">${tempStr}</div>
+            ${editBtn}
+          </div>
         </div>
         ${heatingBadge ? `<div style="margin-bottom:4px">${heatingBadge}</div>` : ""}
       </div>

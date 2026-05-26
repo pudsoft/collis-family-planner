@@ -1952,10 +1952,11 @@ def admin_smarthome_seed():
         return jsonify({"ok": False, "error": f"{count} rooms already exist — delete them first"})
 
     seed = [
-        # Ground floor (standard UK layout — user can edit to match actual)
-        ("Living Room",  "🛋️", "ground", 0, 0, 2, 2),
-        ("Kitchen",      "🍳", "ground", 2, 0, 2, 1),
-        ("Dining Room",  "🍽️", "ground", 2, 1, 2, 1),
+        # Ground floor (from shared floor plan)
+        ("Kitchen",      "🍳", "ground", 0, 0, 1, 1),
+        ("Dining Room",  "🍽️", "ground", 1, 0, 3, 1),
+        ("WC",           "🚽", "ground", 0, 1, 1, 1),
+        ("Lounge",       "🛋️", "ground", 1, 1, 3, 1),
         # First floor (from shared floor plan)
         ("Bedroom 4",    "🛏️", "first",  0, 0, 1, 1),
         ("Bathroom",     "🚿", "first",  1, 0, 1, 1),
