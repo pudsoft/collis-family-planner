@@ -2062,10 +2062,23 @@ def energy_data():
     TEMP_DB   = Path(__file__).parent / "data" / "temperature_log.db"
     ENERGY_DB = Path(__file__).parent / "data" / "energy.db"
 
-    # ── Build shared 15-min UTC timeline for last 48 h ───────────────────────
+    # ── Build shared 15-min UTC timeline ────────────────────────────────────
+    # Start from the earliest temperature reading so solar doesn't show
+    # a blank period before the logger existed.  Cap at 48 h ago.
     _now  = datetime.utcnow().replace(second=0, microsecond=0)
     _now  = _now - timedelta(minutes=_now.minute % 15)
-    _start = _now - timedelta(hours=48)
+    _start = _now - timedelta(hours=48)   # default
+    if TEMP_DB.exists():
+        _tc = sqlite3.connect(TEMP_DB)
+        _tr = _tc.execute("SELECT MIN(recorded_at) FROM temperature_log").fetchone()
+        _tc.close()
+        if _tr and _tr[0]:
+            _ts  = _tr[0].replace("Z", "").replace(" ", "T")
+            _tdt = datetime.strptime(_ts[:19], "%Y-%m-%dT%H:%M:%S")
+            # Round down to 15-min boundary
+            _tdt = _tdt - timedelta(minutes=_tdt.minute % 15, seconds=_tdt.second)
+            if _tdt > _start:
+                _start = _tdt
 
     timeline: list[datetime] = []
     _t = _start
@@ -2167,6 +2180,70 @@ def energy_data():
             out["solar_today_kwh"] = row["kwh"]
 
         edb.close()
+
+    # ── Floor mapping from main app DB ──────────────────────────────────────
+    # Maps Hive zone name (= smart_devices.name) → floor string
+    floor_map: dict[str, str] = {}
+    try:
+        mdb = get_db()
+        for _r in mdb.execute(
+            "SELECT sd.name AS hive_name, LOWER(COALESCE(sr.floor,'')) AS floor "
+            "FROM smart_devices sd "
+            "JOIN smart_rooms sr ON sd.room_id = sr.id "
+            "WHERE sd.provider = 'hive'"
+        ).fetchall():
+            floor_map[_r["hive_name"]] = _r["floor"]
+    except Exception:
+        pass
+
+    ground_rooms: dict = {}
+    first_rooms:  dict = {}
+    other_rooms:  dict = {}
+    for _name, _data in out["rooms"].items():
+        _fl = floor_map.get(_name, "")
+        if _fl in ("ground", "ground floor", "gf"):
+            ground_rooms[_name] = _data
+        elif _fl in ("first", "first floor", "1st", "1st floor", "ff"):
+            first_rooms[_name] = _data
+        else:
+            other_rooms[_name] = _data
+
+    out["ground_rooms"] = ground_rooms
+    out["first_rooms"]  = first_rooms
+    out["other_rooms"]  = other_rooms
+
+    # ── Day / night stats (chart window) ────────────────────────────────────
+    # Day  = 06:00–21:00 UTC  (~07:00–22:00 BST)
+    # Night= 21:00–06:00 UTC
+    _day_pts:   dict[str, list] = {n: [] for n in out["rooms"]}
+    _night_pts: dict[str, list] = {n: [] for n in out["rooms"]}
+
+    for _i, _ts in enumerate(tl_strs):
+        _hr = int(_ts[11:13])
+        for _name, _data in out["rooms"].items():
+            _temp = _data["temps"][_i]
+            if _temp is None:
+                continue
+            (_day_pts[_name] if 6 <= _hr < 21 else _night_pts[_name]).append((_temp, _ts))
+
+    def _stat_block(pairs: list) -> dict:
+        if not pairs:
+            return {"min": None, "min_t": None, "max": None, "max_t": None, "avg": None}
+        lo = min(pairs, key=lambda x: x[0])
+        hi = max(pairs, key=lambda x: x[0])
+        return {
+            "min": round(lo[0], 1), "min_t": lo[1],
+            "max": round(hi[0], 1), "max_t": hi[1],
+            "avg": round(sum(p[0] for p in pairs) / len(pairs), 1),
+        }
+
+    out["room_stats"] = {
+        _name: {
+            "day":   _stat_block(_day_pts[_name]),
+            "night": _stat_block(_night_pts[_name]),
+        }
+        for _name in out["rooms"]
+    }
 
     return jsonify(out)
 

@@ -36,32 +36,55 @@
 
   <!-- ── Outdoor temp chart ─────────────────────────────────────────────── -->
   <div class="card" style="padding:10px 12px;margin-bottom:10px">
-    <div class="chart-title">🌡️ Outdoor temp — 24h</div>
+    <div class="chart-title">🌡️ Outdoor temperature</div>
     <div style="position:relative;height:180px">
       <canvas id="outdoor-chart"></canvas>
       <div id="outdoor-empty" class="chart-empty" style="display:none">No outdoor data yet</div>
     </div>
   </div>
 
-  <!-- ── Room temperatures chart ────────────────────────────────────────── -->
-  <div class="card" style="padding:10px 12px;margin-bottom:10px">
-    <div class="chart-title">🏠 Room temperatures — last 24h
-      <span style="font-size:.7rem;color:var(--text-muted);font-weight:400;margin-left:6px">
-        ● red dot = heating &nbsp;· &nbsp;
-        <span style="color:#22c55e">━</span> NHS ideal (18–20°C)
-      </span>
+  <!-- ── Ground floor chart ────────────────────────────────────────────── -->
+  <div class="card" style="padding:10px 12px;margin-bottom:10px" id="ground-card">
+    <div class="chart-title">🏠 Ground floor — temperatures
+      <span class="legend-hint">● red dot = heating</span>
     </div>
     <div style="position:relative;height:240px">
-      <canvas id="rooms-chart"></canvas>
-      <div id="rooms-empty" class="chart-empty" style="display:none">No room data yet — logger runs every 15 min</div>
+      <canvas id="ground-chart"></canvas>
+      <div id="ground-empty" class="chart-empty" style="display:none">No ground floor data</div>
     </div>
   </div>
+  <div id="ground-stats" class="stat-row" style="margin-bottom:12px"></div>
+
+  <!-- ── First floor chart ─────────────────────────────────────────────── -->
+  <div class="card" style="padding:10px 12px;margin-bottom:10px" id="first-card">
+    <div class="chart-title">🛏️ First floor — temperatures
+      <span class="legend-hint">● red dot = heating</span>
+    </div>
+    <div style="position:relative;height:240px">
+      <canvas id="first-chart"></canvas>
+      <div id="first-empty" class="chart-empty" style="display:none">No first floor data</div>
+    </div>
+  </div>
+  <div id="first-stats" class="stat-row" style="margin-bottom:12px"></div>
+
+  <!-- ── Other / unassigned rooms chart ───────────────────────────────── -->
+  <div class="card" style="padding:10px 12px;margin-bottom:10px;display:none" id="other-card">
+    <div class="chart-title" id="other-title">🏠 Room temperatures
+      <span class="legend-hint">● red dot = heating</span>
+    </div>
+    <div style="position:relative;height:240px">
+      <canvas id="other-chart"></canvas>
+      <div id="other-empty" class="chart-empty" style="display:none">No room data yet — logger runs every 15 min</div>
+    </div>
+  </div>
+  <div id="other-stats" class="stat-row" style="margin-bottom:12px;display:none"></div>
 
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 <style>
 .stat-chip {
   background: var(--card-bg);
@@ -73,45 +96,104 @@
   gap: 2px;
   min-width: 90px;
 }
-.stat-label {
-  font-size: .72rem;
-  color: var(--text-muted);
-}
-.stat-value {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--text);
-}
+.stat-label { font-size:.72rem; color:var(--text-muted); }
+.stat-value { font-size:1.05rem; font-weight:700; color:var(--text); }
+
 .chart-title {
-  font-size: .82rem;
-  font-weight: 600;
-  color: var(--text);
-  margin-bottom: 8px;
+  font-size:.82rem;
+  font-weight:600;
+  color:var(--text);
+  margin-bottom:8px;
+}
+.legend-hint {
+  font-size:.7rem;
+  color:var(--text-muted);
+  font-weight:400;
+  margin-left:6px;
 }
 .chart-empty {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: .8rem;
-  color: var(--text-muted);
+  position:absolute; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:.8rem; color:var(--text-muted);
 }
+
+/* ── NHS zone legend strip ────────────────────────────────────────────── */
+.nhs-legend {
+  display:flex; gap:4px; flex-wrap:wrap;
+  font-size:.62rem; margin-bottom:6px; margin-top:-2px;
+}
+.nhs-badge {
+  padding:2px 6px; border-radius:4px; font-weight:600;
+  color:#fff;
+}
+
+/* ── Stat row (room cards) ────────────────────────────────────────────── */
+.stat-row { display:flex; gap:8px; flex-wrap:wrap; }
+
+.room-stat-card {
+  background:var(--card-bg);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:10px 12px;
+  flex:1 1 150px;
+  min-width:140px;
+}
+.rsc-name {
+  font-size:.78rem; font-weight:700;
+  color:var(--text); margin-bottom:6px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.rsc-periods { display:flex; gap:8px; }
+.rsc-period  { flex:1; min-width:0; }
+.rsc-period-lbl {
+  font-size:.68rem; font-weight:600;
+  color:var(--text-muted); margin-bottom:3px;
+}
+.rsc-row {
+  display:flex; align-items:baseline; gap:3px;
+  font-size:.74rem; margin-bottom:2px; white-space:nowrap;
+}
+.rsc-lbl { font-size:.64rem; color:var(--text-muted); min-width:28px; }
+.rsc-time { font-size:.64rem; color:var(--text-muted); margin-left:2px; }
 </style>
+
 <script>
 const ROOM_COLORS = [
   '#7c3aed','#2563eb','#059669','#d97706',
   '#0891b2','#65a30d','#9333ea','#dc2626',
 ];
 
-let _solarChart   = null;
-let _outdoorChart = null;
-let _roomsChart   = null;
-let _pollTimer    = null;
+// ── NHS colour scale ──────────────────────────────────────────────────────────
+function tempColour(t) {
+  if (t == null) return 'var(--text-muted)';
+  if (t >= 27)   return '#dc2626';
+  if (t >= 24)   return '#f97316';
+  if (t >= 21)   return '#f59e0b';
+  if (t >= 18)   return '#22c55e';
+  if (t >= 16)   return '#60a5fa';
+  if (t >= 14)   return '#3b82f6';
+  return '#1d4ed8';
+}
+
+// ── NHS annotation bands (for room temperature charts) ────────────────────────
+function nhsAnnotations() {
+  const band = (yMin, yMax, rgba) => ({
+    type: 'box', yMin, yMax,
+    backgroundColor: rgba, borderWidth: 0,
+    drawTime: 'beforeDatasetsDraw',
+  });
+  return {
+    nhs_hot:   band(27,  60,  'rgba(220,38,38,0.07)'),
+    nhs_warm:  band(24,  27,  'rgba(249,115,22,0.07)'),
+    nhs_mild:  band(21,  24,  'rgba(245,158,11,0.07)'),
+    nhs_just:  band(18,  21,  'rgba(34,197,94,0.10)'),
+    nhs_cool:  band(16,  18,  'rgba(96,165,250,0.08)'),
+    nhs_cold:  band(14,  16,  'rgba(59,130,246,0.08)'),
+    nhs_vcold: band(-10, 14,  'rgba(29,78,216,0.08)'),
+  };
+}
 
 // ── Time formatting ───────────────────────────────────────────────────────────
-// recorded_at from temperature_log is "2026-05-26T08:08:36Z" (UTC)
-// solar ts is "2026-05-26T10:50:00" (UTC, no Z suffix)
 function fmtTime(ts) {
   if (!ts) return '';
   const s = ts.endsWith('Z') ? ts : ts + 'Z';
@@ -121,18 +203,28 @@ function fmtTime(ts) {
 }
 
 // ── Chart builder ─────────────────────────────────────────────────────────────
-function buildOrUpdate(existingChart, id, emptyId, labels, datasets, yOpts) {
+let _solarChart   = null;
+let _outdoorChart = null;
+let _groundChart  = null;
+let _firstChart   = null;
+let _otherChart   = null;
+
+function buildOrUpdate(existing, id, emptyId, labels, datasets, yOpts) {
   const el    = document.getElementById(id);
   const empty = document.getElementById(emptyId);
   if (!el) return null;
 
-  if (!labels.length) {
+  if (!labels.length || !datasets.length) {
     el.style.display    = 'none';
-    empty.style.display = 'flex';
-    return existingChart;
+    if (empty) empty.style.display = 'flex';
+    return existing;
   }
-  el.style.display    = '';
-  empty.style.display = 'none';
+  el.style.display = '';
+  if (empty) empty.style.display = 'none';
+
+  const annotationPlugin = yOpts.annotations
+    ? { annotation: { annotations: yOpts.annotations } }
+    : {};
 
   const cfg = {
     type: 'line',
@@ -143,13 +235,20 @@ function buildOrUpdate(existingChart, id, emptyId, labels, datasets, yOpts) {
       animation: false,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { display: yOpts.legend || false, labels: { boxWidth: 12, font: { size: 10 } } },
+        legend: {
+          display: yOpts.legend || false,
+          labels: { boxWidth: 12, font: { size: 10 } },
+        },
         tooltip: {
           mode: 'index',
           callbacks: {
-            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toFixed(1) : '--'}${yOpts.unit || ''}`,
+            label: ctx => {
+              const v = ctx.parsed.y;
+              return ` ${ctx.dataset.label}: ${v != null ? v.toFixed(1) : '--'}${yOpts.unit || ''}`;
+            },
           },
         },
+        ...annotationPlugin,
       },
       scales: {
         x: {
@@ -159,29 +258,120 @@ function buildOrUpdate(existingChart, id, emptyId, labels, datasets, yOpts) {
         y: {
           ticks: { font: { size: 10 } },
           grid:  { color: 'rgba(128,128,128,0.1)' },
-          title: { display: !!yOpts.yLabel, text: yOpts.yLabel, font: { size: 10 } },
+          title: { display: !!yOpts.yLabel, text: yOpts.yLabel || '', font: { size: 10 } },
         },
       },
     },
   };
 
-  if (existingChart) {
-    existingChart.data    = cfg.data;
-    existingChart.options = cfg.options;
-    existingChart.update('none');
-    return existingChart;
+  if (existing) {
+    existing.data    = cfg.data;
+    existing.options = cfg.options;
+    existing.update('none');
+    return existing;
   }
   return new Chart(el, cfg);
 }
 
-// ── Data fetch + render ───────────────────────────────────────────────────────
+// ── Room chart builder ────────────────────────────────────────────────────────
+function buildRoomChart(existing, chartId, emptyId, roomsObj, labels) {
+  const names = Object.keys(roomsObj).sort();
+  const n     = labels.length;
+
+  if (!names.length) {
+    buildOrUpdate(existing, chartId, emptyId, [], [], {});
+    return existing;
+  }
+
+  const nhsRef = (val, lbl) => ({
+    label: lbl,
+    data:            Array(n).fill(val),
+    borderColor:     'rgba(34,197,94,0.55)',
+    backgroundColor: 'transparent',
+    borderDash:      [5, 4],
+    borderWidth:     1.5,
+    pointRadius:     0,
+    spanGaps:        false,
+    order:           99,
+  });
+
+  const datasets = [
+    nhsRef(20, '20°C (NHS upper)'),
+    nhsRef(18, '18°C (NHS lower)'),
+    ...names.map((name, i) => {
+      const room  = roomsObj[name];
+      const color = ROOM_COLORS[i % ROOM_COLORS.length];
+      return {
+        label:                name,
+        data:                 room.temps,
+        borderColor:          color,
+        backgroundColor:      'transparent',
+        tension:              0.3,
+        borderWidth:          2,
+        spanGaps:             true,
+        pointRadius:          room.heating.map(h => h ? 4 : 0),
+        pointBackgroundColor: room.heating.map(h => h ? '#ef4444' : color),
+        pointBorderColor:     room.heating.map(h => h ? '#ef4444' : color),
+      };
+    }),
+  ];
+
+  return buildOrUpdate(existing, chartId, emptyId, labels, datasets,
+    { unit: '°C', legend: true, annotations: nhsAnnotations() });
+}
+
+// ── Per-room stat cards ───────────────────────────────────────────────────────
+function renderStats(containerId, roomsObj, statsData) {
+  const el    = document.getElementById(containerId);
+  if (!el) return;
+  const names = Object.keys(roomsObj).sort();
+  if (!names.length) { el.style.display = 'none'; return; }
+  el.style.display = '';
+
+  el.innerHTML = names.map(name => {
+    const s   = (statsData || {})[name] || {};
+    const day = s.day   || {};
+    const ngt = s.night || {};
+
+    const valHtml = (v) => v != null
+      ? `<span style="font-weight:700;color:${tempColour(v)}">${v.toFixed(1)}°</span>`
+      : `<span style="color:var(--text-muted)">--</span>`;
+
+    const row = (lbl, val, ts) =>
+      `<div class="rsc-row">
+        <span class="rsc-lbl">${lbl}</span>
+        ${valHtml(val)}
+        ${ts ? `<span class="rsc-time">${fmtTime(ts)}</span>` : ''}
+      </div>`;
+
+    return `<div class="room-stat-card">
+      <div class="rsc-name">${name}</div>
+      <div class="rsc-periods">
+        <div class="rsc-period">
+          <div class="rsc-period-lbl">🌅 Day</div>
+          ${row('↓ Min', day.min, day.min_t)}
+          ${row('↑ Max', day.max, day.max_t)}
+          ${row('~ Avg', day.avg, null)}
+        </div>
+        <div class="rsc-period">
+          <div class="rsc-period-lbl">🌙 Night</div>
+          ${row('↓ Min', ngt.min, ngt.min_t)}
+          ${row('↑ Max', ngt.max, ngt.max_t)}
+          ${row('~ Avg', ngt.avg, null)}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Main data load ────────────────────────────────────────────────────────────
 async function loadData() {
   try {
     const r = await fetch('/energy/data');
     if (!r.ok) return;
     const d = await r.json();
 
-    // Stats
+    // Stat chips
     document.getElementById('stat-outdoor').textContent =
       d.outdoor_current != null ? d.outdoor_current.toFixed(1) + '°C' : '--';
     document.getElementById('stat-solar-now').textContent =
@@ -189,7 +379,6 @@ async function loadData() {
     document.getElementById('stat-solar-day').textContent =
       d.solar_today_kwh != null ? d.solar_today_kwh.toFixed(1) + ' kWh' : '--';
 
-    // Shared x-axis labels from the server-generated timeline
     const labels = (d.timeline || []).map(t => fmtTime(t));
     const n      = labels.length;
 
@@ -198,11 +387,11 @@ async function loadData() {
       return;
     }
 
-    // ── Solar chart ────────────────────────────────────────────────────────
+    // ── Solar ──────────────────────────────────────────────────────────────
     _solarChart = buildOrUpdate(_solarChart, 'solar-chart', 'solar-empty',
       labels,
       [{
-        label:           '☀️ kW',
+        label: '☀️ kW',
         data:            d.solar || [],
         borderColor:     '#f59e0b',
         backgroundColor: 'rgba(245,158,11,0.15)',
@@ -215,11 +404,11 @@ async function loadData() {
       { unit: ' kW' }
     );
 
-    // ── Outdoor chart ─────────────────────────────────────────────────────
+    // ── Outdoor ────────────────────────────────────────────────────────────
     _outdoorChart = buildOrUpdate(_outdoorChart, 'outdoor-chart', 'outdoor-empty',
       labels,
       [{
-        label:           '🌡️ °C',
+        label: '🌡️ °C',
         data:            d.outdoor || [],
         borderColor:     '#60a5fa',
         backgroundColor: 'rgba(96,165,250,0.12)',
@@ -232,47 +421,45 @@ async function loadData() {
       { unit: '°C' }
     );
 
-    // ── Room temperatures chart ───────────────────────────────────────────
-    const roomNames = Object.keys(d.rooms || {}).sort();
-    if (!roomNames.length) {
-      buildOrUpdate(_roomsChart, 'rooms-chart', 'rooms-empty', [], [], {});
-    } else {
-      const nhsRef = (val, label) => ({
-        label,
-        data:            Array(n).fill(val),
-        borderColor:     'rgba(34,197,94,0.55)',
-        backgroundColor: 'transparent',
-        borderDash:      [5, 4],
-        borderWidth:     1.5,
-        pointRadius:     0,
-        spanGaps:        false,
-        order:           99,
-      });
+    // ── Room charts ────────────────────────────────────────────────────────
+    const groundRooms = d.ground_rooms || {};
+    const firstRooms  = d.first_rooms  || {};
+    const otherRooms  = d.other_rooms  || {};
+    const stats       = d.room_stats   || {};
 
-      const datasets = [
-        nhsRef(20, '20°C (NHS upper)'),
-        nhsRef(18, '18°C (NHS lower)'),
-        ...roomNames.map((name, i) => {
-          const room  = d.rooms[name];
-          const color = ROOM_COLORS[i % ROOM_COLORS.length];
-          return {
-            label:                name,
-            data:                 room.temps,
-            borderColor:          color,
-            backgroundColor:      'transparent',
-            tension:              0.3,
-            borderWidth:          2,
-            spanGaps:             true,
-            pointRadius:          room.heating.map(h => h ? 4 : 0),
-            pointBackgroundColor: room.heating.map(h => h ? '#ef4444' : color),
-            pointBorderColor:     room.heating.map(h => h ? '#ef4444' : color),
-          };
-        }),
-      ];
+    const hasGround = Object.keys(groundRooms).length > 0;
+    const hasFirst  = Object.keys(firstRooms ).length > 0;
+    const hasOther  = Object.keys(otherRooms ).length > 0;
 
-      _roomsChart = buildOrUpdate(_roomsChart, 'rooms-chart', 'rooms-empty',
-                                  labels, datasets, { unit: '°C', legend: true });
+    // If rooms have been assigned to floors, show split charts;
+    // otherwise fall back to a single "Room temperatures" chart.
+    const hasSplit = hasGround || hasFirst;
+
+    document.getElementById('ground-card').style.display = hasGround ? '' : 'none';
+    document.getElementById('ground-stats').style.display = hasGround ? '' : 'none';
+    document.getElementById('first-card').style.display  = hasFirst  ? '' : 'none';
+    document.getElementById('first-stats').style.display  = hasFirst  ? '' : 'none';
+
+    const otherCard  = document.getElementById('other-card');
+    const otherStats = document.getElementById('other-stats');
+    if (otherCard) {
+      const showOther = hasOther && (!hasSplit || hasOther);
+      otherCard.style.display  = showOther ? '' : 'none';
+      if (otherStats) otherStats.style.display = showOther ? '' : 'none';
+      // If all rooms are unassigned, relabel to generic title
+      if (!hasSplit && hasOther) {
+        const titleNode = otherCard.querySelector('#other-title');
+        if (titleNode) titleNode.firstChild.textContent = '🏠 Room temperatures ';
+      }
     }
+
+    _groundChart = buildRoomChart(_groundChart, 'ground-chart', 'ground-empty', groundRooms, labels);
+    _firstChart  = buildRoomChart(_firstChart,  'first-chart',  'first-empty',  firstRooms,  labels);
+    _otherChart  = buildRoomChart(_otherChart,  'other-chart',  'other-empty',  otherRooms,  labels);
+
+    renderStats('ground-stats', groundRooms, stats);
+    renderStats('first-stats',  firstRooms,  stats);
+    renderStats('other-stats',  otherRooms,  stats);
 
     document.getElementById('poll-status').textContent =
       'Updated ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -284,6 +471,6 @@ async function loadData() {
 }
 
 loadData();
-_pollTimer = setInterval(loadData, 5 * 60 * 1000); // refresh every 5 min
+setInterval(loadData, 5 * 60 * 1000);
 </script>
 {% endblock %}
