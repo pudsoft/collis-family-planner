@@ -72,6 +72,7 @@ def get_climate_data() -> list[dict]:
         is_heating    – True if boiler is actively firing for this zone
         online        – bool
     """
+    global _cache_ts, _cache_data
     if not config.HIVE_EMAIL or not config.HIVE_PASSWORD:
         return []
 
