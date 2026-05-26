@@ -2059,10 +2059,8 @@ def energy_data():
     if current_person() not in config.ADMINS:
         return jsonify({"error": "forbidden"}), 403
 
-    import sqlite3 as _sq
-    _APP = os.path.dirname(os.path.abspath(__file__))
-    TEMP_DB   = os.path.join(_APP, "data", "temperature_log.db")
-    ENERGY_DB = os.path.join(_APP, "data", "energy.db")
+    TEMP_DB   = Path(__file__).parent / "data" / "temperature_log.db"
+    ENERGY_DB = Path(__file__).parent / "data" / "energy.db"
 
     out = {
         "outdoor_current":  None,
@@ -2074,9 +2072,9 @@ def energy_data():
     }
 
     # ── Our 15-min temperature logger ────────────────────────────────────────
-    if os.path.exists(TEMP_DB):
-        tdb = _sq.connect(TEMP_DB)
-        tdb.row_factory = _sq.Row
+    if TEMP_DB.exists():
+        tdb = sqlite3.connect(TEMP_DB)
+        tdb.row_factory = sqlite3.Row
 
         row = tdb.execute(
             "SELECT temperature FROM temperature_log "
@@ -2104,9 +2102,9 @@ def energy_data():
         tdb.close()
 
     # ── Energy DB (solar, synced every 15 min from Pi) ────────────────────────
-    if os.path.exists(ENERGY_DB):
-        edb = _sq.connect(ENERGY_DB)
-        edb.row_factory = _sq.Row
+    if ENERGY_DB.exists():
+        edb = sqlite3.connect(ENERGY_DB)
+        edb.row_factory = sqlite3.Row
 
         for r in edb.execute(
             "SELECT generation_date || 'T' || start_time_UTC AS ts, "
