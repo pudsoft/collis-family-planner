@@ -1,4 +1,4 @@
-"""Open-Meteo weather for Brundall, Norfolk. No API key required.
+"""wttr.in weather for Brundall, Norfolk. No API key required.
 
 Caching strategy
 ----------------
@@ -7,7 +7,7 @@ Caching strategy
 * On import the disk cache is loaded immediately — get_weather() is always
   instant, it never blocks a dashboard request.
 * A background thread refreshes the cache every _REFRESH_INTERVAL seconds.
-  If Open-Meteo is unavailable, the previous data is served and the thread
+  If wttr.in is unavailable, the previous data is served and the thread
   retries every _FAIL_RETRY seconds without touching user requests.
 """
 from __future__ import annotations
@@ -23,7 +23,7 @@ from config import WEATHER_LAT, WEATHER_LON
 
 log = logging.getLogger(__name__)
 
-_CACHE_FILE      = Path(__file__).parent.parent / "data" / "weather_cache.json"
+_CACHE_FILE       = Path(__file__).parent.parent / "data" / "weather_cache.json"
 _REFRESH_INTERVAL = 3600   # background refresh every hour
 _FAIL_RETRY       = 300    # retry interval after a failed fetch (5 minutes)
 _HTTP_TIMEOUT     = 15     # seconds (background thread — latency doesn't matter)
@@ -31,31 +31,57 @@ _HTTP_TIMEOUT     = 15     # seconds (background thread — latency doesn't matt
 _cache:     dict  = {}
 _cache_lock = threading.Lock()
 
-WMO_DESCRIPTIONS = {
-    0: ("Clear sky", "☀️"),
-    1: ("Mainly clear", "🌤️"),
-    2: ("Partly cloudy", "⛅"),
-    3: ("Overcast", "☁️"),
-    45: ("Foggy", "🌫️"),
-    48: ("Icy fog", "🌫️"),
-    51: ("Light drizzle", "🌦️"),
-    53: ("Drizzle", "🌧️"),
-    55: ("Heavy drizzle", "🌧️"),
-    61: ("Slight rain", "🌧️"),
-    63: ("Rain", "🌧️"),
-    65: ("Heavy rain", "🌧️"),
-    71: ("Slight snow", "🌨️"),
-    73: ("Snow", "❄️"),
-    75: ("Heavy snow", "❄️"),
-    77: ("Snow grains", "🌨️"),
-    80: ("Showers", "🌦️"),
-    81: ("Rain showers", "🌧️"),
-    82: ("Violent showers", "⛈️"),
-    85: ("Snow showers", "🌨️"),
-    86: ("Heavy snow showers", "❄️"),
-    95: ("Thunderstorm", "⛈️"),
-    96: ("Thunderstorm + hail", "⛈️"),
-    99: ("Thunderstorm + heavy hail", "⛈️"),
+# wttr.in weather codes → emoji
+# Description comes directly from the API response.
+_WTTR_EMOJI = {
+    113: "☀️",   # Clear/Sunny
+    116: "⛅",   # Partly cloudy
+    119: "☁️",   # Cloudy
+    122: "☁️",   # Overcast
+    143: "🌫️",  # Mist
+    176: "🌦️",  # Patchy rain
+    179: "🌨️",  # Patchy snow
+    182: "🌧️",  # Patchy sleet
+    185: "🌧️",  # Patchy freezing drizzle
+    200: "⛈️",  # Thundery outbreaks
+    227: "❄️",  # Blowing snow
+    230: "❄️",  # Blizzard
+    248: "🌫️",  # Fog
+    260: "🌫️",  # Freezing fog
+    263: "🌦️",  # Patchy light drizzle
+    266: "🌦️",  # Light drizzle
+    281: "🌧️",  # Freezing drizzle
+    284: "🌧️",  # Heavy freezing drizzle
+    293: "🌦️",  # Patchy light rain
+    296: "🌧️",  # Light rain
+    299: "🌧️",  # Moderate rain at times
+    302: "🌧️",  # Moderate rain
+    305: "🌧️",  # Heavy rain at times
+    308: "🌧️",  # Heavy rain
+    311: "🌧️",  # Light freezing rain
+    314: "🌧️",  # Mod/heavy freezing rain
+    317: "🌧️",  # Light sleet
+    320: "🌧️",  # Mod/heavy sleet
+    323: "🌨️",  # Patchy light snow
+    326: "🌨️",  # Light snow
+    329: "❄️",  # Patchy moderate snow
+    332: "❄️",  # Moderate snow
+    335: "❄️",  # Patchy heavy snow
+    338: "❄️",  # Heavy snow
+    350: "🌨️",  # Ice pellets
+    353: "🌦️",  # Light rain shower
+    356: "🌧️",  # Mod/heavy rain shower
+    359: "⛈️",  # Torrential rain shower
+    362: "🌧️",  # Light sleet showers
+    365: "🌧️",  # Mod/heavy sleet showers
+    368: "🌨️",  # Light snow showers
+    371: "❄️",  # Mod/heavy snow showers
+    374: "🌨️",  # Light ice pellet showers
+    377: "🌨️",  # Mod/heavy ice pellet showers
+    386: "⛈️",  # Patchy rain with thunder
+    389: "⛈️",  # Mod/heavy rain with thunder
+    392: "⛈️",  # Patchy snow with thunder
+    395: "⛈️",  # Mod/heavy snow with thunder
 }
 
 _FALLBACK = {
@@ -86,57 +112,58 @@ def _save_disk(data: dict):
 # ── Live fetch ────────────────────────────────────────────────────────────────
 
 def _fetch_live() -> dict | None:
-    """Fetch from Open-Meteo. Returns a cache dict on success, None on failure."""
-    url = (
-        f"https://api.open-meteo.com/v1/forecast"
-        f"?latitude={WEATHER_LAT}&longitude={WEATHER_LON}"
-        f"&daily=weathercode,temperature_2m_max,temperature_2m_min,"
-        f"precipitation_sum,precipitation_probability_max"
-        f"&current_weather=true"
-        f"&timezone=Europe%2FLondon"
-        f"&forecast_days=7"
-    )
+    """Fetch from wttr.in. Returns a cache dict on success, None on failure."""
+    url = f"https://wttr.in/{WEATHER_LAT},{WEATHER_LON}?format=j1"
     try:
-        resp = requests.get(url, timeout=_HTTP_TIMEOUT)
+        resp = requests.get(
+            url, timeout=_HTTP_TIMEOUT,
+            headers={"User-Agent": "CollisFamilyPlanner/1.0"},
+        )
         resp.raise_for_status()
-        data    = resp.json()
-        current = data.get("current_weather", {})
-        daily   = data.get("daily", {})
+        data = resp.json()
 
-        wmo = int(current.get("weathercode", 0))
-        desc, emoji = WMO_DESCRIPTIONS.get(wmo, ("Unknown", "❓"))
+        cur  = data["current_condition"][0]
+        code = int(cur["weatherCode"])
+        desc = cur["weatherDesc"][0]["value"]
+        emoji = _WTTR_EMOJI.get(code, "🌡️")
 
-        forecast  = []
-        dates     = daily.get("time", [])
-        codes     = daily.get("weathercode", [])
-        max_temps = daily.get("temperature_2m_max", [])
-        min_temps = daily.get("temperature_2m_min", [])
-        rain_mm   = daily.get("precipitation_sum", [])
-        rain_pct  = daily.get("precipitation_probability_max", [])
+        forecast = []
+        for day in data.get("weather", []):
+            # Use the noon (1200) hour as representative for the day
+            noon = next(
+                (h for h in day.get("hourly", []) if str(h.get("time")) == "1200"),
+                day.get("hourly", [{}])[0],
+            )
+            d_code  = int(noon.get("weatherCode", 113))
+            d_desc  = (noon.get("weatherDesc") or [{}])[0].get("value", "")
+            d_emoji = _WTTR_EMOJI.get(d_code, "🌡️")
 
-        for i, d in enumerate(dates):
-            dc, ec = WMO_DESCRIPTIONS.get(int(codes[i]) if i < len(codes) else 0, ("?", "❓"))
+            # Aggregate rain across all hours
+            hourly = day.get("hourly", [])
+            rain_pct = max((int(h.get("chanceofrain", 0)) for h in hourly), default=0)
+            rain_mm  = round(sum(float(h.get("precipMM", 0)) for h in hourly), 1)
+
             forecast.append({
-                "date":     d,
-                "desc":     dc,
-                "emoji":    ec,
-                "max":      round(max_temps[i], 1) if i < len(max_temps) else None,
-                "min":      round(min_temps[i], 1) if i < len(min_temps) else None,
-                "rain_mm":  round(rain_mm[i], 1)   if i < len(rain_mm)   else None,
-                "rain_pct": int(rain_pct[i])        if i < len(rain_pct)  else None,
+                "date":     day["date"],
+                "desc":     d_desc,
+                "emoji":    d_emoji,
+                "max":      float(day["maxtempC"]),
+                "min":      float(day["mintempC"]),
+                "rain_mm":  rain_mm,
+                "rain_pct": rain_pct,
             })
 
         result = {
             "current": {
-                "temp":  round(current.get("temperature", 0), 1),
+                "temp":  float(cur["temp_C"]),
                 "desc":  desc,
                 "emoji": emoji,
-                "wind":  round(current.get("windspeed", 0), 1),
+                "wind":  float(cur["windspeedKmph"]),
             },
             "forecast": forecast,
             "fetched_at": time.time(),
         }
-        log.debug("weather: fetched OK")
+        log.info("weather: fetched OK via wttr.in (%s, %s)", desc, cur["temp_C"])
         return result
 
     except Exception as exc:
