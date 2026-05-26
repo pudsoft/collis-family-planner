@@ -1768,6 +1768,11 @@ def smarthome_view():
         try:    return float(row["value"]) if row else default
         except: return default
 
+    def _img_v(filename):
+        p = Path(app.static_folder) / filename
+        try:    return int(p.stat().st_mtime)
+        except: return 0
+
     return render_template(
         "smarthome.html",
         person=current_person(),
@@ -1780,6 +1785,8 @@ def smarthome_view():
         hive_configured=bool(config.HIVE_EMAIL),
         zone_temp_min=_setting_float("zone_temp_min", 17.5),
         zone_temp_max=_setting_float("zone_temp_max", 19.0),
+        fp_v_ground=_img_v("images/floorplan-ground.png"),
+        fp_v_first=_img_v("images/floorplan-first.png"),
     )
 
 
