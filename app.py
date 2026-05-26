@@ -2062,13 +2062,34 @@ def energy_data():
     TEMP_DB   = Path(__file__).parent / "data" / "temperature_log.db"
     ENERGY_DB = Path(__file__).parent / "data" / "energy.db"
 
+    # ── Build shared 15-min UTC timeline for last 48 h ───────────────────────
+    _now  = datetime.utcnow().replace(second=0, microsecond=0)
+    _now  = _now - timedelta(minutes=_now.minute % 15)
+    _start = _now - timedelta(hours=48)
+
+    timeline: list[datetime] = []
+    _t = _start
+    while _t <= _now:
+        timeline.append(_t)
+        _t += timedelta(minutes=15)
+
+    tl_strs = [t.strftime("%Y-%m-%dT%H:%M:%SZ") for t in timeline]
+
+    def _slot(ts_str: str) -> str:
+        """Round a UTC ISO timestamp string to the nearest 15-min slot key."""
+        s  = ts_str.rstrip("Z").replace(" ", "T")
+        dt = datetime.strptime(s[:19], "%Y-%m-%dT%H:%M:%S")
+        return (dt - timedelta(minutes=dt.minute % 15,
+                               seconds=dt.second)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
     out = {
+        "timeline":         tl_strs,
         "outdoor_current":  None,
         "solar_current_kw": None,
         "solar_today_kwh":  None,
-        "solar_series":     [],   # [{t, kw}]
-        "outdoor_series":   [],   # [{t, temp}]
-        "room_series":      {},   # {name: [{t, temp, h}]}
+        "solar":            [],   # aligned kw per slot (0-filled)
+        "outdoor":          [],   # aligned temp per slot (None = gap)
+        "rooms":            {},   # {name: {temps:[…], heating:[…]}}
     }
 
     # ── Our 15-min temperature logger ────────────────────────────────────────
@@ -2083,40 +2104,60 @@ def energy_data():
         if row:
             out["outdoor_current"] = row["temperature"]
 
+        # Outdoor — bucket into 15-min slots
+        outdoor_bkt: dict[str, float] = {}
         for r in tdb.execute(
             "SELECT recorded_at, temperature FROM temperature_log "
-            "WHERE source='outdoor' AND recorded_at >= datetime('now','-24 hours') "
+            "WHERE source='outdoor' AND recorded_at >= datetime('now','-48 hours') "
             "ORDER BY recorded_at"
         ):
-            out["outdoor_series"].append({"t": r["recorded_at"], "temp": r["temperature"]})
+            outdoor_bkt[_slot(r["recorded_at"])] = r["temperature"]
 
+        # Hive rooms — bucket into 15-min slots
+        room_bkt: dict[str, dict[str, dict]] = {}
         for r in tdb.execute(
             "SELECT recorded_at, name, temperature, is_heating FROM temperature_log "
-            "WHERE source='hive' AND recorded_at >= datetime('now','-24 hours') "
+            "WHERE source='hive' AND recorded_at >= datetime('now','-48 hours') "
             "ORDER BY name, recorded_at"
         ):
-            out["room_series"].setdefault(r["name"], []).append(
-                {"t": r["recorded_at"], "temp": r["temperature"], "h": bool(r["is_heating"])}
-            )
+            room_bkt.setdefault(r["name"], {})[_slot(r["recorded_at"])] = {
+                "temp": r["temperature"], "h": bool(r["is_heating"])
+            }
 
         tdb.close()
+
+        out["outdoor"] = [outdoor_bkt.get(t) for t in tl_strs]
+        for name, bkt in room_bkt.items():
+            pts = [bkt.get(t, {"temp": None, "h": False}) for t in tl_strs]
+            out["rooms"][name] = {
+                "temps":   [p["temp"] for p in pts],
+                "heating": [p["h"]    for p in pts],
+            }
 
     # ── Energy DB (solar, synced every 15 min from Pi) ────────────────────────
     if ENERGY_DB.exists():
         edb = sqlite3.connect(ENERGY_DB)
         edb.row_factory = sqlite3.Row
 
+        # Solar — bucket 5-min readings into 15-min slots (max power per slot)
+        solar_bkt: dict[str, float] = {}
+        latest_kw: float | None = None
         for r in edb.execute(
             "SELECT generation_date || 'T' || start_time_UTC AS ts, "
             "       power_kw, total_yield_kwh "
             "FROM   int_solar_today "
-            "WHERE  generation_date >= date('now','-1 day') "
+            "WHERE  generation_date >= date('now','-2 day') "
             "ORDER  BY generation_date, start_time_UTC"
         ):
-            out["solar_series"].append({"t": r["ts"], "kw": r["power_kw"]})
+            s = _slot(r["ts"])
+            solar_bkt[s] = max(solar_bkt.get(s, 0.0), r["power_kw"] or 0.0)
+            latest_kw = r["power_kw"]
 
-        if out["solar_series"]:
-            out["solar_current_kw"] = out["solar_series"][-1]["kw"]
+        # 0-fill entire timeline (overnight = 0, not a gap)
+        out["solar"] = [solar_bkt.get(t, 0.0) for t in tl_strs]
+
+        if latest_kw is not None:
+            out["solar_current_kw"] = latest_kw
 
         row = edb.execute(
             "SELECT ROUND(MAX(total_yield_kwh) - MIN(total_yield_kwh), 2) AS kwh "

@@ -189,93 +189,89 @@ async function loadData() {
     document.getElementById('stat-solar-day').textContent =
       d.solar_today_kwh != null ? d.solar_today_kwh.toFixed(1) + ' kWh' : '--';
 
-    // ── Solar chart ────────────────────────────────────────────────────────
-    {
-      const labels   = d.solar_series.map(p => fmtTime(p.t));
-      const datasets = [{
-        label:                '☀️ kW',
-        data:                 d.solar_series.map(p => p.kw),
-        borderColor:          '#f59e0b',
-        backgroundColor:      'rgba(245,158,11,0.15)',
-        fill:                 true,
-        tension:              0.4,
-        pointRadius:          0,
-        borderWidth:          2,
-      }];
-      _solarChart = buildOrUpdate(_solarChart, 'solar-chart', 'solar-empty',
-                                  labels, datasets, { unit: ' kW' });
+    // Shared x-axis labels from the server-generated timeline
+    const labels = (d.timeline || []).map(t => fmtTime(t));
+    const n      = labels.length;
+
+    if (!n) {
+      document.getElementById('poll-status').textContent = 'No data yet';
+      return;
     }
 
+    // ── Solar chart ────────────────────────────────────────────────────────
+    _solarChart = buildOrUpdate(_solarChart, 'solar-chart', 'solar-empty',
+      labels,
+      [{
+        label:           '☀️ kW',
+        data:            d.solar || [],
+        borderColor:     '#f59e0b',
+        backgroundColor: 'rgba(245,158,11,0.15)',
+        fill:            true,
+        tension:         0.4,
+        pointRadius:     0,
+        borderWidth:     2,
+        spanGaps:        false,
+      }],
+      { unit: ' kW' }
+    );
+
     // ── Outdoor chart ─────────────────────────────────────────────────────
-    {
-      const labels   = d.outdoor_series.map(p => fmtTime(p.t));
-      const datasets = [{
+    _outdoorChart = buildOrUpdate(_outdoorChart, 'outdoor-chart', 'outdoor-empty',
+      labels,
+      [{
         label:           '🌡️ °C',
-        data:            d.outdoor_series.map(p => p.temp),
+        data:            d.outdoor || [],
         borderColor:     '#60a5fa',
         backgroundColor: 'rgba(96,165,250,0.12)',
         fill:            true,
         tension:         0.4,
         pointRadius:     0,
         borderWidth:     2,
-      }];
-      _outdoorChart = buildOrUpdate(_outdoorChart, 'outdoor-chart', 'outdoor-empty',
-                                    labels, datasets, { unit: '°C' });
-    }
+        spanGaps:        true,
+      }],
+      { unit: '°C' }
+    );
 
     // ── Room temperatures chart ───────────────────────────────────────────
-    {
-      const roomNames = Object.keys(d.room_series).sort();
-      if (!roomNames.length) {
-        buildOrUpdate(_roomsChart, 'rooms-chart', 'rooms-empty', [], [], {});
-      } else {
-        // Shared labels from first room
-        const firstPts = d.room_series[roomNames[0]];
-        const labels   = firstPts.map(p => fmtTime(p.t));
+    const roomNames = Object.keys(d.rooms || {}).sort();
+    if (!roomNames.length) {
+      buildOrUpdate(_roomsChart, 'rooms-chart', 'rooms-empty', [], [], {});
+    } else {
+      const nhsRef = (val, label) => ({
+        label,
+        data:            Array(n).fill(val),
+        borderColor:     'rgba(34,197,94,0.55)',
+        backgroundColor: 'transparent',
+        borderDash:      [5, 4],
+        borderWidth:     1.5,
+        pointRadius:     0,
+        spanGaps:        false,
+        order:           99,
+      });
 
-        const n = labels.length;
-        // NHS reference band — dashed lines at 18°C and 20°C
-        const nhsTop = {
-          label: '20°C (NHS upper)',
-          data:  Array(n).fill(20),
-          borderColor:     'rgba(34,197,94,0.55)',
-          backgroundColor: 'transparent',
-          borderDash:      [5, 4],
-          borderWidth:     1.5,
-          pointRadius:     0,
-          order:           99,
-        };
-        const nhsBot = {
-          label: '18°C (NHS lower)',
-          data:  Array(n).fill(18),
-          borderColor:     'rgba(34,197,94,0.55)',
-          backgroundColor: 'transparent',
-          borderDash:      [5, 4],
-          borderWidth:     1.5,
-          pointRadius:     0,
-          order:           99,
-        };
-
-        const datasets = [nhsTop, nhsBot, ...roomNames.map((name, i) => {
-          const pts   = d.room_series[name];
+      const datasets = [
+        nhsRef(20, '20°C (NHS upper)'),
+        nhsRef(18, '18°C (NHS lower)'),
+        ...roomNames.map((name, i) => {
+          const room  = d.rooms[name];
           const color = ROOM_COLORS[i % ROOM_COLORS.length];
           return {
             label:                name,
-            data:                 pts.map(p => p.temp),
+            data:                 room.temps,
             borderColor:          color,
             backgroundColor:      'transparent',
             tension:              0.3,
             borderWidth:          2,
-            pointRadius:          pts.map(p => p.h ? 4 : 0),
-            pointBackgroundColor: pts.map(p => p.h ? '#ef4444' : color),
-            pointBorderColor:     pts.map(p => p.h ? '#ef4444' : color),
+            spanGaps:             true,
+            pointRadius:          room.heating.map(h => h ? 4 : 0),
+            pointBackgroundColor: room.heating.map(h => h ? '#ef4444' : color),
+            pointBorderColor:     room.heating.map(h => h ? '#ef4444' : color),
           };
-        })];
+        }),
+      ];
 
-        _roomsChart = buildOrUpdate(_roomsChart, 'rooms-chart', 'rooms-empty',
-                                    labels, datasets,
-                                    { unit: '°C', legend: true });
-      }
+      _roomsChart = buildOrUpdate(_roomsChart, 'rooms-chart', 'rooms-empty',
+                                  labels, datasets, { unit: '°C', legend: true });
     }
 
     document.getElementById('poll-status').textContent =
