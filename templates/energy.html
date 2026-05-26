@@ -104,13 +104,20 @@
 /* ── Mobile: top charts stacked with gap ──────────────────────────────── */
 #top-charts { display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
 
-/* ── Desktop: solar + outdoor side by side; two room-rows per line ──── */
+/* ── Desktop: expand page + side-by-side layouts ────────────────────── */
 @media (min-width: 768px) {
+  /* Use more of the screen */
+  .page { max-width: min(98vw, 1200px) !important; }
+
+  /* Solar + outdoor side by side */
   #top-charts { flex-direction:row; }
   #top-charts .card { flex:1; min-width:0; }
+
+  /* Two room-rows per line; stat card slightly narrower to give charts room */
   #rooms-container { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   #rooms-container .floor-header { grid-column: 1 / -1; }
   .room-row { margin-bottom:0; }
+  .room-stat-card { flex-basis: 155px; }
 }
 
 /* ── Stat card internals ───────────────────────────────────────────────── */

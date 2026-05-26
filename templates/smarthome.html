@@ -43,7 +43,7 @@
       position:relative;
       background-image:url('/static/images/floorplan-ground.png');
       background-size:100% 100%; background-repeat:no-repeat;
-      border-radius:8px; aspect-ratio:1038/1516;
+      border-radius:8px; aspect-ratio:966/1473;
       padding:4% 6% 7% 6%; box-sizing:border-box;
     ">
       <div id="room-grid-ground" style="width:100%;height:100%;display:grid;gap:3px"></div>
@@ -59,7 +59,7 @@
       position:relative;
       background-image:url('/static/images/floorplan-first.png');
       background-size:100% 100%; background-repeat:no-repeat;
-      border-radius:8px; aspect-ratio:1123/1401;
+      border-radius:8px; aspect-ratio:878/1280;
       padding:6% 8% 8% 8%; box-sizing:border-box;
     ">
       <div id="room-grid-first" style="width:100%;height:100%;display:grid;gap:3px"></div>
@@ -193,9 +193,19 @@
 }
 
 @media (min-width: 768px) {
+  /* Expand page to use more screen on desktop */
+  .page { max-width: min(98vw, 1100px) !important; }
+
   .floor-tabs-row  { display: none !important; }
   #floor-plans-row { display: flex !important; gap: 16px; align-items: flex-start; }
-  #floor-plan-ground, #floor-plan-first { display: block !important; flex: 1; }
+
+  /* Force identical aspect ratio so both plans are the same height */
+  #floor-plan-ground,
+  #floor-plan-first  {
+    display: block !important;
+    flex: 1;
+    aspect-ratio: 966 / 1473 !important;  /* ground floor's actual pixel ratio */
+  }
 }
 
 /* Room tile — transparent overlay on floor plan */
