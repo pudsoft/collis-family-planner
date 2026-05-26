@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page">
 
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
     <div style="font-size:1.1rem;font-weight:700">🏠 Smart Home</div>
     <div style="display:flex;align-items:center;gap:8px">
       {% if is_admin %}
@@ -24,31 +24,51 @@
       </div>
     </div>
   </div>
-  {% elif not rooms %}
-  <div class="card">
-    <div class="empty-state">
-      <div class="empty-state-icon">🏠</div>
-      <div class="empty-state-text">
-        No rooms set up yet — tap <strong>✏️ Edit</strong> to add your first room.
-      </div>
-    </div>
-  </div>
   {% endif %}
 
-  <!-- ── House map grid ──────────────────────────────────────────────────── -->
-  <div id="room-grid" style="
-    display:grid;
-    grid-template-columns: repeat(var(--grid-cols, 2), 1fr);
-    gap:10px;
-    margin-bottom:12px;
-  "></div>
+  <!-- ── Floor tabs ──────────────────────────────────────────────────────── -->
+  <div id="floor-tabs" style="display:flex;gap:6px;margin-bottom:10px">
+    <button id="tab-ground" class="floor-tab floor-tab-active" onclick="setFloor('ground')">
+      🏠 Ground Floor
+    </button>
+    <button id="tab-first" class="floor-tab" onclick="setFloor('first')">
+      🔼 First Floor
+    </button>
+  </div>
+
+  <!-- ── Floor plan container ───────────────────────────────────────────── -->
+  <div id="floor-plan-wrap" style="
+    background: #f6f4ef;
+    border: 3px solid #2d5a3d;
+    border-radius: 6px;
+    padding: 8px;
+    margin-bottom: 12px;
+    min-height: 140px;
+  ">
+    <div id="room-grid" style="
+      display: grid;
+      grid-template-columns: repeat(var(--grid-cols, 4), 1fr);
+      grid-auto-rows: minmax(110px, auto);
+      gap: 6px;
+    "></div>
+    <div id="no-rooms-hint" style="display:none;text-align:center;padding:24px;color:var(--text-muted);font-size:.85rem">
+      {% if is_admin %}No rooms yet — tap <strong>✏️ Edit</strong> then <strong>Seed rooms</strong> to get started.{% else %}No rooms configured yet.{% endif %}
+    </div>
+  </div>
 
   <!-- ── Edit mode panel ────────────────────────────────────────────────── -->
   <div id="edit-panel" style="display:none">
+
     <div class="card admin-section">
       <div class="card-header">
         <span class="admin-section-title" style="border:none;margin:0">🛋️ Rooms</span>
-        <button class="btn btn-primary btn-sm" onclick="openRoomModal(null)">+ Add room</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-secondary btn-sm" id="seed-btn" onclick="seedRooms()">🌱 Seed rooms</button>
+          <button class="btn btn-primary btn-sm" onclick="openRoomModal(null)">+ Add room</button>
+        </div>
+      </div>
+      <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:8px">
+        "Seed rooms" pre-populates your house layout from the floor plan (only works when no rooms exist).
       </div>
       <div id="room-admin-list"></div>
     </div>
@@ -65,6 +85,7 @@
         <div style="color:var(--text-muted);font-size:.85rem">Click Discover to load devices…</div>
       </div>
     </div>
+
   </div>
 
 </div>
@@ -72,16 +93,25 @@
 <!-- ── Room modal ─────────────────────────────────────────────────────────── -->
 <div class="modal-backdrop" id="room-modal">
   <div class="modal-sheet">
-    <span class="modal-close">✕</span>
+    <span class="modal-close" onclick="document.getElementById('room-modal').classList.remove('open')">✕</span>
     <div class="modal-title" id="room-modal-title">Room</div>
     <input type="hidden" id="room-id">
     <div class="form-group">
       <label class="form-label">Name</label>
       <input class="form-input" id="room-name" placeholder="e.g. Living Room">
     </div>
-    <div class="form-group">
-      <label class="form-label">Icon</label>
-      <input class="form-input" id="room-icon" placeholder="🛋️" style="width:70px;font-size:1.2rem">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-group">
+        <label class="form-label">Icon</label>
+        <input class="form-input" id="room-icon" placeholder="🛋️" style="width:70px;font-size:1.2rem">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Floor</label>
+        <select class="form-select" id="room-floor">
+          <option value="ground">Ground</option>
+          <option value="first">First</option>
+        </select>
+      </div>
     </div>
     <div class="form-group">
       <label class="form-label">Grid position</label>
@@ -96,7 +126,7 @@
         </div>
         <div>
           <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:4px">Width (cols)</div>
-          <input class="form-input" id="room-col-span" type="number" min="1" max="4" value="1" style="width:80px">
+          <input class="form-input" id="room-col-span" type="number" min="1" max="6" value="1" style="width:80px">
         </div>
         <div>
           <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:4px">Height (rows)</div>
@@ -110,30 +140,70 @@
 {% endblock %}
 
 {% block extra_js %}
+<style>
+.floor-tab {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--text-muted);
+  font-size: .85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .2s;
+}
+.floor-tab-active {
+  border-color: #2d5a3d;
+  background: #2d5a3d;
+  color: #fff;
+}
+.room-tile {
+  border: 2px solid #2d5a3d;
+  border-radius: 4px;
+  background: #fff;
+  padding: 10px;
+  box-sizing: border-box;
+  transition: background .4s, border-color .3s;
+  min-height: 110px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.room-tile-heating {
+  background: rgba(239,68,68,0.06) !important;
+  border-color: #ef4444 !important;
+}
+.room-tile-on {
+  border-color: #f59e0b !important;
+}
+</style>
 <script>
 const TAPO_CONFIGURED = {{ 'true' if tapo_configured else 'false' }};
 const HIVE_CONFIGURED = {{ 'true' if hive_configured else 'false' }};
 
-let _pollTimer = null;
-let _editMode  = false;
-let _lastRooms = [];
+let _pollTimer   = null;
+let _editMode    = false;
+let _lastRooms   = [];
+let _currentFloor = 'ground';
 
-// ── Utilities ────────────────────────────────────────────────────────────────
+// ── Floor switching ───────────────────────────────────────────────────────────
+
+function setFloor(f) {
+  _currentFloor = f;
+  document.getElementById('tab-ground').classList.toggle('floor-tab-active', f === 'ground');
+  document.getElementById('tab-first').classList.toggle('floor-tab-active', f === 'first');
+  renderGrid(_lastRooms);
+}
+
+// ── Temperature helpers ────────────────────────────────────────────────────────
 
 function tempColour(temp) {
   if (temp == null) return "var(--border)";
-  if (temp >= 22)   return "#EF4444";   // hot — red
-  if (temp >= 20)   return "#F59E0B";   // warm — amber
-  if (temp >= 18)   return "#22C55E";   // comfortable — green
-  return "#60A5FA";                      // cool — blue
-}
-
-function tempBg(temp, isHeating) {
-  if (isHeating)  return "rgba(239,68,68,0.08)";
-  if (temp == null) return "transparent";
-  if (temp >= 22) return "rgba(239,68,68,0.05)";
-  if (temp < 17)  return "rgba(96,165,250,0.07)";
-  return "transparent";
+  if (temp >= 22)   return "#EF4444";
+  if (temp >= 20)   return "#F59E0B";
+  if (temp >= 18)   return "#22C55E";
+  return "#60A5FA";
 }
 
 // ── Live poll ─────────────────────────────────────────────────────────────────
@@ -156,14 +226,21 @@ async function pollStatus() {
 // ── Room grid rendering ───────────────────────────────────────────────────────
 
 function renderGrid(rooms) {
-  const grid = document.getElementById("room-grid");
-  if (!rooms.length) { grid.innerHTML = ""; return; }
+  const grid    = document.getElementById("room-grid");
+  const hint    = document.getElementById("no-rooms-hint");
+  const floorRooms = rooms.filter(r => (r.floor || 'ground') === _currentFloor);
 
-  // Calculate grid columns needed
-  const maxCol = Math.max(...rooms.map(r => (r.grid_col || 0) + (r.grid_col_span || 1)));
+  if (!floorRooms.length) {
+    grid.innerHTML = "";
+    hint.style.display = "";
+    return;
+  }
+  hint.style.display = "none";
+
+  const maxCol = Math.max(...floorRooms.map(r => (r.grid_col || 0) + (r.grid_col_span || 1)));
   grid.style.setProperty("--grid-cols", Math.max(2, maxCol));
 
-  grid.innerHTML = rooms.map(room => {
+  grid.innerHTML = floorRooms.map(room => {
     const hive      = room.hive;
     const temp      = hive?.current_temp;
     const target    = hive?.target_temp;
@@ -172,49 +249,53 @@ function renderGrid(rooms) {
     const anyOn     = room.any_on;
 
     const tempStr = temp != null
-      ? `<span style="font-size:1.3rem;font-weight:700;color:${tempColour(temp)}">${temp.toFixed(1)}°</span>`
-      + (target != null ? `<span style="font-size:.72rem;color:var(--text-muted);margin-left:2px">→${target.toFixed(0)}°</span>` : "")
+      ? `<span style="font-size:1.25rem;font-weight:700;color:${tempColour(temp)}">${temp.toFixed(1)}°</span>`
+      + (target != null ? `<span style="font-size:.7rem;color:var(--text-muted);margin-left:2px">→${target.toFixed(0)}°</span>` : "")
       : "";
 
     const heatingBadge = isHeating
-      ? `<span style="font-size:.65rem;background:#FEE2E2;color:#EF4444;border-radius:4px;padding:1px 5px;font-weight:600">🔥 Heating</span>`
-      : (mode === "OFF" ? `<span style="font-size:.65rem;color:var(--text-muted)">Off</span>` : "");
+      ? `<span style="font-size:.62rem;background:#FEE2E2;color:#EF4444;border-radius:4px;padding:1px 5px;font-weight:600">🔥 Heating</span>`
+      : (mode === "OFF" ? `<span style="font-size:.62rem;color:var(--text-muted)">Off</span>` : "");
 
-    const deviceDots = room.tapo.map(d => `
-      <button onclick="toggleDevice(${d.id}, '${d.name.replace(/'/g,"\\'")}', ${d.on})"
-              style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:8px;
-                     border:1.5px solid ${d.on ? 'var(--family)' : 'var(--border)'};
-                     background:${d.on ? 'rgba(var(--family-rgb,34,197,94),.1)' : 'transparent'};
-                     font-size:.72rem;color:${d.on ? 'var(--family)' : 'var(--text-muted)'};
-                     cursor:pointer;white-space:nowrap">
+    const deviceButtons = (room.tapo || []).map(d => `
+      <button onclick="toggleDevice(${d.id})"
+              title="${d.on ? 'Turn off' : 'Turn on'} ${d.name}"
+              style="
+                display:inline-flex;align-items:center;gap:4px;
+                padding:3px 7px;border-radius:6px;cursor:pointer;
+                border:1.5px solid ${d.on ? '#f59e0b' : 'var(--border)'};
+                background:${d.on ? 'rgba(245,158,11,.12)' : 'transparent'};
+                font-size:.7rem;color:${d.on ? '#92400e' : 'var(--text-muted)'};">
         ${d.on ? '💡' : '○'} ${d.name}
       </button>`
     ).join("");
 
+    let tileClass = "room-tile";
+    if (isHeating) tileClass += " room-tile-heating";
+    else if (anyOn) tileClass += " room-tile-on";
+
     return `
-    <div class="card" style="
+    <div class="${tileClass}" style="
       grid-column: ${(room.grid_col||0)+1} / span ${room.grid_col_span||1};
       grid-row:    ${(room.grid_row||0)+1} / span ${room.grid_row_span||1};
-      margin:0;padding:14px;
-      background:${tempBg(temp, isHeating)};
-      border:1.5px solid ${anyOn ? 'var(--family)' : 'var(--border)'};
-      transition:background .4s,border-color .4s;
     ">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">
-        <div style="font-size:.95rem;font-weight:700">${room.icon} ${room.name}</div>
-        <div style="text-align:right">${tempStr}</div>
+      <div>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px">
+          <div style="font-size:.88rem;font-weight:700;color:#1a3a2a">${room.icon} ${room.name}</div>
+          <div style="text-align:right;line-height:1">${tempStr}</div>
+        </div>
+        ${heatingBadge ? `<div style="margin-bottom:4px">${heatingBadge}</div>` : ""}
       </div>
-      ${heatingBadge ? `<div style="margin-bottom:6px">${heatingBadge}</div>` : ""}
-      ${deviceDots ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${deviceDots}</div>` : ""}
+      ${deviceButtons ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:auto">${deviceButtons}</div>` : ""}
     </div>`;
   }).join("");
 }
 
 // ── Device toggle ─────────────────────────────────────────────────────────────
 
-async function toggleDevice(deviceDbId, name, currentOn) {
-  const r = await adminPost(`/smarthome/device/${deviceDbId}/toggle`, new FormData(), null);
-  if (r) pollStatus();
+async function toggleDevice(deviceDbId) {
+  const r = await fetch(`/smarthome/device/${deviceDbId}/toggle`, {method:"POST"});
+  if (r.ok) pollStatus();
 }
 
 // ── Edit mode ─────────────────────────────────────────────────────────────────
@@ -226,22 +307,32 @@ function toggleEditMode() {
   if (_editMode) renderAdminRoomList(_lastRooms);
 }
 
+const _FLOOR_LABELS = {ground: "Ground", first: "First"};
+
 function renderAdminRoomList(rooms) {
   const el = document.getElementById("room-admin-list");
   if (!rooms.length) {
-    el.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">No rooms yet</div>';
+    el.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">No rooms yet — click "Seed rooms" to pre-populate from the floor plan.</div>';
     return;
   }
-  el.innerHTML = rooms.map(r => `
-    <div class="device-item">
-      <div style="flex:1">
-        <div class="device-name">${r.icon} ${r.name}</div>
-        <div class="device-mac">Col ${r.grid_col}, Row ${r.grid_row} · ${r.grid_col_span}×${r.grid_row_span}</div>
-      </div>
-      <button class="btn btn-secondary btn-sm" onclick='openRoomModal(${JSON.stringify(r)})'>Edit</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteRoom(${r.id})">✕</button>
-    </div>`
-  ).join("");
+  // Group by floor
+  const byFloor = {};
+  for (const r of rooms) {
+    const f = r.floor || 'ground';
+    (byFloor[f] = byFloor[f] || []).push(r);
+  }
+  el.innerHTML = ['ground','first'].filter(f => byFloor[f]).map(f => `
+    <div style="font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;padding:6px 0 4px">${_FLOOR_LABELS[f] || f} floor</div>
+    ${byFloor[f].map(r => `
+      <div class="device-item">
+        <div style="flex:1">
+          <div class="device-name">${r.icon} ${r.name}</div>
+          <div class="device-mac">Col ${r.grid_col}, Row ${r.grid_row} · ${r.grid_col_span}×${r.grid_row_span}</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick='openRoomModal(${JSON.stringify(r)})'>Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteRoom(${r.id})">✕</button>
+      </div>`).join("")}
+  `).join("");
 }
 
 // ── Room CRUD ─────────────────────────────────────────────────────────────────
@@ -250,6 +341,7 @@ function openRoomModal(room) {
   document.getElementById("room-id").value          = room?.id || "";
   document.getElementById("room-name").value        = room?.name || "";
   document.getElementById("room-icon").value        = room?.icon || "🏠";
+  document.getElementById("room-floor").value       = room?.floor || "ground";
   document.getElementById("room-col").value         = room?.grid_col ?? 0;
   document.getElementById("room-row").value         = room?.grid_row ?? 0;
   document.getElementById("room-col-span").value    = room?.grid_col_span ?? 1;
@@ -263,6 +355,7 @@ async function saveRoom() {
     id:            parseInt(document.getElementById("room-id").value) || null,
     name:          document.getElementById("room-name").value.trim(),
     icon:          document.getElementById("room-icon").value.trim() || "🏠",
+    floor:         document.getElementById("room-floor").value,
     grid_col:      parseInt(document.getElementById("room-col").value) || 0,
     grid_row:      parseInt(document.getElementById("room-row").value) || 0,
     grid_col_span: parseInt(document.getElementById("room-col-span").value) || 1,
@@ -285,33 +378,48 @@ async function saveRoom() {
 
 async function deleteRoom(id) {
   if (!confirm("Delete this room and remove all its device assignments?")) return;
-  const r = await adminPost(`/admin/smarthome/rooms/${id}/delete`, null, "Room deleted");
-  if (r) pollStatus();
+  const r = await fetch(`/admin/smarthome/rooms/${id}/delete`, {method:"POST"});
+  if (r.ok) { showToast("Room deleted"); pollStatus(); }
+}
+
+// ── Seed rooms ────────────────────────────────────────────────────────────────
+
+async function seedRooms() {
+  if (!confirm("Pre-populate rooms from the house floor plan?\n\nThis only works if no rooms exist yet.\nYou can edit or delete rooms afterwards.")) return;
+  const btn = document.getElementById("seed-btn");
+  btn.textContent = "Seeding…";
+  btn.disabled = true;
+  try {
+    const r = await fetch("/admin/smarthome/seed", {method:"POST"});
+    const data = await r.json();
+    if (data.ok) {
+      showToast(`${data.seeded} rooms added ✓`);
+      pollStatus();
+    } else {
+      showToast(data.error || "Seed failed", "error");
+    }
+  } finally {
+    btn.textContent = "🌱 Seed rooms";
+    btn.disabled = false;
+  }
 }
 
 // ── Device discovery + assignment ─────────────────────────────────────────────
 
 let _discoveredDevices = [];
-let _assignedDeviceIds = new Set();
 
 async function discoverDevices() {
   const btn = document.getElementById("discover-btn");
   btn.textContent = "Discovering…";
   btn.disabled = true;
   try {
-    const r = await adminPost("/admin/smarthome/discover", null, null);
-    if (!r) return;
-    _discoveredDevices = [...(r.tapo || []), ...(r.hive || [])];
-
-    // Build set of already-assigned device_ids
-    const assignedR = await fetch("/smarthome/status");
-    const statusData = await assignedR.json();
-    const allAssigned = (statusData.rooms || []).flatMap(rm =>
-      [...(rm.tapo || []).map(d => d.device_id), rm.hive ? rm.hive.id : null]
-    ).filter(Boolean);
-    _assignedDeviceIds = new Set(allAssigned);
-
+    const r = await fetch("/admin/smarthome/discover", {method:"POST"});
+    if (!r.ok) return;
+    const data = await r.json();
+    _discoveredDevices = [...(data.tapo || []), ...(data.hive || [])];
     renderDeviceAssignList();
+  } catch(e) {
+    showToast("Discover failed: " + e.message, "error");
   } finally {
     btn.textContent = "Refresh";
     btn.disabled = false;
@@ -325,57 +433,59 @@ function renderDeviceAssignList() {
     el.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem">No devices found</div>';
     return;
   }
-  el.innerHTML = _discoveredDevices.map(d => {
-    const providerBadge = d.provider === "hive"
-      ? `<span style="font-size:.65rem;background:#FEF9C3;color:#854D0E;border-radius:4px;padding:1px 5px">Hive</span>`
-      : `<span style="font-size:.65rem;background:#DBEAFE;color:#1D4ED8;border-radius:4px;padding:1px 5px">Tapo</span>`;
+  el.innerHTML = _discoveredDevices.map((d, i) => {
+    const provBadge = d.provider === "hive"
+      ? `<span style="font-size:.63rem;background:#FEF9C3;color:#854D0E;border-radius:4px;padding:1px 5px">Hive</span>`
+      : `<span style="font-size:.63rem;background:#DBEAFE;color:#1D4ED8;border-radius:4px;padding:1px 5px">Tapo</span>`;
     const statusDot = d.online
-      ? `<span style="font-size:.65rem;color:#22C55E">● online</span>`
-      : `<span style="font-size:.65rem;color:var(--text-muted)">● offline</span>`;
+      ? `<span style="font-size:.63rem;color:#22C55E">● online</span>`
+      : `<span style="font-size:.63rem;color:var(--text-muted)">● offline</span>`;
     const roomOptions = rooms.map(r =>
       `<option value="${r.id}">${r.icon} ${r.name}</option>`
     ).join("");
-    // Find current assignment
     const currentRoom = rooms.find(r =>
       r.tapo?.some(t => t.device_id === d.device_id) || r.hive?.id === d.device_id
     );
-    return `<div class="device-item">
+    return `<div class="device-item" id="dev-row-${i}">
       <div style="flex:1;min-width:0">
-        <div class="device-name">${d.name} ${providerBadge} ${statusDot}</div>
+        <div class="device-name">${d.name} ${provBadge} ${statusDot}</div>
         <div class="device-mac">${d.device_type || d.provider}</div>
       </div>
       <select class="form-select" style="width:130px;font-size:.8rem"
-              onchange="assignDevice('${d.provider}','${d.device_id}','${d.name.replace(/'/g,"\\'")}','${d.device_type||""}',this.value)">
+              data-idx="${i}"
+              onchange="assignDevice(${i}, this.value)">
         <option value="">— Unassigned —</option>
         ${roomOptions}
       </select>
     </div>`;
   }).join("");
 
-  // Set current values
+  // Set current room values
   _discoveredDevices.forEach((d, i) => {
     const sel = el.querySelectorAll("select")[i];
-    const currentRoom = rooms.find(r =>
+    if (!sel) return;
+    const curr = rooms.find(r =>
       r.tapo?.some(t => t.device_id === d.device_id) || r.hive?.id === d.device_id
     );
-    if (currentRoom) sel.value = currentRoom.id;
+    if (curr) sel.value = curr.id;
   });
 }
 
-async function assignDevice(provider, deviceId, name, deviceType, roomId) {
+async function assignDevice(idx, roomId) {
+  const d = _discoveredDevices[idx];
   const r = await fetch("/admin/smarthome/assign", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({
-      provider, device_id: deviceId, name, device_type: deviceType,
-      room_id: roomId ? parseInt(roomId) : null,
+      provider:    d.provider,
+      device_id:   d.device_id,
+      name:        d.name,
+      device_type: d.device_type || "",
+      room_id:     roomId ? parseInt(roomId) : null,
     }),
   });
   const data = await r.json();
-  if (data.ok) {
-    showToast("Assigned ✓");
-    pollStatus();
-  }
+  if (data.ok) { showToast("Assigned ✓"); pollStatus(); }
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────

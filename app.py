@@ -229,6 +229,27 @@ def _init_db_mysql(db):
             value     DOUBLE,
             logged_at VARCHAR(50) NOT NULL
         )""",
+        """CREATE TABLE IF NOT EXISTS smart_rooms (
+            id            INT AUTO_INCREMENT PRIMARY KEY,
+            name          VARCHAR(200) NOT NULL,
+            icon          VARCHAR(20) DEFAULT '🏠',
+            floor         VARCHAR(20) DEFAULT 'ground',
+            sort_order    INT DEFAULT 0,
+            grid_col      INT DEFAULT 0,
+            grid_row      INT DEFAULT 0,
+            grid_col_span INT DEFAULT 1,
+            grid_row_span INT DEFAULT 1
+        )""",
+        """CREATE TABLE IF NOT EXISTS smart_devices (
+            id          INT AUTO_INCREMENT PRIMARY KEY,
+            provider    VARCHAR(50) NOT NULL,
+            device_id   VARCHAR(200) NOT NULL,
+            name        VARCHAR(200) NOT NULL,
+            device_type VARCHAR(100),
+            room_id     INT,
+            FOREIGN KEY (room_id) REFERENCES smart_rooms(id) ON DELETE SET NULL,
+            UNIQUE KEY uq_prov_dev (provider, device_id(191))
+        )""",
     ]
     for stmt in statements:
         db.execute(stmt)
@@ -253,6 +274,8 @@ def _init_db_mysql(db):
         ("medicine_doses", "dose_number",    "INT DEFAULT 1"),
         ("person_prefs",     "notif_method",   "VARCHAR(20) DEFAULT 'ntfy'"),
         ("chore_templates",  "repeat_days",    "TEXT"),
+        ("person_prefs",     "presence_mac",   "VARCHAR(50)"),
+        ("smart_rooms",      "floor",          "VARCHAR(20) DEFAULT 'ground'"),
     ]:
         if not _col_exists_mysql(db, table, col):
             db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {defn}")
@@ -394,12 +417,13 @@ def _init_db_sqlite(db):
             logged_at TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS smart_rooms (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
-            name         TEXT NOT NULL,
-            icon         TEXT DEFAULT '🏠',
-            sort_order   INTEGER DEFAULT 0,
-            grid_col     INTEGER DEFAULT 0,
-            grid_row     INTEGER DEFAULT 0,
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            name          TEXT NOT NULL,
+            icon          TEXT DEFAULT '🏠',
+            floor         TEXT DEFAULT 'ground',
+            sort_order    INTEGER DEFAULT 0,
+            grid_col      INTEGER DEFAULT 0,
+            grid_row      INTEGER DEFAULT 0,
             grid_col_span INTEGER DEFAULT 1,
             grid_row_span INTEGER DEFAULT 1
         );
@@ -434,6 +458,7 @@ def _init_db_sqlite(db):
         ("person_prefs",     "notif_method",  "TEXT DEFAULT 'ntfy'"),
         ("chore_templates",  "repeat_days",   "TEXT"),
         ("person_prefs",     "presence_mac",  "TEXT"),
+        ("smart_rooms",      "floor",         "TEXT DEFAULT 'ground'"),
     ]:
         cols = [r[1] for r in db.execute(f"PRAGMA table_info({table})").fetchall()]
         if col not in cols:
@@ -1819,6 +1844,7 @@ def admin_smarthome_save_room():
     fields  = (
         d.get("name", "Room"),
         d.get("icon", "🏠"),
+        d.get("floor", "ground"),
         int(d.get("sort_order", 0)),
         int(d.get("grid_col", 0)),
         int(d.get("grid_row", 0)),
@@ -1827,14 +1853,14 @@ def admin_smarthome_save_room():
     )
     if room_id:
         db.execute(
-            "UPDATE smart_rooms SET name=?,icon=?,sort_order=?,grid_col=?,"
+            "UPDATE smart_rooms SET name=?,icon=?,floor=?,sort_order=?,grid_col=?,"
             "grid_row=?,grid_col_span=?,grid_row_span=? WHERE id=?",
             fields + (room_id,),
         )
     else:
         db.execute(
-            "INSERT INTO smart_rooms (name,icon,sort_order,grid_col,grid_row,"
-            "grid_col_span,grid_row_span) VALUES (?,?,?,?,?,?,?)",
+            "INSERT INTO smart_rooms (name,icon,floor,sort_order,grid_col,grid_row,"
+            "grid_col_span,grid_row_span) VALUES (?,?,?,?,?,?,?,?)",
             fields,
         )
         room_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -1914,6 +1940,37 @@ def admin_smarthome_assign():
         )
     db.commit()
     return jsonify({"ok": True})
+
+
+@app.route("/admin/smarthome/seed", methods=["POST"])
+@require_admin
+def admin_smarthome_seed():
+    """Pre-populate rooms from the house floor plan. Fails if rooms already exist."""
+    db = get_db()
+    count = db.execute("SELECT COUNT(*) FROM smart_rooms").fetchone()[0]
+    if count:
+        return jsonify({"ok": False, "error": f"{count} rooms already exist — delete them first"})
+
+    seed = [
+        # Ground floor (standard UK layout — user can edit to match actual)
+        ("Living Room",  "🛋️", "ground", 0, 0, 2, 2),
+        ("Kitchen",      "🍳", "ground", 2, 0, 2, 1),
+        ("Dining Room",  "🍽️", "ground", 2, 1, 2, 1),
+        # First floor (from shared floor plan)
+        ("Bedroom 4",    "🛏️", "first",  0, 0, 1, 1),
+        ("Bathroom",     "🚿", "first",  1, 0, 1, 1),
+        ("Bedroom 2",    "🛏️", "first",  2, 0, 2, 1),
+        ("Bedroom 3",    "🛏️", "first",  0, 1, 2, 1),
+        ("Bedroom 1",    "🛏️", "first",  2, 1, 2, 1),
+    ]
+    for name, icon, floor, col, row, col_span, row_span in seed:
+        db.execute(
+            "INSERT INTO smart_rooms (name,icon,floor,sort_order,grid_col,grid_row,"
+            "grid_col_span,grid_row_span) VALUES (?,?,?,0,?,?,?,?)",
+            (name, icon, floor, col, row, col_span, row_span),
+        )
+    db.commit()
+    return jsonify({"ok": True, "seeded": len(seed)})
 
 
 # ── Run ───────────────────────────────────────────────────────────────────────
