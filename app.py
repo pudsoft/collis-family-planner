@@ -1779,6 +1779,30 @@ def smarthome_status():
     hive_zones   = {z["id"]: z for z in hive.get_climate_data()} \
         if config.HIVE_EMAIL else {}
 
+    # Temperature trend from logger (last 2 readings per zone)
+    _TLOGDB = Path(__file__).parent / "data" / "temperature_log.db"
+    trend_map: dict[str, str | None] = {}
+    if _TLOGDB.exists():
+        try:
+            _tc = sqlite3.connect(_TLOGDB)
+            _rows = _tc.execute(
+                "SELECT name, temperature FROM ("
+                "  SELECT name, temperature,"
+                "    ROW_NUMBER() OVER (PARTITION BY name ORDER BY recorded_at DESC) rn"
+                "  FROM temperature_log WHERE source='hive'"
+                ") WHERE rn <= 2 ORDER BY name, rn"
+            ).fetchall()
+            _tc.close()
+            _by_name: dict[str, list] = {}
+            for _r in _rows:
+                _by_name.setdefault(_r[0], []).append(_r[1])
+            for _name, _temps in _by_name.items():
+                if len(_temps) >= 2 and _temps[0] is not None and _temps[1] is not None:
+                    _diff = _temps[0] - _temps[1]
+                    trend_map[_name] = "up" if _diff > 0.2 else "down" if _diff < -0.2 else "flat"
+        except Exception:
+            pass
+
     result = []
     for room in rooms:
         room_id  = room["id"]
@@ -1803,7 +1827,7 @@ def smarthome_status():
             elif d["provider"] == "hive":
                 z = hive_zones.get(d["device_id"])
                 if z:
-                    hive_row = z
+                    hive_row = {**z, "trend": trend_map.get(d["name"])}
 
         result.append({
             "id":           room_id,

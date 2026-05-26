@@ -263,6 +263,26 @@ function setFloor(f) {
   }
 }
 
+// ── Temperature trend arrow ───────────────────────────────────────────────────
+// Colour = green if moving toward NHS ideal (18–21 °C), red if moving away.
+
+function trendArrow(temp, trend) {
+  if (temp == null || !trend || trend === 'flat') return '';
+  const icon = trend === 'up' ? '↗' : '↘';
+  let color;
+  if (temp >= 18 && temp <= 21) {
+    // Already in ideal zone — any movement is fine
+    color = '#22c55e';
+  } else if ((temp < 18 && trend === 'up') || (temp > 21 && trend === 'down')) {
+    // Moving toward ideal
+    color = '#22c55e';
+  } else {
+    // Moving further from ideal
+    color = '#ef4444';
+  }
+  return `<span style="font-weight:700;color:${color};margin-left:2px">${icon}</span>`;
+}
+
 // ── Temperature colour ────────────────────────────────────────────────────────
 
 // NHS sleep temperature bands (waltonsurgery.co.uk / NHS 2026)
@@ -345,6 +365,7 @@ function _renderFloor(floor, rooms) {
         + (target != null
            ? `<span style="font-size:.8rem;color:var(--text-muted);margin-left:1px">→${target.toFixed(0)}°</span>`
            : '')
+        + trendArrow(temp, hive?.trend)
       : '';
 
     const statusStr = tempStatus(temp);
