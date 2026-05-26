@@ -116,7 +116,6 @@ def get_climate_data() -> list[dict]:
                 "online":       bool(props.get("online", True)),
             })
 
-        global _cache_ts, _cache_data
         _cache_data = zones
         _cache_ts   = now
         log.info("Hive: fetched %d zones", len(zones))
