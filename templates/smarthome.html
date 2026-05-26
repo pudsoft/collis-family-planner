@@ -44,7 +44,7 @@
       background-image:url('/static/images/floorplan-ground-zones.png?v={{ fp_v_ground_zones }}');
       background-size:100% 100%; background-repeat:no-repeat;
       border-radius:8px; aspect-ratio:179/255;
-      padding:4% 6% 7% 6%; box-sizing:border-box;
+      padding:4% 6% 7% 6%; box-sizing:border-box; overflow:hidden;
     ">
       <div id="room-grid-ground" style="width:100%;height:100%;display:grid;gap:3px"></div>
       <div id="no-rooms-hint-ground" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center">
@@ -60,7 +60,7 @@
       background-image:url('/static/images/floorplan-first-zones.png?v={{ fp_v_first_zones }}');
       background-size:100% 100%; background-repeat:no-repeat;
       border-radius:8px; aspect-ratio:179/255;
-      padding:4% 6% 7% 6%; box-sizing:border-box;
+      padding:4% 6% 7% 6%; box-sizing:border-box; overflow:hidden;
     ">
       <div id="room-grid-first" style="width:100%;height:100%;display:grid;gap:3px"></div>
       <div id="no-rooms-hint-first" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center">
@@ -502,18 +502,16 @@ function _renderFloor(floor, rooms) {
     const anyOn     = room.any_on;
 
     const tempStr = temp != null
-      ? `<span style="font-size:1.25rem;font-weight:700;color:${tempColour(temp)}">${temp.toFixed(1)}°</span>`
+      ? `<span style="font-size:1.1rem;font-weight:700;color:${tempColour(temp)}">${temp.toFixed(1)}°</span>`
         + (target != null
-           ? `<span style="font-size:.8rem;color:var(--text-muted);margin-left:1px">→${target.toFixed(0)}°</span>`
+           ? `<span style="font-size:.75rem;color:var(--text-muted);margin-left:1px">→${target.toFixed(0)}°</span>`
            : '')
         + trendArrow(temp, hive?.trend)
       : '';
 
-    const statusStr = tempStatus(temp);
-
     const heatingBadge = isHeating
-      ? `<span style="font-size:.75rem;background:#FEE2E2;color:#EF4444;border-radius:4px;padding:1px 4px;font-weight:600">🔥</span>`
-      : (mode === 'OFF' ? `<span style="font-size:.75rem;color:var(--text-muted)">Off</span>` : '');
+      ? `<span style="font-size:.7rem;background:#FEE2E2;color:#EF4444;border-radius:4px;padding:1px 4px;font-weight:600">🔥</span>`
+      : (mode === 'OFF' ? `<span style="font-size:.68rem;color:var(--text-muted)">Off</span>` : '');
 
     const deviceButtons = (room.tapo || []).map(d => {
       const isOn = d.on === true;
@@ -538,36 +536,33 @@ function _renderFloor(floor, rooms) {
     if (isHeating) badgeClass = 'room-badge room-badge-heating';
     else if (anyOn) badgeClass = 'room-badge room-badge-on';
 
+    const adv = windowAdvice(temp, _outdoorTemp);
+    const windowIcon = adv
+      ? `<span title="${adv.label}" style="font-size:.78rem;cursor:default">${adv.open ? '🪟↑' : '🪟↓'}</span>`
+      : '';
+
     return `
     <div class="room-tile" style="
       grid-column: ${(room.grid_col||0)+1} / span ${room.grid_col_span||1};
       grid-row:    ${(room.grid_row||0)+1} / span ${room.grid_row_span||1};
     ">
       <div class="${badgeClass}" style="
-        width:65%; height:${(room.grid_row_span||1) === 1 ? '85' : '65'}%;
+        width:min(92%,140px);
         display:flex; flex-direction:column;
         align-items:center; justify-content:center;
-        text-align:center; gap:3px;
+        text-align:center; gap:2px;
+        padding:4px 6px;
       ">
-        <div style="font-size:1.15rem;line-height:1">${room.icon}</div>
-        <div style="font-size:.85rem;font-weight:700;color:#1a3a2a;line-height:1.2;
-                    overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">
+        <div style="font-size:1rem;line-height:1">${room.icon}</div>
+        <div style="font-size:.78rem;font-weight:700;color:#1a3a2a;line-height:1.2;
+                    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%">
           ${room.name}
         </div>
-        ${tempStr ? `<div style="line-height:1.1">${tempStr}</div>` : ''}
-        ${statusStr}
-        ${heatingBadge}
+        ${tempStr ? `<div style="line-height:1">${tempStr}</div>` : ''}
+        <div style="display:flex;gap:3px;align-items:center;flex-wrap:wrap;justify-content:center">
+          ${heatingBadge}${windowIcon}
+        </div>
         ${deviceButtons ? `<div style="display:flex;flex-wrap:wrap;gap:2px;justify-content:center">${deviceButtons}</div>` : ''}
-        ${(() => {
-          const adv = windowAdvice(temp, _outdoorTemp);
-          if (!adv) return '';
-          const bg  = adv.open ? 'rgba(34,197,94,.18)' : 'rgba(239,68,68,.15)';
-          const col = adv.open ? '#15803d' : '#b91c1c';
-          return `<div style="margin-top:2px;font-size:.68rem;padding:2px 5px;border-radius:4px;
-                              background:${bg};color:${col};line-height:1.3;text-align:center">
-                    🪟 ${adv.label}
-                  </div>`;
-        })()}
       </div>
     </div>`;
   }).join('');
