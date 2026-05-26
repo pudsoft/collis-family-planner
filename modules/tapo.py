@@ -179,10 +179,14 @@ def _bust_cache():
 
 def get_all_device_states() -> list[dict]:
     """
-    Return all devices with live on/off state, cached for _CACHE_TTL seconds.
+    Return all registered Tapo devices, cached for _CACHE_TTL seconds.
 
-    Online/offline is determined by whether the passthrough responds —
-    the V1 cloud API status field is unreliable (always returns 0).
+    We skip the passthrough sysinfo probe: the V1 cloud passthrough is
+    unreliable for many modern Tapo models and causes every device to
+    appear offline even when it is working fine.  Devices are therefore
+    assumed online; on/off state is unknown (None) until the user
+    toggles a device, at which point set_device_state() succeeds and
+    the cache is busted so the next poll can pick up the real state.
 
     Each dict: {deviceId, alias, deviceType, deviceModel, online, on}
     """
@@ -194,22 +198,17 @@ def get_all_device_states() -> list[dict]:
     devices = list_cloud_devices()
     results = []
     for d in devices:
-        resp   = _passthrough(d, {"system": {"get_sysinfo": {}}})
-        online = resp is not None
-        on     = _parse_on_state(resp) if resp is not None else None
-
         results.append({
             "deviceId":    d.get("deviceId", ""),
             "alias":       d.get("alias", d.get("deviceName", "Device")),
             "deviceType":  d.get("deviceType", ""),
             "deviceModel": d.get("deviceModel", ""),
-            "online":      online,
-            "on":          on,
+            "online":      True,   # assume reachable; toggle will fail + toast if not
+            "on":          None,   # state unknown until first successful toggle
         })
-        log.debug("Tapo %-26s  online=%-5s  on=%s", d.get("alias"), online, on)
+        log.debug("Tapo %-26s  listed", d.get("alias"))
 
     _cache_devices = results
     _cache_ts      = now
-    log.info("Tapo: polled %d devices (%d online)",
-             len(results), sum(1 for r in results if r["online"]))
+    log.info("Tapo: listed %d devices", len(results))
     return results

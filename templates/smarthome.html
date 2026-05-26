@@ -344,31 +344,21 @@ function _renderFloor(floor, rooms) {
       : (mode === 'OFF' ? `<span style="font-size:.75rem;color:var(--text-muted)">Off</span>` : '');
 
     const deviceButtons = (room.tapo || []).map(d => {
-      const offline = d.online === false;
-      const isOn    = d.on === true;
+      const isOn = d.on === true;
+      const isOff = d.on === false;
 
-      const bulbStyle = offline      ? 'filter:grayscale(1) opacity(.3)'  :
-                        isOn         ? ''                                   :
-                        d.on===false ? 'filter:grayscale(1) opacity(.45)'  :
-                                       'filter:opacity(.5)';
+      const bulbStyle = isOn  ? '' :
+                        isOff ? 'filter:grayscale(1) opacity(.45)' :
+                                'filter:opacity(.7)';   // unknown state
 
-      const cross = offline
-        ? `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-                       font-size:.7em;font-weight:900;color:#ef4444;pointer-events:none;
-                       text-shadow:0 0 2px rgba(255,255,255,.9)">✕</span>`
-        : '';
-
-      const clickAttr = offline ? '' : `onclick="toggleDevice(${d.id})"`;
-
-      return `<button ${clickAttr}
-        title="${d.name}${offline ? ' (offline)' : isOn ? ' — on' : ' — off'}"
+      return `<button onclick="toggleDevice(${d.id})"
+        title="${d.name}${isOn ? ' — on' : isOff ? ' — off' : ''}"
         style="position:relative;display:inline-flex;align-items:center;justify-content:center;
                width:24px;height:24px;padding:0;border-radius:5px;
-               border:1px solid ${isOn && !offline ? '#f59e0b' : 'rgba(0,0,0,.12)'};
-               background:${isOn && !offline ? 'rgba(245,158,11,.18)' : 'rgba(255,255,255,.35)'};
-               cursor:${offline ? 'default' : 'pointer'}">
+               border:1px solid ${isOn ? '#f59e0b' : 'rgba(0,0,0,.12)'};
+               background:${isOn ? 'rgba(245,158,11,.18)' : 'rgba(255,255,255,.35)'};
+               cursor:pointer">
         <span style="font-size:.9rem;line-height:1;${bulbStyle}">💡</span>
-        ${cross}
       </button>`;
     }).join('');
 
