@@ -145,8 +145,8 @@ def get_device_state(device: dict) -> bool | None:
     return None if resp is None else _parse_on_state(resp)
 
 
-def set_device_state(device: dict, on: bool) -> bool:
-    """Turn a device on (True) or off (False). Returns success."""
+def set_device_state(device: dict, on: bool) -> tuple[bool, str | None]:
+    """Turn a device on (True) or off (False). Returns (success, error_msg)."""
     try:
         token   = _get_token()
         app_url = device.get("appServerUrl", _CLOUD_URL)
@@ -164,14 +164,14 @@ def set_device_state(device: dict, on: bool) -> bool:
         body = r.json()
         ec   = body.get("error_code", -1)
         if ec != 0:
-            log.warning("Tapo set_device_state failed: error_code=%s msg=%s",
-                        ec, body.get("msg", ""))
-            return False
+            msg = body.get("msg") or f"Tapo error {ec}"
+            log.warning("Tapo set_device_state failed: error_code=%s msg=%s", ec, msg)
+            return False, msg
         _bust_cache()
-        return True
+        return True, None
     except Exception as exc:
         log.warning("Tapo set_device_state exception: %s", exc)
-        return False
+        return False, str(exc)
 
 
 # ── Cached full status (devices + states) ────────────────────────────────────

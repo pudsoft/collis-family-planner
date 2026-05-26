@@ -2,7 +2,7 @@
 """
 temperature_logger.py
 =====================
-Polls outdoor temperature for Brundall, Norfolk, UK (Open-Meteo — no API key
+Polls outdoor temperature for Brundall, Norfolk, UK (wttr.in — no API key
 needed) and every Hive radiator zone's current temperature and heating state,
 then appends all readings to a local SQLite database.
 
@@ -72,15 +72,11 @@ def get_db() -> sqlite3.Connection:
 # ── Data fetchers ─────────────────────────────────────────────────────────────
 
 def fetch_outdoor_temp() -> float:
-    """Current 2 m air temperature for Brundall via Open-Meteo (free, no key)."""
-    url = (
-        "https://api.open-meteo.com/v1/forecast"
-        f"?latitude={BRUNDALL_LAT}&longitude={BRUNDALL_LON}"
-        "&current=temperature_2m&forecast_days=1"
-    )
-    r = requests.get(url, timeout=10)
+    """Current air temperature for Brundall via wttr.in (free, no key)."""
+    url = f"https://wttr.in/{BRUNDALL_LAT},{BRUNDALL_LON}?format=j1"
+    r = requests.get(url, timeout=15, headers={"User-Agent": "CollisFamilyPlanner/1.0"})
     r.raise_for_status()
-    return float(r.json()["current"]["temperature_2m"])
+    return float(r.json()["current_condition"][0]["temp_C"])
 
 
 def fetch_hive_rows() -> list[tuple]:

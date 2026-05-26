@@ -1914,10 +1914,10 @@ def smarthome_toggle(device_db_id: int):
     if not dev:
         return jsonify({"error": "Device not found in Tapo cloud"}), 404
 
-    ok = tapo.set_device_state(dev, bool(desired_on))
+    ok, err = tapo.set_device_state(dev, bool(desired_on))
     if ok:
         _pcache_bust("smarthome_status")
-    return jsonify({"ok": ok, "now_on": bool(desired_on)})
+    return jsonify({"ok": ok, "now_on": bool(desired_on), **({"error": err} if err else {})})
 
 
 # ── Smart home admin ──────────────────────────────────────────────────────────
