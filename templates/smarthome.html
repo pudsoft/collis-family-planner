@@ -625,12 +625,14 @@ function _renderFloor(floor, rooms) {
     else if (anyOn) badgeClass = 'room-badge room-badge-on';
 
     const adv = windowAdvice(temp, _outdoorTemp);
-    const windowIcon = adv
-      ? `<img src="/static/images/icons8-${adv.open ? 'open' : 'closed'}-window-100.png"
-              title="${adv.label}"
-              style="width:18px;height:18px;object-fit:contain;cursor:default;
-                     ${adv.open ? '' : 'filter:grayscale(.4) opacity(.75)'}">`
-      : '';
+    const windowIcon = adv ? (() => {
+      const src = adv.open
+        ? 'https://img.icons8.com/ios/100/open-window.png'
+        : 'https://img.icons8.com/ios-filled/100/closed-window.png';
+      return `<img src="${src}" title="${adv.label}"
+                   style="width:18px;height:18px;object-fit:contain;cursor:default;
+                          opacity:${adv.open ? '1' : '.65'}">`;
+    })() : '';
 
     return `
     <div class="room-tile" style="
@@ -736,7 +738,7 @@ function renderAdminRoomList(rooms) {
           <div class="device-mac">Col ${r.grid_col}, Row ${r.grid_row} · ${r.grid_col_span}×${r.grid_row_span}</div>
         </div>
         <button class="btn btn-secondary btn-sm" onclick="openRoomModal(_roomById(${r.id}))">Edit</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteRoom(${r.id})">✕</button>
+        <button class="btn btn-danger btn-sm" data-delete-room="${r.id}" onclick="deleteRoom(${r.id})">✕</button>
       </div>`).join('')}
   `).join('');
 }
@@ -820,10 +822,36 @@ async function saveRoom() {
   }
 }
 
-async function deleteRoom(id) {
-  if (!confirm('Delete this room and remove all its device assignments?')) return;
-  const r = await fetch(`/admin/smarthome/rooms/${id}/delete`, {method:'POST'});
-  if (r.ok) { showToast('Room deleted'); pollStatus(); }
+function deleteRoom(id) {
+  // Replace native confirm() (blocked in PWA/iframe contexts) with an
+  // inline confirmation: first click arms a 5 s countdown, second click deletes.
+  const btn = document.querySelector(`[data-delete-room="${id}"]`);
+  if (!btn) return;
+  if (btn.dataset.armed === '1') {
+    // Second click — execute
+    btn.dataset.armed = '0';
+    btn.textContent = '✕';
+    clearTimeout(btn._armTimer);
+    fetch(`/admin/smarthome/rooms/${id}/delete`, {method:'POST'})
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) { showToast('Room deleted'); pollStatus(); }
+        else showToast(data.error || 'Delete failed', 'error');
+      })
+      .catch(() => showToast('Delete failed', 'error'));
+  } else {
+    // First click — arm with countdown
+    btn.dataset.armed = '1';
+    btn.textContent = '✓ Confirm';
+    btn.style.background = '#EF4444';
+    btn.style.color = '#fff';
+    btn._armTimer = setTimeout(() => {
+      btn.dataset.armed = '0';
+      btn.textContent = '✕';
+      btn.style.background = '';
+      btn.style.color = '';
+    }, 4000);
+  }
 }
 
 // ── Seed rooms ────────────────────────────────────────────────────────────────
@@ -1060,8 +1088,16 @@ function renderTimelineFrame(index) {
     };
   });
 
+  // Temporarily override _outdoorTemp so window advice in the cards also
+  // reflects the historical outdoor temperature for this frame
+  const savedOutdoor = _outdoorTemp;
+  if (frameOutdoor !== null) _outdoorTemp = frameOutdoor;
+
+  renderGrid(syntheticRooms);   // update badges with historical temps
   applyZoneColors('ground', syntheticRooms, frameOutdoor);
   applyZoneColors('first',  syntheticRooms, frameOutdoor);
+
+  _outdoorTemp = savedOutdoor;  // restore live value
 }
 
 function playTimeline() {
