@@ -2036,6 +2036,102 @@ def admin_smarthome_seed():
     return jsonify({"ok": True, "seeded": len(seed)})
 
 
+# ── Energy / Temperature history ─────────────────────────────────────────────
+
+@app.route("/energy")
+def energy_view():
+    if current_person() not in config.ADMINS:
+        return redirect(url_for("settings_view"))
+    db    = get_db()
+    prefs = get_prefs(db, current_person())
+    return render_template(
+        "energy.html",
+        person=current_person(),
+        prefs=prefs,
+        people=config.PEOPLE,
+        person_display=config.PERSON_DISPLAY,
+        is_admin=True,
+    )
+
+
+@app.route("/energy/data")
+def energy_data():
+    if current_person() not in config.ADMINS:
+        return jsonify({"error": "forbidden"}), 403
+
+    import sqlite3 as _sq
+    _APP = os.path.dirname(os.path.abspath(__file__))
+    TEMP_DB   = os.path.join(_APP, "data", "temperature_log.db")
+    ENERGY_DB = os.path.join(_APP, "data", "energy.db")
+
+    out = {
+        "outdoor_current":  None,
+        "solar_current_kw": None,
+        "solar_today_kwh":  None,
+        "solar_series":     [],   # [{t, kw}]
+        "outdoor_series":   [],   # [{t, temp}]
+        "room_series":      {},   # {name: [{t, temp, h}]}
+    }
+
+    # ── Our 15-min temperature logger ────────────────────────────────────────
+    if os.path.exists(TEMP_DB):
+        tdb = _sq.connect(TEMP_DB)
+        tdb.row_factory = _sq.Row
+
+        row = tdb.execute(
+            "SELECT temperature FROM temperature_log "
+            "WHERE source='outdoor' ORDER BY recorded_at DESC LIMIT 1"
+        ).fetchone()
+        if row:
+            out["outdoor_current"] = row["temperature"]
+
+        for r in tdb.execute(
+            "SELECT recorded_at, temperature FROM temperature_log "
+            "WHERE source='outdoor' AND recorded_at >= datetime('now','-24 hours') "
+            "ORDER BY recorded_at"
+        ):
+            out["outdoor_series"].append({"t": r["recorded_at"], "temp": r["temperature"]})
+
+        for r in tdb.execute(
+            "SELECT recorded_at, name, temperature, is_heating FROM temperature_log "
+            "WHERE source='hive' AND recorded_at >= datetime('now','-24 hours') "
+            "ORDER BY name, recorded_at"
+        ):
+            out["room_series"].setdefault(r["name"], []).append(
+                {"t": r["recorded_at"], "temp": r["temperature"], "h": bool(r["is_heating"])}
+            )
+
+        tdb.close()
+
+    # ── Energy DB (solar, synced every 15 min from Pi) ────────────────────────
+    if os.path.exists(ENERGY_DB):
+        edb = _sq.connect(ENERGY_DB)
+        edb.row_factory = _sq.Row
+
+        for r in edb.execute(
+            "SELECT generation_date || 'T' || start_time_UTC AS ts, "
+            "       power_kw, total_yield_kwh "
+            "FROM   int_solar_today "
+            "WHERE  generation_date >= date('now','-1 day') "
+            "ORDER  BY generation_date, start_time_UTC"
+        ):
+            out["solar_series"].append({"t": r["ts"], "kw": r["power_kw"]})
+
+        if out["solar_series"]:
+            out["solar_current_kw"] = out["solar_series"][-1]["kw"]
+
+        row = edb.execute(
+            "SELECT ROUND(MAX(total_yield_kwh) - MIN(total_yield_kwh), 2) AS kwh "
+            "FROM   int_solar_today WHERE generation_date = date('now')"
+        ).fetchone()
+        if row and row["kwh"] is not None:
+            out["solar_today_kwh"] = row["kwh"]
+
+        edb.close()
+
+    return jsonify(out)
+
+
 # ── Run ───────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":

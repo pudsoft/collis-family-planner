@@ -73,6 +73,10 @@
      class="nav-item {% if request.endpoint == 'smarthome_view' %}active{% endif %}">
     <span class="nav-icon">💡</span>Lights
   </a>
+  <a href="{{ url_for('energy_view') }}"
+     class="nav-item {% if request.endpoint == 'energy_view' %}active{% endif %}">
+    <span class="nav-icon">☀️</span>Energy
+  </a>
   {% endif %}
 </nav>
 

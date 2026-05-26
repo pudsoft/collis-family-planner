@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+{% block title %}Energy & Temperature{% endblock %}
+
+{% block content %}
+<div class="page">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div style="font-size:1.1rem;font-weight:700">☀️ Energy &amp; Temperatures</div>
+    <div id="poll-status" style="font-size:.75rem;color:var(--text-muted)">Loading…</div>
+  </div>
+
+  <!-- ── Stat chips ──────────────────────────────────────────────────────── -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+    <div class="stat-chip">
+      <span class="stat-label">🌡️ Outside</span>
+      <span class="stat-value" id="stat-outdoor">--</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-label">☀️ Solar now</span>
+      <span class="stat-value" id="stat-solar-now">--</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-label">⚡ Today</span>
+      <span class="stat-value" id="stat-solar-day">--</span>
+    </div>
+  </div>
+
+  <!-- ── Solar + Outdoor charts ─────────────────────────────────────────── -->
+  <div id="top-charts" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+    <div class="card" style="padding:10px 12px">
+      <div class="chart-title">☀️ Solar generation today</div>
+      <div style="position:relative;height:160px">
+        <canvas id="solar-chart"></canvas>
+        <div id="solar-empty" class="chart-empty" style="display:none">No solar data yet</div>
+      </div>
+    </div>
+    <div class="card" style="padding:10px 12px">
+      <div class="chart-title">🌡️ Outdoor temp — 24h</div>
+      <div style="position:relative;height:160px">
+        <canvas id="outdoor-chart"></canvas>
+        <div id="outdoor-empty" class="chart-empty" style="display:none">No outdoor data yet</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Room temperatures chart ────────────────────────────────────────── -->
+  <div class="card" style="padding:10px 12px;margin-bottom:10px">
+    <div class="chart-title">🏠 Room temperatures — last 24h
+      <span style="font-size:.7rem;color:var(--text-muted);font-weight:400;margin-left:6px">
+        ● red dot = actively heating
+      </span>
+    </div>
+    <div style="position:relative;height:240px">
+      <canvas id="rooms-chart"></canvas>
+      <div id="rooms-empty" class="chart-empty" style="display:none">No room data yet — logger runs every 15 min</div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+.stat-chip {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 90px;
+}
+.stat-label {
+  font-size: .72rem;
+  color: var(--text-muted);
+}
+.stat-value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.chart-title {
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.chart-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .8rem;
+  color: var(--text-muted);
+}
+/* Stack charts on narrow screens */
+@media (max-width: 480px) {
+  #top-charts { grid-template-columns: 1fr !important; }
+}
+</style>
+<script>
+const ROOM_COLORS = [
+  '#7c3aed','#2563eb','#059669','#d97706',
+  '#0891b2','#65a30d','#9333ea','#dc2626',
+];
+
+let _solarChart   = null;
+let _outdoorChart = null;
+let _roomsChart   = null;
+let _pollTimer    = null;
+
+// ── Time formatting ───────────────────────────────────────────────────────────
+// recorded_at from temperature_log is "2026-05-26T08:08:36Z" (UTC)
+// solar ts is "2026-05-26T10:50:00" (UTC, no Z suffix)
+function fmtTime(ts) {
+  if (!ts) return '';
+  const s = ts.endsWith('Z') ? ts : ts + 'Z';
+  return new Date(s).toLocaleTimeString('en-GB', {
+    hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London',
+  });
+}
+
+// ── Chart builder ─────────────────────────────────────────────────────────────
+function buildOrUpdate(existingChart, id, emptyId, labels, datasets, yOpts) {
+  const el    = document.getElementById(id);
+  const empty = document.getElementById(emptyId);
+  if (!el) return null;
+
+  if (!labels.length) {
+    el.style.display    = 'none';
+    empty.style.display = 'flex';
+    return existingChart;
+  }
+  el.style.display    = '';
+  empty.style.display = 'none';
+
+  const cfg = {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: yOpts.legend || false, labels: { boxWidth: 12, font: { size: 10 } } },
+        tooltip: {
+          mode: 'index',
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toFixed(1) : '--'}${yOpts.unit || ''}`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          ticks: { maxTicksLimit: 6, maxRotation: 0, font: { size: 10 } },
+          grid:  { display: false },
+        },
+        y: {
+          ticks: { font: { size: 10 } },
+          grid:  { color: 'rgba(128,128,128,0.1)' },
+          title: { display: !!yOpts.yLabel, text: yOpts.yLabel, font: { size: 10 } },
+        },
+      },
+    },
+  };
+
+  if (existingChart) {
+    existingChart.data    = cfg.data;
+    existingChart.options = cfg.options;
+    existingChart.update('none');
+    return existingChart;
+  }
+  return new Chart(el, cfg);
+}
+
+// ── Data fetch + render ───────────────────────────────────────────────────────
+async function loadData() {
+  try {
+    const r = await fetch('/energy/data');
+    if (!r.ok) return;
+    const d = await r.json();
+
+    // Stats
+    document.getElementById('stat-outdoor').textContent =
+      d.outdoor_current != null ? d.outdoor_current.toFixed(1) + '°C' : '--';
+    document.getElementById('stat-solar-now').textContent =
+      d.solar_current_kw != null ? d.solar_current_kw.toFixed(2) + ' kW' : '--';
+    document.getElementById('stat-solar-day').textContent =
+      d.solar_today_kwh != null ? d.solar_today_kwh.toFixed(1) + ' kWh' : '--';
+
+    // ── Solar chart ────────────────────────────────────────────────────────
+    {
+      const labels   = d.solar_series.map(p => fmtTime(p.t));
+      const datasets = [{
+        label:                '☀️ kW',
+        data:                 d.solar_series.map(p => p.kw),
+        borderColor:          '#f59e0b',
+        backgroundColor:      'rgba(245,158,11,0.15)',
+        fill:                 true,
+        tension:              0.4,
+        pointRadius:          0,
+        borderWidth:          2,
+      }];
+      _solarChart = buildOrUpdate(_solarChart, 'solar-chart', 'solar-empty',
+                                  labels, datasets, { unit: ' kW' });
+    }
+
+    // ── Outdoor chart ─────────────────────────────────────────────────────
+    {
+      const labels   = d.outdoor_series.map(p => fmtTime(p.t));
+      const datasets = [{
+        label:           '🌡️ °C',
+        data:            d.outdoor_series.map(p => p.temp),
+        borderColor:     '#60a5fa',
+        backgroundColor: 'rgba(96,165,250,0.12)',
+        fill:            true,
+        tension:         0.4,
+        pointRadius:     0,
+        borderWidth:     2,
+      }];
+      _outdoorChart = buildOrUpdate(_outdoorChart, 'outdoor-chart', 'outdoor-empty',
+                                    labels, datasets, { unit: '°C' });
+    }
+
+    // ── Room temperatures chart ───────────────────────────────────────────
+    {
+      const roomNames = Object.keys(d.room_series).sort();
+      if (!roomNames.length) {
+        buildOrUpdate(_roomsChart, 'rooms-chart', 'rooms-empty', [], [], {});
+      } else {
+        // Shared labels from first room
+        const firstPts = d.room_series[roomNames[0]];
+        const labels   = firstPts.map(p => fmtTime(p.t));
+
+        const datasets = roomNames.map((name, i) => {
+          const pts   = d.room_series[name];
+          const color = ROOM_COLORS[i % ROOM_COLORS.length];
+          return {
+            label:                name,
+            data:                 pts.map(p => p.temp),
+            borderColor:          color,
+            backgroundColor:      'transparent',
+            tension:              0.3,
+            borderWidth:          2,
+            // Red dot when heating, otherwise invisible
+            pointRadius:          pts.map(p => p.h ? 4 : 0),
+            pointBackgroundColor: pts.map(p => p.h ? '#ef4444' : color),
+            pointBorderColor:     pts.map(p => p.h ? '#ef4444' : color),
+          };
+        });
+
+        _roomsChart = buildOrUpdate(_roomsChart, 'rooms-chart', 'rooms-empty',
+                                    labels, datasets,
+                                    { unit: '°C', legend: true });
+      }
+    }
+
+    document.getElementById('poll-status').textContent =
+      'Updated ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+  } catch (e) {
+    document.getElementById('poll-status').textContent = 'Error loading data';
+    console.error(e);
+  }
+}
+
+loadData();
+_pollTimer = setInterval(loadData, 5 * 60 * 1000); // refresh every 5 min
+</script>
+{% endblock %}
