@@ -390,13 +390,6 @@ function _renderFloor(floor, rooms) {
       </button>`;
     }).join('');
 
-    const editBtn = IS_ADMIN
-      ? `<button onclick='openRoomModal(${JSON.stringify(room).replace(/'/g,"&#39;")})'
-                 title="Edit room"
-                 style="padding:1px 4px;border-radius:4px;border:none;background:transparent;
-                        cursor:pointer;font-size:.7rem;opacity:.5;flex-shrink:0">✏️</button>`
-      : '';
-
     let badgeClass = 'room-badge';
     if (isHeating) badgeClass = 'room-badge room-badge-heating';
     else if (anyOn) badgeClass = 'room-badge room-badge-on';
@@ -421,7 +414,6 @@ function _renderFloor(floor, rooms) {
         ${statusStr}
         ${heatingBadge}
         ${deviceButtons ? `<div style="display:flex;flex-wrap:wrap;gap:2px;justify-content:center">${deviceButtons}</div>` : ''}
-        ${editBtn}
       </div>
     </div>`;
   }).join('');
