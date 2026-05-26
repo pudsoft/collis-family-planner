@@ -8,6 +8,7 @@
     <div style="font-size:1.1rem;font-weight:700">🏡 Smart Home</div>
     <div style="display:flex;align-items:center;gap:8px">
       {% if is_admin %}
+      <button class="btn btn-secondary btn-sm" id="timeline-btn" onclick="toggleTimeline()" style="display:none">📊</button>
       <button class="btn btn-secondary btn-sm" id="edit-toggle-btn" onclick="toggleEditMode()">✏️ Edit</button>
       {% endif %}
       <div id="poll-status" style="font-size:.75rem;color:var(--text-muted)">Loading…</div>
@@ -70,6 +71,34 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- ── Timeline controls ─────────────────────────────────────────────────── -->
+  <div id="timeline-panel" style="display:none;margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+                background:var(--card-bg);border:1px solid var(--border);
+                border-radius:10px;padding:8px 12px">
+      <button id="timeline-play-btn" class="btn btn-secondary btn-sm"
+              style="min-width:36px;padding:5px 10px;font-size:1rem"
+              onclick="playTimeline()">▶</button>
+      <input type="range" id="timeline-scrubber" min="0" max="0" value="0"
+             style="flex:1;min-width:80px;accent-color:var(--person-colour,#2d5a3d)"
+             oninput="pauseTimeline(); _timelineIndex=+this.value; renderTimelineFrame(+this.value)">
+      <span id="timeline-time"
+            style="font-size:.92rem;font-weight:700;min-width:44px;text-align:center;
+                   font-variant-numeric:tabular-nums">--:--</span>
+      <select class="form-select" id="timeline-speed" style="font-size:.78rem;width:60px;padding:4px 6px"
+              onchange="_timelineSpeed=+this.value">
+        <option value="1">1×</option>
+        <option value="2">2×</option>
+        <option value="4">4×</option>
+        <option value="8">8×</option>
+      </select>
+      <input type="date" id="timeline-date" class="form-input"
+             style="font-size:.78rem;padding:4px 8px;width:130px"
+             onchange="loadTimeline(this.value)">
+      <span id="timeline-frame-count" style="font-size:.72rem;color:var(--text-muted)"></span>
+    </div>
   </div>
 
   <!-- ── Edit mode panel ────────────────────────────────────────────────── -->
@@ -212,13 +241,26 @@
   .page { max-width: min(98vw, 1100px) !important; }
 
   .floor-tabs-row  { display: none !important; }
-  #floor-plans-row { display: flex !important; gap: 16px; align-items: flex-start; }
 
-  /* Force identical aspect ratio so both plans are the same visual size */
+  /* Floor plans side-by-side, filling available viewport height */
+  #floor-plans-row {
+    display: flex !important;
+    gap: 16px;
+    align-items: flex-start;
+    justify-content: center;
+    /* viewport - top-bar(52px) - bottom-nav(44px) - page-padding(40px)
+       - page-title-row(~44px) - row-margin(12px) - small buffer(8px) */
+    height: calc(100dvh - 200px);
+    margin-bottom: 0;
+  }
+
+  /* Each plan: height-driven sizing with width following aspect ratio */
   #floor-plan-ground,
   #floor-plan-first  {
     display: block !important;
-    flex: 1;
+    flex: 0 0 auto !important;
+    height: 100% !important;
+    width: auto !important;
     aspect-ratio: 179 / 255 !important;
   }
 }
@@ -321,7 +363,7 @@ async function _loadZoneCanvas(floor) {
   _zoneCanvas[floor] = cv;
 }
 
-async function applyZoneColors(floor, rooms) {
+async function applyZoneColors(floor, rooms, outdoorOverride) {
   try {
     await _loadZoneCanvas(floor);
     const cv  = _zoneCanvas[floor];
@@ -336,7 +378,8 @@ async function applyZoneColors(floor, rooms) {
 
     // Outdoor zone: sample top-left corner pixel of the zones image
     const oz = [orig[0], orig[1], orig[2]];
-    const oc = _tempToRgb(_outdoorTemp);
+    const outdoorTemp = (outdoorOverride !== undefined) ? outdoorOverride : _outdoorTemp;
+    const oc = _tempToRgb(outdoorTemp);
     if (oc) reps.push({from: oz, to: oc});
 
     // Per-room zone colours
@@ -455,10 +498,13 @@ async function pollStatus() {
     const data = await r.json();
     _lastRooms   = data.rooms || [];
     _outdoorTemp = data.outdoor_temp ?? null;
-    renderGrid(_lastRooms);
-    applyZoneColors('ground', _lastRooms);
-    applyZoneColors('first',  _lastRooms);
+    if (!_timelineMode) {
+      renderGrid(_lastRooms);
+      applyZoneColors('ground', _lastRooms);
+      applyZoneColors('first',  _lastRooms);
+    }
     if (_editMode) renderAdminRoomList(_lastRooms);
+    if (IS_ADMIN) document.getElementById('timeline-btn').style.display = '';
     document.getElementById('poll-status').textContent =
       'Updated ' + new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
   } catch {
@@ -538,7 +584,10 @@ function _renderFloor(floor, rooms) {
 
     const adv = windowAdvice(temp, _outdoorTemp);
     const windowIcon = adv
-      ? `<span title="${adv.label}" style="font-size:.78rem;cursor:default">${adv.open ? '🪟↑' : '🪟↓'}</span>`
+      ? `<img src="/static/images/icons8-${adv.open ? 'open' : 'closed'}-window-100.png"
+              title="${adv.label}"
+              style="width:18px;height:18px;object-fit:contain;cursor:default;
+                     ${adv.open ? '' : 'filter:grayscale(.4) opacity(.75)'}">`
       : '';
 
     return `
@@ -887,6 +936,104 @@ async function setHaEntity(idx, entityId) {
   });
   const data = await r.json();
   if (data.ok) showToast(d.ha_entity_id ? 'HA entity saved ✓' : 'HA entity cleared');
+}
+
+// ── Temperature timeline ──────────────────────────────────────────────────────
+
+let _timelineMode   = false;
+let _timelineFrames = [];
+let _timelineIndex  = 0;
+let _timelineTimer  = null;
+let _timelineSpeed  = 1;   // frames per second
+
+function toggleTimeline() {
+  _timelineMode = !_timelineMode;
+  document.getElementById('timeline-panel').style.display = _timelineMode ? '' : 'none';
+  document.getElementById('timeline-btn').textContent     = _timelineMode ? '⬅ Live' : '📊';
+  if (_timelineMode) {
+    // Pause live poll and load today's data
+    if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+    const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+    document.getElementById('timeline-date').value = today;
+    loadTimeline(today);
+  } else {
+    pauseTimeline();
+    // Restore live floor plan colours and resume polling
+    applyZoneColors('ground', _lastRooms);
+    applyZoneColors('first',  _lastRooms);
+    pollStatus();
+    _pollTimer = setInterval(pollStatus, 30000);
+  }
+}
+
+async function loadTimeline(dateStr) {
+  pauseTimeline();
+  document.getElementById('timeline-frame-count').textContent = 'Loading…';
+  try {
+    const r = await fetch(`/smarthome/timeline?date=${dateStr}`);
+    const data = await r.json();
+    _timelineFrames = data.frames || [];
+    _timelineIndex  = 0;
+    const scrub = document.getElementById('timeline-scrubber');
+    scrub.max   = Math.max(0, _timelineFrames.length - 1);
+    scrub.value = 0;
+    const n = _timelineFrames.length;
+    document.getElementById('timeline-frame-count').textContent =
+      n ? `${n} reading${n>1?'s':''}` : 'No data for this date';
+    if (n) renderTimelineFrame(0);
+    else {
+      document.getElementById('timeline-time').textContent = '--:--';
+      applyZoneColors('ground', _lastRooms);
+      applyZoneColors('first',  _lastRooms);
+    }
+  } catch(e) {
+    document.getElementById('timeline-frame-count').textContent = 'Load failed';
+  }
+}
+
+function renderTimelineFrame(index) {
+  const frame = _timelineFrames[index];
+  if (!frame) return;
+
+  // Display time — convert UTC ISO to local BST/GMT
+  const ts      = new Date(frame.t);
+  const timeStr = ts.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+  document.getElementById('timeline-time').textContent = timeStr;
+  document.getElementById('timeline-scrubber').value   = index;
+
+  // Outdoor temp for this frame (wttr 'Brundall' row)
+  const outdoorZone = frame.zones['Brundall'];
+  const frameOutdoor = outdoorZone ? outdoorZone.temp : null;
+
+  // Synthetic rooms: copy _lastRooms but replace Hive temps with historical values
+  const syntheticRooms = _lastRooms.map(room => {
+    if (!room.hive?.name) return room;
+    const zoneData = frame.zones[room.hive.name];
+    if (!zoneData) return room;
+    return {
+      ...room,
+      hive: { ...room.hive, current_temp: zoneData.temp, is_heating: zoneData.heating },
+    };
+  });
+
+  applyZoneColors('ground', syntheticRooms, frameOutdoor);
+  applyZoneColors('first',  syntheticRooms, frameOutdoor);
+}
+
+function playTimeline() {
+  if (!_timelineFrames.length) return;
+  document.getElementById('timeline-play-btn').textContent = '⏸';
+  document.getElementById('timeline-play-btn').onclick     = pauseTimeline;
+  _timelineTimer = setInterval(() => {
+    _timelineIndex = (_timelineIndex + 1) % _timelineFrames.length;
+    renderTimelineFrame(_timelineIndex);
+  }, Math.round(1000 / _timelineSpeed));
+}
+
+function pauseTimeline() {
+  if (_timelineTimer) { clearInterval(_timelineTimer); _timelineTimer = null; }
+  const btn = document.getElementById('timeline-play-btn');
+  if (btn) { btn.textContent = '▶'; btn.onclick = playTimeline; }
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────

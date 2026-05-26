@@ -1950,6 +1950,49 @@ def smarthome_toggle(device_db_id: int):
     return jsonify({"ok": ok, "now_on": bool(desired_on), **({"error": err} if err else {})})
 
 
+@app.route("/smarthome/timeline")
+def smarthome_timeline():
+    """Return historical temperature readings grouped into 15-min frames."""
+    if current_person() not in config.ADMINS:
+        return jsonify({"error": "Admin only"}), 403
+
+    date_str = request.args.get("date", date.today().isoformat())
+    try:
+        date.fromisoformat(date_str)
+    except ValueError:
+        return jsonify({"error": "invalid date"}), 400
+
+    _TLOGDB = Path(__file__).parent / "data" / "temperature_log.db"
+    if not _TLOGDB.exists():
+        return jsonify({"frames": []})
+
+    try:
+        with sqlite3.connect(str(_TLOGDB)) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT recorded_at, source, name, temperature, is_heating "
+                "FROM temperature_log WHERE recorded_at LIKE ? ORDER BY recorded_at",
+                (date_str + "%",),
+            ).fetchall()
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+    # Group by minute-level key — all readings in one 15-min cron run are
+    # written within a few seconds of each other, so they share the same minute.
+    by_minute: dict = {}
+    for row in rows:
+        key = row["recorded_at"][:16]   # "YYYY-MM-DDTHH:MM"
+        if key not in by_minute:
+            by_minute[key] = {"t": row["recorded_at"], "zones": {}}
+        by_minute[key]["zones"][row["name"]] = {
+            "temp":    row["temperature"],
+            "heating": bool(row["is_heating"]),
+            "source":  row["source"],
+        }
+
+    return jsonify({"frames": [v for _, v in sorted(by_minute.items())]})
+
+
 # ── Smart home admin ──────────────────────────────────────────────────────────
 
 @app.route("/admin/smarthome/rooms", methods=["POST"])
