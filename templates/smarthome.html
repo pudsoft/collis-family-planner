@@ -48,6 +48,11 @@
       padding:4% 6% 7% 6%; box-sizing:border-box; overflow:hidden;
     ">
       <div id="room-grid-ground" style="width:100%;height:100%;display:grid;gap:3px"></div>
+      <!-- Edit-mode gridline overlay — matches the room grid area exactly -->
+      <div id="grid-overlay-ground" style="
+        position:absolute; top:4%; right:6%; bottom:7%; left:6%;
+        display:none; gap:3px; pointer-events:none; box-sizing:border-box;
+      "></div>
       <div id="no-rooms-hint-ground" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center">
         <div style="background:rgba(255,255,255,.88);border-radius:10px;padding:16px 20px;text-align:center;font-size:.85rem;color:var(--text-muted)">
           {% if is_admin %}No rooms yet — tap <strong>✏️ Edit</strong> then <strong>Seed rooms</strong>.{% else %}No rooms configured.{% endif %}
@@ -64,6 +69,10 @@
       padding:4% 6% 7% 6%; box-sizing:border-box; overflow:hidden;
     ">
       <div id="room-grid-first" style="width:100%;height:100%;display:grid;gap:3px"></div>
+      <div id="grid-overlay-first" style="
+        position:absolute; top:4%; right:6%; bottom:7%; left:6%;
+        display:none; gap:3px; pointer-events:none; box-sizing:border-box;
+      "></div>
       <div id="no-rooms-hint-first" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center">
         <div style="background:rgba(255,255,255,.88);border-radius:10px;padding:16px 20px;text-align:center;font-size:.85rem;color:var(--text-muted)">
           No first floor rooms configured.
@@ -512,6 +521,38 @@ async function pollStatus() {
   }
 }
 
+// ── Edit-mode grid overlay ────────────────────────────────────────────────────
+
+function renderGridlines(floor, numCols, numRows) {
+  const overlay = document.getElementById(`grid-overlay-${floor}`);
+  if (!overlay) return;
+  if (!_editMode || !numCols || !numRows) {
+    overlay.style.display = 'none';
+    return;
+  }
+  overlay.style.display              = 'grid';
+  overlay.style.gridTemplateColumns  = `repeat(${numCols}, 1fr)`;
+  overlay.style.gridTemplateRows     = `repeat(${numRows}, 1fr)`;
+
+  let html = '';
+  for (let r = 0; r < numRows; r++) {
+    for (let c = 0; c < numCols; c++) {
+      html += `<div style="
+        border:1px dashed rgba(255,255,255,0.45);
+        box-sizing:border-box;
+        padding:2px 3px;
+      "><span style="
+        font-size:8px; line-height:1;
+        color:rgba(255,255,255,0.6);
+        font-weight:600;
+        text-shadow:0 1px 2px rgba(0,0,0,.7);
+        font-variant-numeric:tabular-nums;
+      ">${c},${r}</span></div>`;
+    }
+  }
+  overlay.innerHTML = html;
+}
+
 // ── Room grid rendering ───────────────────────────────────────────────────────
 
 function renderGrid(rooms) {
@@ -538,6 +579,7 @@ function _renderFloor(floor, rooms) {
 
   grid.style.gridTemplateColumns = `repeat(${maxCol}, 1fr)`;
   grid.style.gridTemplateRows    = `repeat(${numRows}, 1fr)`;
+  renderGridlines(floor, maxCol, numRows);
 
   grid.innerHTML = floorRooms.map(room => {
     const hive      = room.hive;
@@ -650,6 +692,8 @@ function toggleEditMode() {
     document.getElementById('zone-min').value = ZONE_MIN;
     document.getElementById('zone-max').value = ZONE_MAX;
   }
+  // Trigger a grid re-render so gridlines appear/disappear immediately
+  renderGrid(_lastRooms);
 }
 
 async function saveZoneSettings() {
