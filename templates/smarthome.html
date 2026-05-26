@@ -271,16 +271,13 @@ function trendArrow(temp, trend) {
   const icon = trend === 'up' ? '↗' : '↘';
   let color;
   if (temp >= 18 && temp <= 21) {
-    // Already in ideal zone — any movement is fine
-    color = '#22c55e';
+    color = '#22c55e';                                          // in zone — fine
   } else if ((temp < 18 && trend === 'up') || (temp > 21 && trend === 'down')) {
-    // Moving toward ideal
-    color = '#22c55e';
+    color = '#22c55e';                                          // toward ideal
   } else {
-    // Moving further from ideal
-    color = '#ef4444';
+    color = '#ef4444';                                          // away from ideal
   }
-  return `<span style="font-weight:700;color:${color};margin-left:2px">${icon}</span>`;
+  return `<span style="font-size:1.1rem;font-weight:900;color:${color};margin-left:3px;line-height:1">${icon}</span>`;
 }
 
 // ── Temperature colour ────────────────────────────────────────────────────────

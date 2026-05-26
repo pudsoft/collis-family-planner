@@ -2264,8 +2264,9 @@ def energy_data():
 
     out["room_stats"] = {
         _name: {
-            "day":   _stat_block(_day_pts[_name]),
-            "night": _stat_block(_night_pts[_name]),
+            "day":         _stat_block(_day_pts[_name]),
+            "night":       _stat_block(_night_pts[_name]),
+            "current_temp": next((t for t in reversed(out["rooms"][_name]["temps"]) if t is not None), None),
         }
         for _name in out["rooms"]
     }
