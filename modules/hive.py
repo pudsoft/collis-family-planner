@@ -3,10 +3,13 @@
 Uses pyhiveapi for Cognito SRP authentication (required by Hive), then
 queries the Beekeeper REST API for device data. Results are cached for
 60 seconds to avoid hammering the API on every page poll.
+
+API note: this version of pyhiveapi uses a synchronous auth flow:
+    h = Hive(username, password)  →  h.login()  →  h.startSession(tokens)
+The older HiveAuth / async startSession interface no longer exists.
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 import config
@@ -20,40 +23,32 @@ _cache_ts:   float      = 0.0
 _cache_data: list[dict] = []
 
 
-# ── Async runner (Flask is sync) ──────────────────────────────────────────────
-
-def _run(coro):
-    """Run an async coroutine from a synchronous Flask request context."""
-    try:
-        # asyncio.run() creates a fresh event loop — safe in sync Flask
-        return asyncio.run(coro)
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(coro)
-        finally:
-            loop.close()
-
-
 # ── Hive auth + data fetch ────────────────────────────────────────────────────
 
-async def _fetch_products() -> list[dict]:
-    """Authenticate with Hive and return all products from the API."""
-    from pyhiveapi import Hive, HiveAuth, SMS_REQUIRED
+def _fetch_products() -> list[dict]:
+    """Authenticate with Hive and return all raw products from the API."""
+    from pyhiveapi import Hive
 
-    hive   = Hive()
-    auth   = HiveAuth(config.HIVE_EMAIL, config.HIVE_PASSWORD)
-    result = await hive.session.startSession(auth)
+    h = Hive(username=config.HIVE_EMAIL, password=config.HIVE_PASSWORD)
 
-    if result == SMS_REQUIRED:
+    login_result = h.login()
+
+    if not login_result:
+        raise RuntimeError("Hive login returned no result — check credentials")
+
+    if "ChallengeName" in login_result:
+        challenge = login_result["ChallengeName"]
         raise RuntimeError(
-            "Hive requires SMS 2FA — please disable it temporarily or "
+            f"Hive requires 2FA ({challenge}) — disable SMS 2FA or "
             "whitelist the server IP in your Hive account settings."
         )
 
-    products = await hive.session.getProducts()
-    return products or []
+    if "AuthenticationResult" not in login_result:
+        raise RuntimeError(f"Hive login failed: {login_result}")
+
+    h.startSession({"tokens": login_result, "username": config.HIVE_EMAIL})
+
+    return list(h.data.products.values())
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -73,6 +68,7 @@ def get_climate_data() -> list[dict]:
         online        – bool
     """
     global _cache_ts, _cache_data
+
     if not config.HIVE_EMAIL or not config.HIVE_PASSWORD:
         return []
 
@@ -81,7 +77,7 @@ def get_climate_data() -> list[dict]:
         return _cache_data
 
     try:
-        products = _run(_fetch_products())
+        products = _fetch_products()
         zones: list[dict] = []
 
         for p in products:
@@ -95,15 +91,14 @@ def get_climate_data() -> list[dict]:
             current = props.get("temperature")
             target  = state.get("target") or state.get("heat")
 
-            # Convert strings to float if needed
             try:
                 current = float(current) if current is not None else None
             except (TypeError, ValueError):
                 current = None
             try:
-                target  = float(target)  if target  is not None else None
+                target = float(target) if target is not None else None
             except (TypeError, ValueError):
-                target  = None
+                target = None
 
             zones.append({
                 "id":           p.get("id", ""),
@@ -123,7 +118,6 @@ def get_climate_data() -> list[dict]:
 
     except Exception as exc:
         log.warning("Hive get_climate_data failed: %s", exc)
-        # Return stale cache rather than empty on transient errors
         return _cache_data
 
 
