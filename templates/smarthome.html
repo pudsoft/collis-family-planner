@@ -444,6 +444,7 @@ async function seedRooms() {
 // ── Device discovery + assignment ─────────────────────────────────────────────
 
 let _discoveredDevices = [];
+let _networkDevices    = [];
 
 async function discoverDevices() {
   const btn = document.getElementById('discover-btn');
@@ -453,6 +454,7 @@ async function discoverDevices() {
     if (!r.ok) return;
     const data = await r.json();
     _discoveredDevices = [...(data.tapo||[]), ...(data.hive||[])];
+    _networkDevices    = data.network || [];
     renderDeviceAssignList();
   } catch(e) {
     showToast('Discover failed: ' + e.message, 'error');
@@ -462,34 +464,78 @@ async function discoverDevices() {
 }
 
 function renderDeviceAssignList() {
-  const el = document.getElementById('device-assign-list');
-  if (!_discoveredDevices.length) {
+  const el    = document.getElementById('device-assign-list');
+  const rooms = _lastRooms;
+
+  if (!_discoveredDevices.length && !_networkDevices.length) {
     el.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem">No devices found</div>';
     return;
   }
-  const rooms = _lastRooms;
-  el.innerHTML = _discoveredDevices.map((d,i) => {
-    const provBadge = d.provider === 'hive'
-      ? `<span style="font-size:.63rem;background:#FEF9C3;color:#854D0E;border-radius:4px;padding:1px 5px">Hive</span>`
-      : `<span style="font-size:.63rem;background:#DBEAFE;color:#1D4ED8;border-radius:4px;padding:1px 5px">Tapo</span>`;
-    const statusDot = d.online
-      ? `<span style="font-size:.63rem;color:#22C55E">● online</span>`
-      : `<span style="font-size:.63rem;color:var(--text-muted)">● offline</span>`;
-    const opts = rooms.map(r => `<option value="${r.id}">${r.icon} ${r.name}</option>`).join('');
-    return `<div class="device-item">
-      <div style="flex:1;min-width:0">
-        <div class="device-name">${d.name} ${provBadge} ${statusDot}</div>
-        <div class="device-mac">${d.device_type||d.provider}</div>
-      </div>
-      <select class="form-select" style="width:130px;font-size:.8rem" onchange="assignDevice(${i},this.value)">
-        <option value="">— Unassigned —</option>${opts}
-      </select>
-    </div>`;
-  }).join('');
 
-  // Restore current assignments
-  _discoveredDevices.forEach((d,i) => {
-    const sel  = el.querySelectorAll('select')[i];
+  // ── Tapo + Hive assignable devices ────────────────────────────────────────
+  let html = '';
+  if (_discoveredDevices.length) {
+    html += `<div style="font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;
+                         letter-spacing:.06em;padding:4px 0 6px">Tapo &amp; Hive — assign to rooms</div>`;
+    html += _discoveredDevices.map((d, i) => {
+      const provBadge = d.provider === 'hive'
+        ? `<span style="font-size:.6rem;background:#FEF9C3;color:#854D0E;border-radius:4px;padding:1px 4px">Hive</span>`
+        : `<span style="font-size:.6rem;background:#DBEAFE;color:#1D4ED8;border-radius:4px;padding:1px 4px">Tapo</span>`;
+      const statusDot = d.online
+        ? `<span style="font-size:.6rem;color:#22C55E">●</span>`
+        : `<span style="font-size:.6rem;color:var(--text-muted)">●</span>`;
+      const ipLine = (d.ip || d.mac)
+        ? `<div class="device-mac">${d.ip ? d.ip + ' · ' : ''}${d.mac || ''}${d.essid ? ' · ' + d.essid : ''}</div>`
+        : `<div class="device-mac">${d.device_type || d.provider}</div>`;
+      const opts = rooms.map(r => `<option value="${r.id}">${r.icon} ${r.name}</option>`).join('');
+      return `<div class="device-item" id="dev-assign-${i}">
+        <div style="flex:1;min-width:0">
+          <div class="device-name">${statusDot} ${d.name} ${provBadge}</div>
+          ${ipLine}
+        </div>
+        <select class="form-select" style="width:120px;font-size:.78rem" onchange="assignDevice(${i},this.value)">
+          <option value="">— Room —</option>${opts}
+        </select>
+      </div>`;
+    }).join('');
+  }
+
+  // ── All network devices (read-only reference) ─────────────────────────────
+  if (_networkDevices.length) {
+    // Group by SSID (wired last)
+    const byEssid = {};
+    for (const c of _networkDevices) {
+      const key = c.is_wired ? '📡 Wired' : (c.essid || 'Unknown');
+      (byEssid[key] = byEssid[key] || []).push(c);
+    }
+    html += `<div style="margin-top:14px">
+      <div style="font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;
+                  letter-spacing:.06em;padding:4px 0 4px">All network devices (${_networkDevices.length})</div>
+      <details>
+        <summary style="font-size:.8rem;color:var(--text-muted);cursor:pointer;padding:4px 0;list-style:none">
+          ▶ Expand to see all connected devices by network
+        </summary>`;
+    for (const [ssid, clients] of Object.entries(byEssid)) {
+      html += `<div style="margin-top:8px">
+        <div style="font-size:.7rem;font-weight:600;color:var(--text-muted);padding:2px 0 4px;
+                    border-bottom:1px solid var(--border);margin-bottom:4px">${ssid} (${clients.length})</div>`;
+      html += clients.map(c => `
+        <div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid var(--border-faint,#f0f0f0)">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.8rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.hostname}</div>
+            <div style="font-size:.7rem;color:var(--text-muted)">${c.ip}${c.mac ? ' · ' + c.mac : ''}${c.ap ? ' · ' + c.ap : ''}</div>
+          </div>
+        </div>`).join('');
+      html += `</div>`;
+    }
+    html += `</details></div>`;
+  }
+
+  el.innerHTML = html;
+
+  // Restore current room assignments on selects
+  _discoveredDevices.forEach((d, i) => {
+    const sel  = document.querySelector(`#dev-assign-${i} select`);
     const curr = rooms.find(r => r.tapo?.some(t => t.device_id===d.device_id) || r.hive?.id===d.device_id);
     if (curr && sel) sel.value = curr.id;
   });

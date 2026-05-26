@@ -1882,18 +1882,38 @@ def admin_smarthome_delete_room(room_id: int):
 @app.route("/admin/smarthome/discover", methods=["POST"])
 @require_admin
 def admin_smarthome_discover():
-    """Return discovered Tapo + Hive devices for the admin to assign to rooms."""
+    """Return discovered Tapo + Hive devices plus full UniFi client list."""
+
+    # ── UniFi lookup (MAC → IP / SSID) ───────────────────────────────────────
+    def _norm_mac(m: str) -> str:
+        """Normalise any MAC format to lower-case colon-separated."""
+        m = m.lower().replace("-", ":").replace(".", ":").replace(" ", "")
+        if len(m) == 12:  # no separators e.g. aabbccddeeff
+            m = ":".join(m[i:i+2] for i in range(0, 12, 2))
+        return m
+
+    unifi_clients = unifi.list_connected_clients()
+    unifi_by_mac  = {_norm_mac(c["mac"]): c for c in unifi_clients}
+
+    # ── Tapo cloud devices ────────────────────────────────────────────────────
     tapo_devs = []
     if config.TAPO_EMAIL:
         for d in tapo.list_cloud_devices():
+            raw_mac = d.get("deviceMac", "")
+            mac     = _norm_mac(raw_mac) if raw_mac else ""
+            client  = unifi_by_mac.get(mac, {})
             tapo_devs.append({
                 "provider":    "tapo",
                 "device_id":   d.get("deviceId", ""),
                 "name":        d.get("alias", d.get("deviceName", "Device")),
                 "device_type": d.get("deviceModel", ""),
+                "mac":         mac,
+                "ip":          client.get("ip", ""),
+                "essid":       client.get("essid", ""),
                 "online":      d.get("status") == 1,
             })
 
+    # ── Hive heating zones ────────────────────────────────────────────────────
     hive_devs = []
     if config.HIVE_EMAIL:
         for z in hive.get_climate_data():
@@ -1905,7 +1925,21 @@ def admin_smarthome_discover():
                 "online":      z.get("online", True),
             })
 
-    return jsonify({"tapo": tapo_devs, "hive": hive_devs})
+    # ── All UniFi network clients (for IoT identification) ───────────────────
+    network_devs = []
+    for c in unifi_clients:
+        network_devs.append({
+            "mac":      c["mac"],
+            "ip":       c.get("ip", ""),
+            "hostname": c.get("hostname") or c["mac"],
+            "essid":    c.get("essid", ""),
+            "ap":       c.get("ap_name", ""),
+            "is_wired": c.get("is_wired", False),
+        })
+    # Sort wired last, then by SSID then hostname
+    network_devs.sort(key=lambda x: (x["is_wired"], x["essid"], x["hostname"]))
+
+    return jsonify({"tapo": tapo_devs, "hive": hive_devs, "network": network_devs})
 
 
 @app.route("/admin/smarthome/assign", methods=["POST"])
