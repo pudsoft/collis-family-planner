@@ -340,19 +340,21 @@ function renderGrid(rooms) {
       grid-column: ${(room.grid_col||0)+1} / span ${room.grid_col_span||1};
       grid-row:    ${(room.grid_row||0)+1} / span ${room.grid_row_span||1};
     ">
-      <div class="${badgeClass}">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:3px">
-          <div style="font-size:.78rem;font-weight:700;color:#1a3a2a;
-                      flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
-            ${room.icon} ${room.name}
-          </div>
-          <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;line-height:1">
-            ${tempStr}
-            ${heatingBadge}
-            ${editBtn}
-          </div>
+      <div class="${badgeClass}" style="
+        width:50%; height:82%;
+        display:flex; flex-direction:column;
+        align-items:center; justify-content:center;
+        text-align:center; gap:3px;
+      ">
+        <div style="font-size:1rem;line-height:1">${room.icon}</div>
+        <div style="font-size:.68rem;font-weight:700;color:#1a3a2a;line-height:1.2;
+                    overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">
+          ${room.name}
         </div>
-        ${deviceButtons ? `<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:3px">${deviceButtons}</div>` : ''}
+        ${tempStr ? `<div style="line-height:1.1">${tempStr}</div>` : ''}
+        ${heatingBadge}
+        ${deviceButtons ? `<div style="display:flex;flex-wrap:wrap;gap:2px;justify-content:center">${deviceButtons}</div>` : ''}
+        ${editBtn}
       </div>
     </div>`;
   }).join('');
