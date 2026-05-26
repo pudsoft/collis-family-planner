@@ -47,12 +47,20 @@
       border-radius:8px; aspect-ratio:179/255;
       padding:4% 6% 7% 6%; box-sizing:border-box; overflow:hidden;
     ">
-      <div id="room-grid-ground" style="width:100%;height:100%;display:grid;gap:3px"></div>
-      <!-- Edit-mode gridline overlay — matches the room grid area exactly -->
+      <div id="room-grid-ground" style="width:100%;height:100%;display:grid;gap:0"></div>
+      <!-- Edit-mode gridline overlay -->
       <div id="grid-overlay-ground" style="
         position:absolute; top:4%; right:6%; bottom:7%; left:6%;
-        display:none; gap:3px; pointer-events:none; box-sizing:border-box;
+        display:none; gap:0; pointer-events:none; box-sizing:border-box;
       "></div>
+      <!-- Outdoor temperature badge -->
+      <div id="outdoor-badge-ground" style="
+        display:none; position:absolute; bottom:1.5%; left:50%;
+        transform:translateX(-50%); pointer-events:none;
+        background:rgba(15,23,42,.62); backdrop-filter:blur(6px);
+        border-radius:20px; padding:3px 10px;
+        color:#e2e8f0; font-size:.72rem; font-weight:600; white-space:nowrap;
+      ">🌡️ <span class="outdoor-temp-val"></span></div>
       <div id="no-rooms-hint-ground" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center">
         <div style="background:rgba(255,255,255,.88);border-radius:10px;padding:16px 20px;text-align:center;font-size:.85rem;color:var(--text-muted)">
           {% if is_admin %}No rooms yet — tap <strong>✏️ Edit</strong> then <strong>Seed rooms</strong>.{% else %}No rooms configured.{% endif %}
@@ -68,11 +76,18 @@
       border-radius:8px; aspect-ratio:179/255;
       padding:4% 6% 7% 6%; box-sizing:border-box; overflow:hidden;
     ">
-      <div id="room-grid-first" style="width:100%;height:100%;display:grid;gap:3px"></div>
+      <div id="room-grid-first" style="width:100%;height:100%;display:grid;gap:0"></div>
       <div id="grid-overlay-first" style="
         position:absolute; top:4%; right:6%; bottom:7%; left:6%;
-        display:none; gap:3px; pointer-events:none; box-sizing:border-box;
+        display:none; gap:0; pointer-events:none; box-sizing:border-box;
       "></div>
+      <div id="outdoor-badge-first" style="
+        display:none; position:absolute; bottom:1.5%; left:50%;
+        transform:translateX(-50%); pointer-events:none;
+        background:rgba(15,23,42,.62); backdrop-filter:blur(6px);
+        border-radius:20px; padding:3px 10px;
+        color:#e2e8f0; font-size:.72rem; font-weight:600; white-space:nowrap;
+      ">🌡️ <span class="outdoor-temp-val"></span></div>
       <div id="no-rooms-hint-first" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center">
         <div style="background:rgba(255,255,255,.88);border-radius:10px;padding:16px 20px;text-align:center;font-size:.85rem;color:var(--text-muted)">
           No first floor rooms configured.
@@ -141,6 +156,37 @@
         <label style="font-size:.85rem">°C &nbsp;to</label>
         <input class="form-input" id="zone-max" type="number" step="0.5" min="5" max="35" style="width:70px">
         <label style="font-size:.85rem">°C</label>
+      </div>
+    </div>
+
+    <div class="card admin-section">
+      <div class="card-header">
+        <span class="admin-section-title" style="border:none;margin:0">🔲 Floor plan grid</span>
+        <button class="btn btn-primary btn-sm" onclick="saveGridSettings()">Save</button>
+      </div>
+      <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px">
+        Divide each floor plan into this many columns × rows for room positioning.
+        Drag rooms on the floor plan to position them; drag the ⤡ handle to resize.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <div style="font-size:.75rem;font-weight:600;margin-bottom:4px">Ground floor</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input class="form-input" id="grid-ground-cols" type="number" min="1" max="12" style="width:60px"
+                   value="{{ grid_cols_ground }}"> cols ×
+            <input class="form-input" id="grid-ground-rows" type="number" min="1" max="12" style="width:60px"
+                   value="{{ grid_rows_ground }}"> rows
+          </div>
+        </div>
+        <div>
+          <div style="font-size:.75rem;font-weight:600;margin-bottom:4px">First floor</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input class="form-input" id="grid-first-cols" type="number" min="1" max="12" style="width:60px"
+                   value="{{ grid_cols_first }}"> cols ×
+            <input class="form-input" id="grid-first-rows" type="number" min="1" max="12" style="width:60px"
+                   value="{{ grid_rows_first }}"> rows
+          </div>
+        </div>
       </div>
     </div>
 
@@ -274,16 +320,69 @@
   }
 }
 
+/* ── Drag-and-drop edit cards ───────────────────────────────────────────── */
+.drag-card {
+  position: absolute;
+  border: 2px dashed rgba(255,255,255,.85);
+  background: rgba(255,255,255,.12);
+  border-radius: 6px;
+  cursor: grab;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+  transition: opacity .15s;
+}
+.drag-card:active { cursor: grabbing; }
+.drag-label {
+  background: rgba(255,255,255,.92);
+  border-radius: 5px;
+  padding: 3px 7px;
+  font-size: .72rem;
+  font-weight: 700;
+  text-align: center;
+  pointer-events: none;
+  max-width: 88%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.drag-resize {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 18px;
+  height: 18px;
+  background: rgba(255,255,255,.9);
+  border-radius: 3px;
+  cursor: se-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .75rem;
+  color: #555;
+  font-weight: 700;
+  touch-action: none;
+}
+
 /* Room tile — transparent overlay on floor plan */
 .room-tile {
   background: transparent;
   border: none;
   padding: 3px;
+  /* Explicitly fill the grid area so the badge centres correctly */
+  width: 100%;
+  height: 100%;
+  align-self: stretch;
+  justify-self: stretch;
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 0;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 /* Info badge — frosted glass floating over the floor plan */
@@ -316,6 +415,10 @@ const FP_V = {
 };
 let ZONE_MIN = {{ zone_temp_min }};
 let ZONE_MAX = {{ zone_temp_max }};
+let GRID_SETTINGS = {
+  ground: { cols: {{ grid_cols_ground }}, rows: {{ grid_rows_ground }} },
+  first:  { cols: {{ grid_cols_first  }}, rows: {{ grid_rows_first  }} },
+};
 
 let _pollTimer    = null;
 let _editMode     = false;
@@ -511,6 +614,7 @@ async function pollStatus() {
       renderGrid(_lastRooms);
       applyZoneColors('ground', _lastRooms);
       applyZoneColors('first',  _lastRooms);
+      _updateOutdoorBadges(_outdoorTemp);
     }
     if (_editMode) renderAdminRoomList(_lastRooms);
     if (IS_ADMIN) document.getElementById('timeline-btn').style.display = '';
@@ -574,12 +678,14 @@ function _renderFloor(floor, rooms) {
   }
   if (hint) hint.style.display = 'none';
 
-  const maxCol  = Math.max(...floorRooms.map(r => (r.grid_col  || 0) + (r.grid_col_span  || 1)));
-  const numRows = Math.max(...floorRooms.map(r => (r.grid_row  || 0) + (r.grid_row_span  || 1)));
+  // Use the configured grid size (fixed, not auto-computed from rooms)
+  const numCols = GRID_SETTINGS[floor].cols;
+  const numRows = GRID_SETTINGS[floor].rows;
 
-  grid.style.gridTemplateColumns = `repeat(${maxCol}, 1fr)`;
+  grid.style.gridTemplateColumns = `repeat(${numCols}, 1fr)`;
   grid.style.gridTemplateRows    = `repeat(${numRows}, 1fr)`;
-  renderGridlines(floor, maxCol, numRows);
+  renderGridlines(floor, numCols, numRows);
+  if (_editMode) renderEditCards(floor);
 
   grid.innerHTML = floorRooms.map(room => {
     const hive      = room.hive;
@@ -689,13 +795,25 @@ function toggleEditMode() {
   _editMode = !_editMode;
   document.getElementById('edit-panel').style.display = _editMode ? '' : 'none';
   document.getElementById('edit-toggle-btn').textContent = _editMode ? '✓ Done' : '✏️ Edit';
+
+  // Show/hide room grid (hidden in edit mode so drag cards are the UI)
+  ['ground','first'].forEach(f => {
+    const g = document.getElementById(`room-grid-${f}`);
+    if (g) g.style.visibility = _editMode ? 'hidden' : '';
+  });
+
   if (_editMode) {
     renderAdminRoomList(_lastRooms);
     document.getElementById('zone-min').value = ZONE_MIN;
     document.getElementById('zone-max').value = ZONE_MAX;
+    renderGrid(_lastRooms);           // rebuilds gridlines with correct grid size
+    renderEditCards('ground');
+    renderEditCards('first');
+  } else {
+    // Remove drag cards, show room grid
+    document.querySelectorAll('.drag-card').forEach(e => e.remove());
+    renderGrid(_lastRooms);
   }
-  // Trigger a grid re-render so gridlines appear/disappear immediately
-  renderGrid(_lastRooms);
 }
 
 async function saveZoneSettings() {
@@ -716,6 +834,42 @@ async function saveZoneSettings() {
   } else {
     showToast('Save failed', 'error');
   }
+}
+
+async function saveGridSettings() {
+  const gc = parseInt(document.getElementById('grid-ground-cols').value);
+  const gr = parseInt(document.getElementById('grid-ground-rows').value);
+  const fc = parseInt(document.getElementById('grid-first-cols').value);
+  const fr = parseInt(document.getElementById('grid-first-rows').value);
+  if ([gc,gr,fc,fr].some(v => isNaN(v) || v < 1)) {
+    showToast('Grid size must be at least 1', 'error'); return;
+  }
+  const r = await fetch('/admin/smarthome/settings', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({sh_grid_ground_cols:gc, sh_grid_ground_rows:gr,
+                          sh_grid_first_cols:fc,  sh_grid_first_rows:fr}),
+  });
+  const data = await r.json();
+  if (data.ok) {
+    GRID_SETTINGS.ground.cols = gc; GRID_SETTINGS.ground.rows = gr;
+    GRID_SETTINGS.first.cols  = fc; GRID_SETTINGS.first.rows  = fr;
+    showToast('Grid size saved ✓');
+    renderGrid(_lastRooms);
+    if (_editMode) { renderEditCards('ground'); renderEditCards('first'); }
+  } else {
+    showToast('Save failed', 'error');
+  }
+}
+
+function _updateOutdoorBadges(temp) {
+  ['ground','first'].forEach(floor => {
+    const badge = document.getElementById(`outdoor-badge-${floor}`);
+    if (!badge) return;
+    if (temp == null) { badge.style.display = 'none'; return; }
+    badge.style.display = '';
+    badge.querySelector('.outdoor-temp-val').textContent =
+      `${temp.toFixed(1)}°C outside`;
+  });
 }
 
 const _FLOOR_LABELS = {ground:'Ground', first:'First'};
@@ -742,6 +896,150 @@ function renderAdminRoomList(rooms) {
       </div>`).join('')}
   `).join('');
 }
+
+// ── Drag-and-drop room positioning ───────────────────────────────────────────
+
+let _drag = null;  // active drag state
+
+/** Layout geometry for the content area of a floor plan */
+function _layout(floor) {
+  const fp = document.getElementById(`floor-plan-${floor}`);
+  if (!fp) return null;
+  const r  = fp.getBoundingClientRect();
+  const pl = r.width  * 0.06, pt = r.height * 0.04;
+  const cw = r.width  * 0.88, ch = r.height * 0.89;
+  const g  = GRID_SETTINGS[floor];
+  return { fp, fpL: r.left, fpT: r.top, pl, pt, cw, ch,
+           cellW: cw / g.cols, cellH: ch / g.rows,
+           cols: g.cols, rows: g.rows };
+}
+
+/** Convert client coords → clamped grid cell */
+function _clientToCell(cx, cy, L, colSpan, rowSpan) {
+  const col = Math.max(0, Math.min(L.cols - colSpan,
+              Math.floor((cx - L.fpL - L.pl) / L.cellW)));
+  const row = Math.max(0, Math.min(L.rows - rowSpan,
+              Math.floor((cy - L.fpT - L.pt) / L.cellH)));
+  return { col, row };
+}
+
+/** Render (or refresh) the draggable edit-cards for one floor */
+function renderEditCards(floor) {
+  // Remove stale cards
+  document.querySelectorAll(`.drag-card[data-floor="${floor}"]`).forEach(e => e.remove());
+  if (!_editMode) return;
+
+  const L = _layout(floor);
+  if (!L) return;
+  const fp = L.fp;
+
+  _lastRooms.filter(r => (r.floor || 'ground') === floor).forEach(room => {
+    const col = room.grid_col      || 0;
+    const row = room.grid_row      || 0;
+    const cs  = room.grid_col_span || 1;
+    const rs  = room.grid_row_span || 1;
+
+    const card = document.createElement('div');
+    card.className = 'drag-card';
+    card.dataset.floor   = floor;
+    card.dataset.roomId  = room.id;
+    card.dataset.col     = col;
+    card.dataset.row     = row;
+    card.dataset.cs      = cs;
+    card.dataset.rs      = rs;
+    _positionCard(card, L, col, row, cs, rs);
+    card.innerHTML = `
+      <div class="drag-label">${room.icon} ${room.name}</div>
+      <div class="drag-resize" title="Drag to resize">⤡</div>`;
+
+    // Move: pointerdown on card body
+    card.addEventListener('pointerdown', e => {
+      if (e.target.classList.contains('drag-resize')) return;
+      e.preventDefault(); card.setPointerCapture(e.pointerId);
+      const L2 = _layout(floor);
+      const grabCol = Math.floor((e.clientX - L2.fpL - L2.pl) / L2.cellW) - (+card.dataset.col);
+      const grabRow = Math.floor((e.clientY - L2.fpT - L2.pt) / L2.cellH) - (+card.dataset.row);
+      _drag = { mode:'move', card, floor,
+                roomId: +card.dataset.roomId,
+                colSpan: +card.dataset.cs, rowSpan: +card.dataset.rs,
+                grabCol: Math.max(0, Math.min(+card.dataset.cs-1, grabCol)),
+                grabRow: Math.max(0, Math.min(+card.dataset.rs-1, grabRow)) };
+      card.style.opacity = '.65'; card.style.zIndex = '500';
+    });
+
+    // Resize: pointerdown on handle
+    card.querySelector('.drag-resize').addEventListener('pointerdown', e => {
+      e.preventDefault(); e.stopPropagation(); card.setPointerCapture(e.pointerId);
+      _drag = { mode:'resize', card, floor,
+                roomId: +card.dataset.roomId,
+                origCol: +card.dataset.col, origRow: +card.dataset.row };
+      card.style.opacity = '.65';
+    });
+
+    fp.appendChild(card);
+  });
+}
+
+function _positionCard(card, L, col, row, cs, rs) {
+  const x = L.pl + col * L.cellW;
+  const y = L.pt + row * L.cellH;
+  card.style.left   = `${x}px`;   card.style.top    = `${y}px`;
+  card.style.width  = `${cs * L.cellW}px`; card.style.height = `${rs * L.cellH}px`;
+  card.dataset.col = col; card.dataset.row = row;
+  card.dataset.cs  = cs;  card.dataset.rs  = rs;
+}
+
+// Global pointer handlers (attached once)
+document.addEventListener('pointermove', e => {
+  if (!_drag) return;
+  const d = _drag;
+  const L = _layout(d.floor);
+  if (!L) return;
+
+  if (d.mode === 'move') {
+    const { col, row } = _clientToCell(
+      e.clientX - d.grabCol * L.cellW,
+      e.clientY - d.grabRow * L.cellH,
+      L, d.colSpan, d.rowSpan);
+    _positionCard(d.card, L, col, row, d.colSpan, d.rowSpan);
+
+  } else if (d.mode === 'resize') {
+    const endCol = Math.max(0, Math.min(L.cols,
+                   Math.round((e.clientX - L.fpL - L.pl) / L.cellW)));
+    const endRow = Math.max(0, Math.min(L.rows,
+                   Math.round((e.clientY - L.fpT - L.pt) / L.cellH)));
+    const cs = Math.max(1, endCol - d.origCol);
+    const rs = Math.max(1, endRow - d.origRow);
+    _positionCard(d.card, L, d.origCol, d.origRow, cs, rs);
+  }
+});
+
+document.addEventListener('pointerup', async () => {
+  if (!_drag) return;
+  const d = _drag;
+  _drag = null;
+  d.card.style.opacity = '1'; d.card.style.zIndex = '';
+
+  const col = +d.card.dataset.col, row = +d.card.dataset.row;
+  const cs  = +d.card.dataset.cs,  rs  = +d.card.dataset.rs;
+
+  try {
+    const r = await fetch(`/admin/smarthome/rooms/${d.roomId}/position`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({grid_col:col, grid_row:row, grid_col_span:cs, grid_row_span:rs}),
+    });
+    const data = await r.json();
+    if (data.ok) {
+      const room = _lastRooms.find(r => r.id === d.roomId);
+      if (room) { room.grid_col=col; room.grid_row=row; room.grid_col_span=cs; room.grid_row_span=rs; }
+      showToast('Position saved ✓');
+      renderGrid(_lastRooms);  // refresh live tiles to match new position
+    } else {
+      showToast(data.error || 'Save failed', 'error');
+      renderEditCards(d.floor); // reset
+    }
+  } catch { showToast('Save failed', 'error'); renderEditCards(d.floor); }
+});
 
 // ── Room CRUD ─────────────────────────────────────────────────────────────────
 
@@ -1096,6 +1394,7 @@ function renderTimelineFrame(index) {
   renderGrid(syntheticRooms);   // update badges with historical temps
   applyZoneColors('ground', syntheticRooms, frameOutdoor);
   applyZoneColors('first',  syntheticRooms, frameOutdoor);
+  _updateOutdoorBadges(frameOutdoor ?? _outdoorTemp);
 
   _outdoorTemp = savedOutdoor;  // restore live value
 }
@@ -1115,6 +1414,11 @@ function pauseTimeline() {
   const btn = document.getElementById('timeline-play-btn');
   if (btn) { btn.textContent = '▶'; btn.onclick = playTimeline; }
 }
+
+// Refresh drag card positions if window is resized
+window.addEventListener('resize', () => {
+  if (_editMode) { renderEditCards('ground'); renderEditCards('first'); }
+});
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 pollStatus();
