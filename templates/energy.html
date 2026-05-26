@@ -128,15 +128,18 @@
 }
 
 /* ── Stat row (room cards) ────────────────────────────────────────────── */
-.stat-row { display:flex; gap:8px; flex-wrap:wrap; }
+.stat-row {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
 
 .room-stat-card {
   background:var(--card-bg);
   border:1px solid var(--border);
   border-radius:10px;
   padding:10px 12px;
-  flex:1 1 150px;
-  min-width:140px;
+  min-width:0;
 }
 .rsc-name {
   font-size:.78rem; font-weight:700;
