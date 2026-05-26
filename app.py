@@ -21,7 +21,7 @@ from flask import (
 import config
 from modules import (
     alexa, auth, calendar_sync, hive, meals, medicines, ntfy, push_notif,
-    school_terms, tapo, tasks, unifi, weather,
+    tapo, tasks, unifi, weather,
 )
 
 # ── App setup ─────────────────────────────────────────────────────────────────
@@ -693,7 +693,6 @@ def dashboard():
     today_tasks        = tasks.get_tasks_for_person(db, person)
     today_meds         = medicines.get_today_doses(db, person)
     wx                 = weather.get_weather()
-    in_term            = school_terms.is_term_time()
     childcare_alert    = calendar_sync.childcare_warning(db)
     kids_first_events  = calendar_sync.first_events_today(db, ["joshua", "violet"]) if person in ("paul", "family") else {}
     weather_days       = int(prefs.get("weather_days") or 3)
@@ -713,7 +712,6 @@ def dashboard():
         today_tasks=today_tasks,
         today_meds=today_meds,
         weather=wx,
-        in_term=in_term,
         childcare_alert=childcare_alert,
         kids_first_events=kids_first_events,
         weather_days=weather_days,
@@ -1648,11 +1646,6 @@ def admin_refresh_calendar():
     return jsonify({"ok": True, "count": len(events)})
 
 
-@app.route("/admin/refresh_terms", methods=["POST"])
-@require_admin
-def admin_refresh_terms():
-    data = school_terms.fetch_term_dates(force=True)
-    return jsonify({"ok": True, "terms": len(data.get("terms", []))})
 
 
 # ── API: calendar data (for work PC push client) ──────────────────────────────

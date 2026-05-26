@@ -171,9 +171,6 @@
       <button class="btn btn-secondary" onclick="adminAction('/admin/refresh_calendar','Calendar refreshed')">
         Refresh calendar
       </button>
-      <button class="btn btn-secondary" onclick="adminAction('/admin/refresh_terms','Term dates refreshed')">
-        Refresh term dates
-      </button>
       {% if not google_connected %}
       <a href="{{ url_for('calendar_auth') }}" class="btn btn-primary">Connect Google Calendar</a>
       {% endif %}

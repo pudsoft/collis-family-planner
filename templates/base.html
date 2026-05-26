@@ -43,78 +43,74 @@
 </main>
 
 <!-- ── Bottom nav ───────────────────────────────────────────────────────────── -->
-<nav class="bottom-nav{% if is_admin %} bottom-nav-two-row{% endif %}">
-  <div class="bottom-nav-row">
-    <a href="{{ url_for('dashboard') }}?person={{ person }}"
-       class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
-      <span class="nav-icon">🏠</span>Home
-    </a>
-    <a href="{{ url_for('calendar_view') }}?person={{ person }}"
-       class="nav-item {% if request.endpoint == 'calendar_view' %}active{% endif %}">
-      <span class="nav-icon">📅</span>Calendar
-    </a>
-    <a href="{{ url_for('tasks_view') }}?person={{ person }}"
-       class="nav-item {% if request.endpoint == 'tasks_view' %}active{% endif %}">
-      <span class="nav-icon">✅</span>Tasks
-    </a>
-    <a href="{{ url_for('meals_view') }}?person={{ person }}"
-       class="nav-item {% if request.endpoint == 'meals_view' %}active{% endif %}">
-      <span class="nav-icon">🍽️</span>Meals
-    </a>
-    <a href="{{ url_for('medicines_view') }}?person={{ person }}"
-       class="nav-item {% if request.endpoint == 'medicines_view' %}active{% endif %}">
-      <span class="nav-icon">💊</span>Meds
-    </a>
-  </div>
+{% set _house_active = request.endpoint in ['network_view', 'smarthome_view', 'energy_view'] %}
+<nav class="bottom-nav">
+  <a href="{{ url_for('dashboard') }}?person={{ person }}"
+     class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+    <span class="nav-icon">🏠</span>Home
+  </a>
+  <a href="{{ url_for('calendar_view') }}?person={{ person }}"
+     class="nav-item {% if request.endpoint == 'calendar_view' %}active{% endif %}">
+    <span class="nav-icon">📅</span>Calendar
+  </a>
+  <a href="{{ url_for('tasks_view') }}?person={{ person }}"
+     class="nav-item {% if request.endpoint == 'tasks_view' %}active{% endif %}">
+    <span class="nav-icon">✅</span>Tasks
+  </a>
+  <a href="{{ url_for('meals_view') }}?person={{ person }}"
+     class="nav-item {% if request.endpoint == 'meals_view' %}active{% endif %}">
+    <span class="nav-icon">🍽️</span>Meals
+  </a>
+  <a href="{{ url_for('medicines_view') }}?person={{ person }}"
+     class="nav-item {% if request.endpoint == 'medicines_view' %}active{% endif %}">
+    <span class="nav-icon">💊</span>Meds
+  </a>
   {% if is_admin %}
-  <div class="bottom-nav-row bottom-nav-house-row">
-    <a href="{{ url_for('network_view') }}"
-       class="nav-item {% if request.endpoint == 'network_view' %}active{% endif %}">
-      <span class="nav-icon">📶</span>Network
-    </a>
-    <a href="{{ url_for('smarthome_view') }}"
-       class="nav-item {% if request.endpoint == 'smarthome_view' %}active{% endif %}">
-      <span class="nav-icon">🏡</span>Smart
-    </a>
-    <a href="{{ url_for('energy_view') }}"
-       class="nav-item {% if request.endpoint == 'energy_view' %}active{% endif %}">
-      <span class="nav-icon">☀️</span>Energy
-    </a>
-  </div>
+  <button class="nav-item {% if _house_active %}active{% endif %}" id="house-nav-btn"
+          onclick="toggleHouseMenu(event)"
+          style="border:none;background:none;cursor:pointer;padding:0">
+    <span class="nav-icon">🏡</span>House
+  </button>
   {% endif %}
 </nav>
 
-<div class="toast-container" id="toast-container"></div>
-
-<style>
-/* ── Two-row bottom nav (admin users) ──────────────────────────────────────── */
-.bottom-nav-two-row {
-  flex-direction: column;
-}
-.bottom-nav-row {
-  display: flex;
-  width: 100%;
-  justify-content: space-around;
-  align-items: stretch;
-}
-.bottom-nav-house-row {
-  border-top: 1px solid var(--border);
-  padding-top: 2px;
-  padding-bottom: 2px;
-  background: var(--surface);
-}
-.bottom-nav-house-row .nav-item {
-  font-size: 0.68rem;
-  padding: 3px 2px;
-}
-.bottom-nav-house-row .nav-item .nav-icon {
-  font-size: 1rem;
-}
-/* Extra main padding for admins with two-row nav */
 {% if is_admin %}
-main { padding-bottom: 130px !important; }
+<!-- Backdrop to close menu on tap-away -->
+<div id="house-backdrop" onclick="closeHouseMenu()"
+     style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.25)"></div>
+
+<!-- House menu popup -->
+<div id="house-menu"
+     style="display:none;position:fixed;bottom:72px;left:50%;transform:translateX(-50%);
+            min-width:210px;background:var(--surface);border-radius:14px;
+            box-shadow:0 4px 28px rgba(0,0,0,0.22);z-index:210;overflow:hidden">
+  <div style="padding:9px 16px 7px;font-size:.7rem;font-weight:700;
+              color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;
+              border-bottom:1px solid var(--border)">House controls</div>
+  <a href="{{ url_for('network_view') }}"
+     style="display:flex;align-items:center;gap:12px;padding:13px 18px;
+            text-decoration:none;color:var(--text);font-size:.92rem;font-weight:500;
+            border-bottom:1px solid var(--border);
+            {% if request.endpoint == 'network_view' %}background:var(--bg);color:var(--person-colour,#7B5BA6){% endif %}">
+    <span style="font-size:1.15rem">📶</span>Network
+  </a>
+  <a href="{{ url_for('smarthome_view') }}"
+     style="display:flex;align-items:center;gap:12px;padding:13px 18px;
+            text-decoration:none;color:var(--text);font-size:.92rem;font-weight:500;
+            border-bottom:1px solid var(--border);
+            {% if request.endpoint == 'smarthome_view' %}background:var(--bg);color:var(--person-colour,#7B5BA6){% endif %}">
+    <span style="font-size:1.15rem">🏡</span>Smart Home
+  </a>
+  <a href="{{ url_for('energy_view') }}"
+     style="display:flex;align-items:center;gap:12px;padding:13px 18px;
+            text-decoration:none;color:var(--text);font-size:.92rem;font-weight:500;
+            {% if request.endpoint == 'energy_view' %}background:var(--bg);color:var(--person-colour,#7B5BA6){% endif %}">
+    <span style="font-size:1.15rem">☀️</span>Energy
+  </a>
+</div>
 {% endif %}
-</style>
+
+<div class="toast-container" id="toast-container"></div>
 
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 {% block extra_js %}{% endblock %}
@@ -122,6 +118,21 @@ main { padding-bottom: 130px !important; }
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
+  {% if is_admin %}
+  function toggleHouseMenu(e) {
+    if (e) e.stopPropagation();
+    const m  = document.getElementById('house-menu');
+    const bd = document.getElementById('house-backdrop');
+    const open = m.style.display !== 'none';
+    m.style.display  = open ? 'none' : '';
+    bd.style.display = open ? 'none' : '';
+  }
+  function closeHouseMenu() {
+    document.getElementById('house-menu').style.display  = 'none';
+    document.getElementById('house-backdrop').style.display = 'none';
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHouseMenu(); });
+  {% endif %}
 </script>
 </body>
 </html>

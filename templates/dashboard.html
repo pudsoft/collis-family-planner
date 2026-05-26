@@ -12,9 +12,7 @@
       <div class="weather-main">{{ wx.emoji }}</div>
       <div class="weather-info">
         <div class="weather-temp">{{ wx.temp }}°C</div>
-        <div class="weather-desc">{{ wx.desc }} · 💨 {{ wx.wind }} km/h
-          {% if in_term %}<span class="term-badge" style="margin-left:6px">📚 Term</span>{% endif %}
-        </div>
+        <div class="weather-desc">{{ wx.desc }} · 💨 {{ wx.wind }} km/h</div>
       </div>
     </div>
     {% if weather.forecast and weather_days > 0 %}

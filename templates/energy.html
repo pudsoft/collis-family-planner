@@ -85,20 +85,18 @@
   margin-bottom:8px;
 }
 
-/* ── Room row: card left, chart right ─────────────────────────────────── */
+/* ── Room row: mobile = card above chart, desktop = card left, chart right */
 .room-row {
-  display:flex; gap:8px; margin-bottom:8px; align-items:stretch;
+  display:flex; flex-direction:column; gap:8px; margin-bottom:8px;
 }
 .room-stat-card {
-  flex:0 0 175px;
   background:var(--card-bg); border:1px solid var(--border);
-  border-radius:10px; padding:9px 10px; min-width:0;
+  border-radius:10px; padding:9px 10px;
 }
 .room-chart-wrap {
-  flex:1; min-width:0;
   background:var(--card-bg); border:1px solid var(--border);
   border-radius:10px; padding:8px 10px;
-  position:relative; height:135px;
+  position:relative; height:140px;
 }
 
 /* ── Mobile: top charts stacked with gap ──────────────────────────────── */
@@ -113,11 +111,14 @@
   #top-charts { flex-direction:row; }
   #top-charts .card { flex:1; min-width:0; }
 
-  /* Two room-rows per line; stat card slightly narrower to give charts room */
+  /* Two room-rows per line on desktop */
   #rooms-container { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   #rooms-container .floor-header { grid-column: 1 / -1; }
-  .room-row { margin-bottom:0; }
-  .room-stat-card { flex-basis: 155px; }
+
+  /* Desktop room row: stat card left, chart right */
+  .room-row { flex-direction:row; align-items:stretch; margin-bottom:0; }
+  .room-stat-card { flex:0 0 155px; }
+  .room-chart-wrap { flex:1; min-width:0; }
 }
 
 /* ── Stat card internals ───────────────────────────────────────────────── */
