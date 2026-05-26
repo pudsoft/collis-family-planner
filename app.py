@@ -302,6 +302,7 @@ def _init_db_mysql(db):
         ("chore_templates",  "repeat_days",    "TEXT"),
         ("person_prefs",     "presence_mac",   "VARCHAR(50)"),
         ("smart_rooms",      "floor",          "VARCHAR(20) DEFAULT 'ground'"),
+        ("smart_rooms",      "zone_color",     "VARCHAR(7)"),
     ]:
         if not _col_exists_mysql(db, table, col):
             db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {defn}")
@@ -485,6 +486,7 @@ def _init_db_sqlite(db):
         ("chore_templates",  "repeat_days",   "TEXT"),
         ("person_prefs",     "presence_mac",  "TEXT"),
         ("smart_rooms",      "floor",         "TEXT DEFAULT 'ground'"),
+        ("smart_rooms",      "zone_color",    "TEXT"),
     ]:
         cols = [r[1] for r in db.execute(f"PRAGMA table_info({table})").fetchall()]
         if col not in cols:
@@ -1787,6 +1789,8 @@ def smarthome_view():
         zone_temp_max=_setting_float("zone_temp_max", 19.0),
         fp_v_ground=_img_v("images/floorplan-ground.png"),
         fp_v_first=_img_v("images/floorplan-first.png"),
+        fp_v_ground_zones=_img_v("images/floorplan-ground-zones.png"),
+        fp_v_first_zones=_img_v("images/floorplan-first-zones.png"),
     )
 
 
@@ -1877,12 +1881,15 @@ def smarthome_status():
             "grid_row":     room["grid_row"],
             "grid_col_span": room["grid_col_span"],
             "grid_row_span": room["grid_row_span"],
+            "zone_color":   room.get("zone_color"),
             "any_on":       any_on,
             "tapo":         tapo_rows,
             "hive":         hive_row,
         })
 
-    _out = {"rooms": result}
+    wx           = weather.get_weather()
+    outdoor_temp = wx.get("current", {}).get("temp")
+    _out = {"rooms": result, "outdoor_temp": outdoor_temp}
     _pcache_set("smarthome_status", _out)
     return jsonify(_out)
 
@@ -1937,17 +1944,18 @@ def admin_smarthome_save_room():
         int(d.get("grid_row", 0)),
         int(d.get("grid_col_span", 1)),
         int(d.get("grid_row_span", 1)),
+        d.get("zone_color") or None,
     )
     if room_id:
         db.execute(
             "UPDATE smart_rooms SET name=?,icon=?,floor=?,sort_order=?,grid_col=?,"
-            "grid_row=?,grid_col_span=?,grid_row_span=? WHERE id=?",
+            "grid_row=?,grid_col_span=?,grid_row_span=?,zone_color=? WHERE id=?",
             fields + (room_id,),
         )
     else:
         db.execute(
             "INSERT INTO smart_rooms (name,icon,floor,sort_order,grid_col,grid_row,"
-            "grid_col_span,grid_row_span) VALUES (?,?,?,?,?,?,?,?)",
+            "grid_col_span,grid_row_span,zone_color) VALUES (?,?,?,?,?,?,?,?,?)",
             fields,
         )
         room_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]

@@ -41,7 +41,7 @@
 
     <div id="floor-plan-ground" style="
       position:relative;
-      background-image:url('/static/images/floorplan-ground.png?v={{ fp_v_ground }}');
+      background-image:url('/static/images/floorplan-ground-zones.png?v={{ fp_v_ground_zones }}');
       background-size:100% 100%; background-repeat:no-repeat;
       border-radius:8px; aspect-ratio:179/255;
       padding:4% 6% 7% 6%; box-sizing:border-box;
@@ -57,7 +57,7 @@
     <div id="floor-plan-first" style="
       display:none;
       position:relative;
-      background-image:url('/static/images/floorplan-first.png?v={{ fp_v_first }}');
+      background-image:url('/static/images/floorplan-first-zones.png?v={{ fp_v_first_zones }}');
       background-size:100% 100%; background-repeat:no-repeat;
       border-radius:8px; aspect-ratio:179/255;
       padding:4% 6% 7% 6%; box-sizing:border-box;
@@ -167,6 +167,21 @@
         </div>
       </div>
     </div>
+    <div class="form-group">
+      <label class="form-label">Zone colour
+        <span style="font-size:.72rem;color:var(--text-muted)"> — click the plan below to pick</span>
+      </label>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <input type="color" id="room-zone-color" value="#ffffff"
+               style="width:38px;height:30px;border-radius:4px;border:1px solid var(--border);padding:2px;cursor:pointer">
+        <span id="zone-color-text" style="font-size:.78rem;color:var(--text-muted)">Not set</span>
+        <button class="btn btn-secondary btn-sm" style="font-size:.72rem;padding:3px 8px"
+                onclick="clearZoneColor()">Clear</button>
+      </div>
+      <canvas id="zone-pick-canvas"
+              style="width:100%;border-radius:6px;cursor:crosshair;border:1px solid var(--border);display:block"
+              title="Click to pick zone colour for this room"></canvas>
+    </div>
     <button class="btn btn-primary btn-full" onclick="saveRoom()">Save room</button>
   </div>
 </div>
@@ -242,6 +257,12 @@
 const TAPO_CONFIGURED = {{ 'true' if tapo_configured else 'false' }};
 const HIVE_CONFIGURED = {{ 'true' if hive_configured else 'false' }};
 const IS_ADMIN        = {{ 'true' if is_admin else 'false' }};
+const FP_V = {
+  ground:       '{{ fp_v_ground }}',
+  first:        '{{ fp_v_first }}',
+  ground_zones: '{{ fp_v_ground_zones }}',
+  first_zones:  '{{ fp_v_first_zones }}',
+};
 let ZONE_MIN = {{ zone_temp_min }};
 let ZONE_MAX = {{ zone_temp_max }};
 
@@ -249,6 +270,126 @@ let _pollTimer    = null;
 let _editMode     = false;
 let _lastRooms    = [];
 let _currentFloor = 'ground';
+let _outdoorTemp  = null;
+
+// ── Zone recolouring (canvas) ────────────────────────────────────────────────
+const _zoneOrig   = {};   // floor → Uint8ClampedArray (original pixel data copy)
+const _zoneCanvas = {};   // floor → OffscreenCanvas / canvas
+
+function _hexToRgb(hex) {
+  const n = parseInt(hex.replace('#',''), 16);
+  return [(n>>16)&255, (n>>8)&255, n&255];
+}
+
+// Temperature → soft tinted RGB (matches tempColour() bands with 55% white mix)
+function _tempToRgb(temp) {
+  if (temp == null) return null;
+  const stops = [
+    [10, [147,197,253]],  // cool blue
+    [14, [125,211,252]],  // sky blue
+    [16, [134,239,172]],  // light green (cool)
+    [18, [ 74,222,128]],  // green (just right)
+    [21, [252,211, 77]],  // yellow (mild)
+    [24, [251,146, 60]],  // orange (warm)
+    [27, [239, 68, 68]],  // red (hot)
+  ];
+  if (temp <= stops[0][0])              return stops[0][1];
+  if (temp >= stops[stops.length-1][0]) return stops[stops.length-1][1];
+  for (let i = 0; i < stops.length-1; i++) {
+    const [t1,c1] = stops[i], [t2,c2] = stops[i+1];
+    if (temp >= t1 && temp <= t2) {
+      const f = (temp-t1)/(t2-t1);
+      return c1.map((v,j) => Math.round(v + f*(c2[j]-v)));
+    }
+  }
+  return stops[0][1];
+}
+
+async function _loadZoneCanvas(floor) {
+  if (_zoneCanvas[floor]) return;
+  const img = await new Promise((res,rej) => {
+    const i = new Image();
+    i.onload = () => res(i); i.onerror = rej;
+    i.src = `/static/images/floorplan-${floor}-zones.png?v=${FP_V[floor+'_zones']}`;
+  });
+  const cv = document.createElement('canvas');
+  cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+  const ctx = cv.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  const id = ctx.getImageData(0, 0, cv.width, cv.height);
+  _zoneOrig[floor]   = new Uint8ClampedArray(id.data);  // immutable copy
+  _zoneCanvas[floor] = cv;
+}
+
+async function applyZoneColors(floor, rooms) {
+  try {
+    await _loadZoneCanvas(floor);
+    const cv  = _zoneCanvas[floor];
+    const ctx = cv.getContext('2d');
+    const orig = _zoneOrig[floor];
+
+    // Restore original first
+    const work = new ImageData(new Uint8ClampedArray(orig), cv.width, cv.height);
+    const px   = work.data;
+
+    const reps = [];
+
+    // Outdoor zone: sample top-left corner pixel of the zones image
+    const oz = [orig[0], orig[1], orig[2]];
+    const oc = _tempToRgb(_outdoorTemp);
+    if (oc) reps.push({from: oz, to: oc});
+
+    // Per-room zone colours
+    for (const room of rooms) {
+      if ((room.floor||'ground') !== floor) continue;
+      if (!room.zone_color || room.zone_color.length < 4) continue;
+      const temp = room.hive?.current_temp ?? null;
+      if (temp == null) continue;
+      const tc = _tempToRgb(temp);
+      if (tc) reps.push({from: _hexToRgb(room.zone_color), to: tc});
+    }
+
+    if (reps.length) {
+      for (let i = 0; i < px.length; i += 4) {
+        const r = orig[i], g = orig[i+1], b = orig[i+2];
+        for (const rep of reps) {
+          if (Math.abs(r-rep.from[0])+Math.abs(g-rep.from[1])+Math.abs(b-rep.from[2]) < 30) {
+            px[i]=rep.to[0]; px[i+1]=rep.to[1]; px[i+2]=rep.to[2]; break;
+          }
+        }
+      }
+    }
+    ctx.putImageData(work, 0, 0);
+    document.getElementById(`floor-plan-${floor}`).style.backgroundImage =
+      `url('${cv.toDataURL()}')`;
+  } catch(e) { console.warn('Zone recolor error:', e); }
+}
+
+// ── Window open/close advice ─────────────────────────────────────────────────
+
+function windowAdvice(indoorTemp, outdoorTemp) {
+  if (indoorTemp == null || outdoorTemp == null) return null;
+  const diff = indoorTemp - outdoorTemp;
+  // Very cold outside — always keep closed
+  if (outdoorTemp < 10)
+    return {open:false, label:`Close — ${outdoorTemp.toFixed(1)}°C outside`};
+  // Room too cold — needs heating, keep closed
+  if (indoorTemp < 16)
+    return {open:false, label:`Close — room needs heating`};
+  // Very hot inside, meaningfully cooler outside — open to ventilate
+  if (indoorTemp >= 24 && diff >= 2)
+    return {open:true,  label:`Open — ${diff.toFixed(1)}°C cooler outside`};
+  // Warm room, outside cooler — open for fresh air
+  if (indoorTemp >= 20 && diff >= 3)
+    return {open:true,  label:`Open — fresh air benefit`};
+  // Outside hotter than room on a warm day — opening won't help
+  if (outdoorTemp > indoorTemp && outdoorTemp >= 22)
+    return {open:false, label:`Close — hotter outside`};
+  // Comfortable inside but cold outside — preserve heat
+  if (outdoorTemp < 15 && indoorTemp >= 16)
+    return {open:false, label:`Close — keep heat in`};
+  return null;
+}
 
 // ── Floor switching (mobile tab toggle) ───────────────────────────────────────
 
@@ -312,8 +453,11 @@ async function pollStatus() {
     const r = await fetch('/smarthome/status');
     if (!r.ok) return;
     const data = await r.json();
-    _lastRooms = data.rooms || [];
+    _lastRooms   = data.rooms || [];
+    _outdoorTemp = data.outdoor_temp ?? null;
     renderGrid(_lastRooms);
+    applyZoneColors('ground', _lastRooms);
+    applyZoneColors('first',  _lastRooms);
     if (_editMode) renderAdminRoomList(_lastRooms);
     document.getElementById('poll-status').textContent =
       'Updated ' + new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
@@ -414,6 +558,16 @@ function _renderFloor(floor, rooms) {
         ${statusStr}
         ${heatingBadge}
         ${deviceButtons ? `<div style="display:flex;flex-wrap:wrap;gap:2px;justify-content:center">${deviceButtons}</div>` : ''}
+        ${(() => {
+          const adv = windowAdvice(temp, _outdoorTemp);
+          if (!adv) return '';
+          const bg  = adv.open ? 'rgba(34,197,94,.18)' : 'rgba(239,68,68,.15)';
+          const col = adv.open ? '#15803d' : '#b91c1c';
+          return `<div style="margin-top:2px;font-size:.68rem;padding:2px 5px;border-radius:4px;
+                              background:${bg};color:${col};line-height:1.3;text-align:center">
+                    🪟 ${adv.label}
+                  </div>`;
+        })()}
       </div>
     </div>`;
   }).join('');
@@ -510,11 +664,48 @@ function openRoomModal(room) {
   document.getElementById('room-row').value         = room?.grid_row ?? 0;
   document.getElementById('room-col-span').value    = room?.grid_col_span ?? 1;
   document.getElementById('room-row-span').value    = room?.grid_row_span ?? 1;
+  const zc = room?.zone_color || '';
+  document.getElementById('room-zone-color').value  = zc || '#ffffff';
+  document.getElementById('zone-color-text').textContent = zc || 'Not set';
   document.getElementById('room-modal-title').textContent = room ? 'Edit room' : 'Add room';
+  _initZonePicker(room?.floor || 'ground');
   document.getElementById('room-modal').classList.add('open');
 }
 
+function clearZoneColor() {
+  document.getElementById('room-zone-color').value = '#ffffff';
+  document.getElementById('zone-color-text').textContent = 'Not set';
+}
+
+function _initZonePicker(floor) {
+  const canvas = document.getElementById('zone-pick-canvas');
+  const img = new Image();
+  img.onload = () => {
+    canvas.width  = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    canvas.getContext('2d').drawImage(img, 0, 0);
+  };
+  img.src = `/static/images/floorplan-${floor}-zones.png?v=${FP_V[floor+'_zones']}`;
+  canvas.onclick = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const sx = canvas.width  / rect.width;
+    const sy = canvas.height / rect.height;
+    const x  = Math.round((e.clientX - rect.left) * sx);
+    const y  = Math.round((e.clientY - rect.top)  * sy);
+    const px = canvas.getContext('2d').getImageData(x, y, 1, 1).data;
+    const hex = '#' + [px[0],px[1],px[2]].map(c=>c.toString(16).padStart(2,'0')).join('');
+    document.getElementById('room-zone-color').value = hex;
+    document.getElementById('zone-color-text').textContent = hex;
+  };
+}
+
+// Re-init picker if floor changes inside the modal
+document.addEventListener('change', e => {
+  if (e.target.id === 'room-floor') _initZonePicker(e.target.value);
+});
+
 async function saveRoom() {
+  const zc = document.getElementById('room-zone-color').value;
   const payload = {
     id:            parseInt(document.getElementById('room-id').value) || null,
     name:          document.getElementById('room-name').value.trim(),
@@ -524,6 +715,7 @@ async function saveRoom() {
     grid_row:      parseInt(document.getElementById('room-row').value) || 0,
     grid_col_span: parseInt(document.getElementById('room-col-span').value) || 1,
     grid_row_span: parseInt(document.getElementById('room-row-span').value) || 1,
+    zone_color:    (zc && zc !== '#ffffff') ? zc : null,
   };
   const r = await fetch('/admin/smarthome/rooms', {
     method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload),
