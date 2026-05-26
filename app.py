@@ -2245,6 +2245,16 @@ def energy_data():
         for _name in out["rooms"]
     }
 
+    # ── Trend: direction between the last two non-null readings ─────────────
+    for _name, _data in out["rooms"].items():
+        _recent = [t for t in _data["temps"] if t is not None]
+        if len(_recent) >= 2:
+            _diff = _recent[-1] - _recent[-2]
+            _trend = "up" if _diff > 0.2 else "down" if _diff < -0.2 else "flat"
+        else:
+            _trend = None
+        out["room_stats"][_name]["trend"] = _trend
+
     return jsonify(out)
 
 
