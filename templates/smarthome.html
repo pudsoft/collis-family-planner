@@ -794,14 +794,23 @@ function renderDeviceAssignList() {
         ? `<div class="device-mac">${d.ip ? d.ip + ' · ' : ''}${d.mac || ''}${d.essid ? ' · ' + d.essid : ''}</div>`
         : `<div class="device-mac">${d.device_type || d.provider}</div>`;
       const opts = rooms.map(r => `<option value="${r.id}">${r.icon} ${r.name}</option>`).join('');
-      return `<div class="device-item" id="dev-assign-${i}">
+      const haBadge = d.ha_entity_id
+        ? `<span style="font-size:.6rem;background:#DCFCE7;color:#166534;border-radius:4px;padding:1px 4px">HA ✓</span>`
+        : '';
+      return `<div class="device-item" id="dev-assign-${i}" style="flex-wrap:wrap;gap:4px">
         <div style="flex:1;min-width:0">
-          <div class="device-name">${statusDot} ${d.name} ${provBadge}</div>
+          <div class="device-name">${statusDot} ${d.name} ${provBadge} ${haBadge}</div>
           ${ipLine}
         </div>
-        <select class="form-select" style="width:120px;font-size:.78rem" onchange="assignDevice(${i},this.value)">
+        <select class="form-select" style="width:110px;font-size:.78rem" onchange="assignDevice(${i},this.value)">
           <option value="">— Room —</option>${opts}
         </select>
+        ${d.provider === 'tapo' ? `
+        <input class="form-input" placeholder="HA entity (switch.x)"
+               style="width:160px;font-size:.72rem;padding:4px 6px"
+               value="${d.ha_entity_id||''}"
+               onchange="setHaEntity(${i},this.value)"
+               title="Home Assistant entity ID — leave blank to use Tapo cloud">` : ''}
       </div>`;
     }).join('');
   }
@@ -854,11 +863,28 @@ async function assignDevice(idx, roomId) {
     body: JSON.stringify({
       provider:d.provider, device_id:d.device_id,
       name:d.name, device_type:d.device_type||'',
-      room_id: roomId ? parseInt(roomId) : null,
+      room_id:      roomId ? parseInt(roomId) : null,
+      ha_entity_id: d.ha_entity_id || null,
     }),
   });
   const data = await r.json();
   if (data.ok) { showToast('Assigned ✓'); pollStatus(); }
+}
+
+async function setHaEntity(idx, entityId) {
+  const d = _discoveredDevices[idx];
+  d.ha_entity_id = entityId.trim() || null;
+  const r = await fetch('/admin/smarthome/assign', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      provider:d.provider, device_id:d.device_id,
+      name:d.name, device_type:d.device_type||'',
+      room_id:      _lastRooms.find(rm => rm.tapo?.some(t => t.device_id===d.device_id))?.id || null,
+      ha_entity_id: d.ha_entity_id,
+    }),
+  });
+  const data = await r.json();
+  if (data.ok) showToast(d.ha_entity_id ? 'HA entity saved ✓' : 'HA entity cleared');
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────

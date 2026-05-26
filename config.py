@@ -83,6 +83,12 @@ TAPO_PASSWORD = os.getenv("TAPO_PASSWORD", "")
 HIVE_EMAIL    = os.getenv("HIVE_EMAIL", "")
 HIVE_PASSWORD = os.getenv("HIVE_PASSWORD", "")
 
+# Home Assistant (local REST API — set in Doppler when HA is running on your Pi)
+# HA_URL  : e.g. http://homeassistant.local:8123  or  http://192.168.x.x:8123
+# HA_TOKEN: Long-Lived Access Token from HA → Profile → Security
+HA_URL   = os.getenv("HA_URL", "").rstrip("/")
+HA_TOKEN = os.getenv("HA_TOKEN", "")
+
 # Known devices: display name → MAC address (fill in via admin UI or .env)
 KNOWN_DEVICES: dict[str, str] = {}
 _raw = os.getenv("KNOWN_DEVICES", "")  # format: "name:mac,name:mac"

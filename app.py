@@ -21,7 +21,7 @@ from flask import (
 import config
 from modules import (
     alexa, auth, calendar_sync, hive, meals, medicines, ntfy, push_notif,
-    tapo, tasks, unifi, weather,
+    home_assistant as ha_module, tapo, tasks, unifi, weather,
 )
 
 # ── App setup ─────────────────────────────────────────────────────────────────
@@ -303,6 +303,7 @@ def _init_db_mysql(db):
         ("person_prefs",     "presence_mac",   "VARCHAR(50)"),
         ("smart_rooms",      "floor",          "VARCHAR(20) DEFAULT 'ground'"),
         ("smart_rooms",      "zone_color",     "VARCHAR(7)"),
+        ("smart_devices",    "ha_entity_id",   "VARCHAR(200)"),
     ]:
         if not _col_exists_mysql(db, table, col):
             db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {defn}")
@@ -487,6 +488,7 @@ def _init_db_sqlite(db):
         ("person_prefs",     "presence_mac",  "TEXT"),
         ("smart_rooms",      "floor",         "TEXT DEFAULT 'ground'"),
         ("smart_rooms",      "zone_color",    "TEXT"),
+        ("smart_devices",    "ha_entity_id",  "TEXT"),
     ]:
         cols = [r[1] for r in db.execute(f"PRAGMA table_info({table})").fetchall()]
         if col not in cols:
@@ -1821,6 +1823,14 @@ def smarthome_status():
     hive_zones   = {z["id"]: z for z in hive.get_climate_data()} \
         if config.HIVE_EMAIL else {}
 
+    # HA entity states (batch fetch if HA is configured)
+    _ha_entity_ids = [
+        a["ha_entity_id"] for a in assignments
+        if a.get("ha_entity_id")
+    ]
+    ha_states = ha_module.get_all_entity_states(_ha_entity_ids) \
+        if ha_module.is_configured() and _ha_entity_ids else {}
+
     # Temperature trend from logger — last 2 readings per zone.
     # Avoids ROW_NUMBER() window function for maximum SQLite compatibility.
     _TLOGDB = Path(__file__).parent / "data" / "temperature_log.db"
@@ -1856,16 +1866,24 @@ def smarthome_status():
 
         for d in room_devs:
             if d["provider"] == "tapo":
-                live = tapo_devices.get(d["device_id"], {})
-                on   = live.get("on")
+                ha_eid = d.get("ha_entity_id")
+                if ha_eid and ha_eid in ha_states:
+                    # HA state takes priority — more reliable than Tapo cloud
+                    on     = ha_states[ha_eid]
+                    online = True
+                else:
+                    live   = tapo_devices.get(d["device_id"], {})
+                    on     = live.get("on")
+                    online = live.get("online", False)
                 if on:
                     any_on = True
                 tapo_rows.append({
-                    "id":     d["id"],
-                    "name":   d["name"],
-                    "device_id": d["device_id"],
-                    "on":     on,
-                    "online": live.get("online", False),
+                    "id":           d["id"],
+                    "name":         d["name"],
+                    "device_id":    d["device_id"],
+                    "ha_entity_id": ha_eid,
+                    "on":           on,
+                    "online":       online,
                 })
             elif d["provider"] == "hive":
                 z = hive_zones.get(d["device_id"])
@@ -1921,7 +1939,12 @@ def smarthome_toggle(device_db_id: int):
     if not dev:
         return jsonify({"error": "Device not found in Tapo cloud"}), 404
 
-    ok, err = tapo.set_device_state(dev, bool(desired_on))
+    # Prefer HA over Tapo cloud if this device has an entity ID configured
+    ha_eid = row["ha_entity_id"] if "ha_entity_id" in row.keys() else None
+    if ha_eid and ha_module.is_configured():
+        ok, err = ha_module.set_entity_state(ha_eid, bool(desired_on))
+    else:
+        ok, err = tapo.set_device_state(dev, bool(desired_on))
     if ok:
         _pcache_bust("smarthome_status")
     return jsonify({"ok": ok, "now_on": bool(desired_on), **({"error": err} if err else {})})
@@ -2042,11 +2065,12 @@ def admin_smarthome_assign():
     """Assign (or unassign) a discovered device to a room."""
     db      = get_db()
     d       = request.json or {}
-    provider   = d.get("provider")
-    device_id  = d.get("device_id")
-    name       = d.get("name", "Device")
+    provider    = d.get("provider")
+    device_id   = d.get("device_id")
+    name        = d.get("name", "Device")
     device_type = d.get("device_type", "")
-    room_id    = d.get("room_id")  # None = unassign
+    room_id     = d.get("room_id")       # None = unassign
+    ha_entity_id = d.get("ha_entity_id") or None
 
     existing = db.execute(
         "SELECT id FROM smart_devices WHERE provider=? AND device_id=?",
@@ -2058,14 +2082,14 @@ def admin_smarthome_assign():
             db.execute("DELETE FROM smart_devices WHERE id=?", (existing["id"],))
     elif existing:
         db.execute(
-            "UPDATE smart_devices SET name=?,device_type=?,room_id=? WHERE id=?",
-            (name, device_type, room_id, existing["id"]),
+            "UPDATE smart_devices SET name=?,device_type=?,room_id=?,ha_entity_id=? WHERE id=?",
+            (name, device_type, room_id, ha_entity_id, existing["id"]),
         )
     else:
         db.execute(
-            "INSERT INTO smart_devices (provider,device_id,name,device_type,room_id)"
-            " VALUES (?,?,?,?,?)",
-            (provider, device_id, name, device_type, room_id),
+            "INSERT INTO smart_devices (provider,device_id,name,device_type,room_id,ha_entity_id)"
+            " VALUES (?,?,?,?,?,?)",
+            (provider, device_id, name, device_type, room_id, ha_entity_id),
         )
     db.commit()
     return jsonify({"ok": True})
