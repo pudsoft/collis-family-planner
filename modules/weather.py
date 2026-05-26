@@ -1,4 +1,12 @@
-"""Open-Meteo weather for Brundall, Norfolk. No API key required."""
+"""Open-Meteo weather for Brundall, Norfolk. No API key required.
+
+Caching strategy
+----------------
+* Successful fetch  → cached for _CACHE_TTL (1 hour)
+* Failed fetch      → back-off for _FAIL_TTL (5 minutes) then retry
+* Both cases update _cache_ts immediately so the *next* request is never
+  blocked — we always return stale data rather than waiting for a timeout.
+"""
 from __future__ import annotations
 
 import time
@@ -8,9 +16,12 @@ from config import WEATHER_LAT, WEATHER_LON
 
 log = logging.getLogger(__name__)
 
-_cache: dict = {}
-_cache_ts: float = 0
-_CACHE_TTL = 3600  # 1 hour
+_CACHE_TTL   = 3600   # seconds before a successful response expires
+_FAIL_TTL    = 300    # back-off after a failed fetch (5 minutes)
+_HTTP_TIMEOUT = 5     # seconds — short so a bad API never blocks the dashboard
+
+_cache:    dict  = {}
+_cache_ts: float = 0.0   # timestamp of last successful OR failed fetch
 
 WMO_DESCRIPTIONS = {
     0: ("Clear sky", "☀️"),
@@ -39,11 +50,17 @@ WMO_DESCRIPTIONS = {
     99: ("Thunderstorm + heavy hail", "⛈️"),
 }
 
+_FALLBACK = {"current": {"temp": None, "desc": "Unavailable", "emoji": "❓", "wind": 0},
+             "forecast": []}
+
 
 def get_weather() -> dict:
     global _cache, _cache_ts
-    if _cache and (time.time() - _cache_ts) < _CACHE_TTL:
-        return _cache
+
+    # Use cached data if it's still fresh (success TTL or failure back-off)
+    ttl = _CACHE_TTL if _cache else _FAIL_TTL
+    if _cache_ts > 0 and (time.time() - _cache_ts) < ttl:
+        return _cache or _FALLBACK
 
     url = (
         f"https://api.open-meteo.com/v1/forecast"
@@ -55,16 +72,16 @@ def get_weather() -> dict:
         f"&forecast_days=7"
     )
     try:
-        resp = requests.get(url, timeout=10)
+        resp = requests.get(url, timeout=_HTTP_TIMEOUT)
         resp.raise_for_status()
-        data = resp.json()
+        data    = resp.json()
         current = data.get("current_weather", {})
         daily   = data.get("daily", {})
 
         wmo = int(current.get("weathercode", 0))
         desc, emoji = WMO_DESCRIPTIONS.get(wmo, ("Unknown", "❓"))
 
-        forecast = []
+        forecast  = []
         dates     = daily.get("time", [])
         codes     = daily.get("weathercode", [])
         max_temps = daily.get("temperature_2m_max", [])
@@ -80,8 +97,8 @@ def get_weather() -> dict:
                 "emoji":    e,
                 "max":      round(max_temps[i], 1) if i < len(max_temps) else None,
                 "min":      round(min_temps[i], 1) if i < len(min_temps) else None,
-                "rain_mm":  round(rain_mm[i], 1)  if i < len(rain_mm)   else None,
-                "rain_pct": int(rain_pct[i])       if i < len(rain_pct)  else None,
+                "rain_mm":  round(rain_mm[i], 1)   if i < len(rain_mm)   else None,
+                "rain_pct": int(rain_pct[i])        if i < len(rain_pct)  else None,
             })
 
         _cache = {
@@ -93,8 +110,13 @@ def get_weather() -> dict:
             },
             "forecast": forecast,
         }
-        _cache_ts = time.time()
+        _cache_ts = time.time()   # full TTL on success
+        log.debug("Weather fetched OK")
         return _cache
-    except Exception as e:
-        log.warning("Weather fetch failed: %s", e)
-        return _cache or {}
+
+    except Exception as exc:
+        log.warning("Weather fetch failed: %s", exc)
+        # Update timestamp so we back off for _FAIL_TTL before retrying —
+        # this prevents every dashboard request from blocking on a dead API.
+        _cache_ts = time.time()
+        return _cache or _FALLBACK
