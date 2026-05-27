@@ -60,6 +60,9 @@
           {{ med.doses_per_day or 1 }}× daily ·
           Reorder at {{ med.reorder_threshold_days }} days
           {% if not med.active %} · <span style="color:#EF4444">Paused</span>{% endif %}
+          {% if med.start_date or med.end_date %}
+           · <span style="color:var(--paul)">📅 {{ med.start_date or '…' }} → {{ med.end_date or '…' }}</span>
+          {% endif %}
         </div>
         {% if med.notes %}<div class="device-mac" style="font-style:italic">{{ med.notes }}</div>{% endif %}
       </div>
@@ -265,6 +268,15 @@
       <label class="form-label">Notes (optional)</label>
       <input class="form-input" id="med-notes" placeholder="e.g. Take with food">
     </div>
+    <div class="form-group">
+      <label class="form-label">Course dates <span style="font-size:.75rem;font-weight:400;color:var(--text-muted)">— optional, for short-term medications</span></label>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <input class="form-input" id="med-start-date" type="date" style="flex:1;min-width:130px" title="Start date — leave blank for ongoing">
+        <span style="font-size:.85rem;color:var(--text-muted)">to</span>
+        <input class="form-input" id="med-end-date" type="date" style="flex:1;min-width:130px" title="End date — leave blank for ongoing">
+      </div>
+      <div style="font-size:.72rem;color:var(--text-muted);margin-top:3px">Medicine automatically hides outside these dates. Leave both blank for ongoing medications.</div>
+    </div>
     <div class="settings-row" style="margin-bottom:14px">
       <div>
         <div class="settings-label">Active (send reminders)</div>
@@ -409,7 +421,9 @@ function editMed(med) {
   document.getElementById("med-stock").value       = med.stock_count || 0;
   document.getElementById("med-threshold").value   = med.reorder_threshold_days || 14;
   document.getElementById("med-notes").value       = med.notes || "";
-  document.getElementById("med-active").checked    = med.active !== 0;
+  document.getElementById("med-active").checked      = med.active !== 0;
+  document.getElementById("med-start-date").value   = med.start_date || "";
+  document.getElementById("med-end-date").value     = med.end_date   || "";
   const dpd = med.doses_per_day || 1;
   document.getElementById("med-doses-per-day").value = dpd;
   updateDoseTimes();
@@ -439,6 +453,8 @@ async function saveMed() {
   fd.append("notes",                  document.getElementById("med-notes").value);
   fd.append("doses_per_day",          dpd);
   fd.append("active",                 document.getElementById("med-active").checked ? "1" : "0");
+  fd.append("start_date",            document.getElementById("med-start-date").value);
+  fd.append("end_date",              document.getElementById("med-end-date").value);
   for (let i = 1; i <= dpd; i++) {
     const el = document.getElementById(`med-dose-time-${i}`);
     fd.append(`dose_time_${i}`, el ? el.value : "");
@@ -452,6 +468,21 @@ async function deleteMed(id) {
   const r = await adminPost(`/admin/medicine/${id}/delete`, null, "Medicine deleted");
   if (r) setTimeout(() => location.reload(), 400);
 }
+
+// Clear all fields when opening the "Add" modal (not via editMed)
+document.querySelector('[data-modal="add-med-modal"]').addEventListener("click", () => {
+  document.getElementById("med-id").value          = "";
+  document.getElementById("med-name").value        = "";
+  document.getElementById("med-dose").value        = "1";
+  document.getElementById("med-stock").value       = "0";
+  document.getElementById("med-threshold").value   = "14";
+  document.getElementById("med-notes").value       = "";
+  document.getElementById("med-active").checked    = true;
+  document.getElementById("med-start-date").value  = "";
+  document.getElementById("med-end-date").value    = "";
+  document.getElementById("med-doses-per-day").value = "1";
+  updateDoseTimes();
+});
 
 // initialise time inputs for the "add new" case
 updateDoseTimes();

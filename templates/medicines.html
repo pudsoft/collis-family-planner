@@ -111,6 +111,21 @@
               {{ med.days_remaining }} days left{% if med.needs_reorder %} — ⚠️ <a href="https://www.nhs.uk/nhs-app/repeat-prescriptions/" target="_blank" rel="noopener" style="color:inherit;font-weight:700;text-decoration:underline">Order on NHS</a>{% endif %}
             {% endif %}
           </div>
+          {% if med.end_date %}
+            {% if med.course_days_remaining is not none %}
+              {% if med.course_days_remaining < 0 %}
+                <div class="med-stock" style="color:#9CA3AF">📅 Course ended {{ med.end_date }}</div>
+              {% elif med.course_days_remaining == 0 %}
+                <div class="med-stock" style="color:#EF4444;font-weight:600">📅 Last dose today</div>
+              {% elif med.course_days_remaining <= 3 %}
+                <div class="med-stock" style="color:#F59E0B;font-weight:600">📅 {{ med.course_days_remaining }} day{{ '' if med.course_days_remaining == 1 else 's' }} left in course</div>
+              {% else %}
+                <div class="med-stock" style="color:var(--text-muted)">📅 Course ends {{ med.end_date }}{% if med.start_date %} · started {{ med.start_date }}{% endif %}</div>
+              {% endif %}
+            {% endif %}
+          {% elif med.start_date %}
+            <div class="med-stock" style="color:var(--text-muted)">📅 Started {{ med.start_date }}</div>
+          {% endif %}
           {% if med.notes %}<div class="med-stock" style="font-style:italic">{{ med.notes }}</div>{% endif %}
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">

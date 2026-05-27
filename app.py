@@ -304,6 +304,8 @@ def _init_db_mysql(db):
         ("smart_rooms",      "floor",          "VARCHAR(20) DEFAULT 'ground'"),
         ("smart_rooms",      "zone_color",     "VARCHAR(7)"),
         ("smart_devices",    "ha_entity_id",   "VARCHAR(200)"),
+        ("medicines",        "start_date",     "VARCHAR(20)"),
+        ("medicines",        "end_date",       "VARCHAR(20)"),
     ]:
         if not _col_exists_mysql(db, table, col):
             db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {defn}")
@@ -489,6 +491,8 @@ def _init_db_sqlite(db):
         ("smart_rooms",      "floor",         "TEXT DEFAULT 'ground'"),
         ("smart_rooms",      "zone_color",    "TEXT"),
         ("smart_devices",    "ha_entity_id",  "TEXT"),
+        ("medicines",        "start_date",    "TEXT"),
+        ("medicines",        "end_date",      "TEXT"),
     ]:
         cols = [r[1] for r in db.execute(f"PRAGMA table_info({table})").fetchall()]
         if col not in cols:
@@ -1443,6 +1447,8 @@ def admin_medicine_save():
         doses_per_day=doses_per_day,
         dose_times=dose_times,
         active=active,
+        start_date=d.get("start_date") or None,
+        end_date=d.get("end_date") or None,
     )
     if med_id:
         medicines.update_medicine(db, med_id, **kwargs)

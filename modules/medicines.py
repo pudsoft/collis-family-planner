@@ -79,12 +79,32 @@ def _annotate_med(db_conn, med: dict, dose_date: str, is_today: bool) -> dict:
         and med["days_remaining"] <= med["reorder_threshold_days"]
     )
     med["per_dose_amount"] = per_dose
+
+    # Course countdown — how many days until (or since) the end of the course
+    end_date = med.get("end_date")
+    if end_date:
+        try:
+            today = date.today()
+            ed = date.fromisoformat(end_date)
+            med["course_days_remaining"] = (ed - today).days  # negative = ended
+        except ValueError:
+            med["course_days_remaining"] = None
+    else:
+        med["course_days_remaining"] = None
+
     return med
 
 
 # ── CRUD ──────────────────────────────────────────────────────────────────────
 
-def get_medicines(db_conn, person: str = None, active_only: bool = False) -> list[dict]:
+def get_medicines(db_conn, person: str = None, active_only: bool = False,
+                  on_date: str = None) -> list[dict]:
+    """Return medicines, optionally filtered to those active on a given ISO date.
+
+    on_date filtering:
+      - start_date NULL  OR  start_date <= on_date  (course not yet started is hidden)
+      - end_date   NULL  OR  end_date   >= on_date  (course already ended is hidden)
+    """
     where = []
     params = []
     if person and person != "family":
@@ -92,6 +112,11 @@ def get_medicines(db_conn, person: str = None, active_only: bool = False) -> lis
         params.append(person)
     if active_only:
         where.append("active=1")
+    if on_date:
+        where.append("(start_date IS NULL OR start_date <= ?)")
+        params.append(on_date)
+        where.append("(end_date IS NULL OR end_date >= ?)")
+        params.append(on_date)
     clause = ("WHERE " + " AND ".join(where)) if where else ""
     rows = db_conn.execute(
         f"SELECT * FROM medicines {clause} ORDER BY person, name", params
@@ -103,14 +128,17 @@ def add_medicine(db_conn, name: str, person: str, daily_dose: float = 1,
                  stock_count: float = 0, reorder_threshold_days: int = 14,
                  notes: str = None, scheduled_time: str = None,
                  doses_per_day: int = 1, dose_times: str = None,
-                 active: int = 1) -> int:
+                 active: int = 1, start_date: str = None,
+                 end_date: str = None) -> int:
     db_conn.execute(
         """INSERT INTO medicines
            (name, person, daily_dose, stock_count, reorder_threshold_days,
-            notes, scheduled_time, doses_per_day, dose_times, active)
-           VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            notes, scheduled_time, doses_per_day, dose_times, active,
+            start_date, end_date)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
         (name, person, daily_dose, stock_count, reorder_threshold_days,
-         notes, scheduled_time, doses_per_day, dose_times, active),
+         notes, scheduled_time, doses_per_day, dose_times, active,
+         start_date, end_date),
     )
     db_conn.commit()
     return db_conn.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -118,7 +146,8 @@ def add_medicine(db_conn, name: str, person: str, daily_dose: float = 1,
 
 def update_medicine(db_conn, med_id: int, **fields):
     allowed = {"name", "person", "daily_dose", "stock_count", "reorder_threshold_days",
-               "notes", "last_ordered", "scheduled_time", "doses_per_day", "dose_times", "active"}
+               "notes", "last_ordered", "scheduled_time", "doses_per_day", "dose_times",
+               "active", "start_date", "end_date"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return
@@ -140,12 +169,12 @@ def delete_medicine(db_conn, med_id: int):
 
 def get_today_doses(db_conn, person: str = None) -> list[dict]:
     today = date.today().isoformat()
-    meds  = get_medicines(db_conn, person)
+    meds  = get_medicines(db_conn, person, on_date=today)
     return [_annotate_med(db_conn, m, today, True) for m in meds]
 
 
 def get_doses_for_date(db_conn, dose_date: str) -> list[dict]:
-    meds = get_medicines(db_conn)
+    meds = get_medicines(db_conn, on_date=dose_date)
     return [_annotate_med(db_conn, m, dose_date, False) for m in meds]
 
 
