@@ -714,12 +714,20 @@ function _renderFloor(floor, rooms) {
 
     const adv = windowAdvice(temp, _outdoorTemp);
     const windowIcon = adv ? (() => {
-      const src = adv.open
-        ? '/static/images/icons8-open-window-100.png'
-        : '/static/images/icons8-closed-window-100.png';
-      return `<img src="${src}" title="${adv.label}"
-                   style="width:18px;height:18px;object-fit:contain;cursor:default;
-                          opacity:${adv.open ? '1' : '.65'}">`;
+      const col   = adv.open ? '#16a34a' : '#6b7280';
+      const shape = adv.open
+        /* open: two casement panels swung outward */
+        ? `<rect x="2" y="3" width="20" height="18" rx="1.5" stroke="${col}" stroke-width="2" fill="none"/>
+           <line x1="12" y1="3" x2="12" y2="21" stroke="${col}" stroke-width="2"/>
+           <polyline points="12,6 4,9 4,18" stroke="${col}" stroke-width="1.5" fill="none"/>
+           <polyline points="12,6 20,9 20,18" stroke="${col}" stroke-width="1.5" fill="none"/>`
+        /* closed: four-pane grid */
+        : `<rect x="2" y="3" width="20" height="18" rx="1.5" stroke="${col}" stroke-width="2" fill="none"/>
+           <line x1="12" y1="3" x2="12" y2="21" stroke="${col}" stroke-width="2"/>
+           <line x1="2"  y1="12" x2="22" y2="12" stroke="${col}" stroke-width="2"/>`;
+      return `<svg viewBox="0 0 24 24" width="18" height="18" title="${adv.label}"
+                   style="flex-shrink:0;cursor:default;opacity:${adv.open ? '1' : '.7'}"
+                   xmlns="http://www.w3.org/2000/svg">${shape}</svg>`;
     })() : '';
 
     return `
