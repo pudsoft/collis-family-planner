@@ -2252,15 +2252,23 @@ def energy_data():
         edb = sqlite3.connect(ENERGY_DB)
         edb.row_factory = sqlite3.Row
 
-        # Solar — bucket 5-min readings into 15-min slots (max power per slot)
+        # Solar — bucket 5-min readings into 15-min slots (max power per slot).
+        # int_solar_today holds live intraday data; int_smadata holds completed
+        # historical days.  UNION both so yesterday's generation appears too.
         solar_bkt: dict[str, float] = {}
         latest_kw: float | None = None
         for r in edb.execute(
             "SELECT generation_date || 'T' || start_time_UTC AS ts, "
             "       power_kw, total_yield_kwh "
-            "FROM   int_solar_today "
+            "FROM   int_smadata "
             "WHERE  generation_date >= date('now','-2 day') "
-            "ORDER  BY generation_date, start_time_UTC"
+            "  AND  generation_date <  date('now') "
+            "UNION ALL "
+            "SELECT generation_date || 'T' || start_time_UTC AS ts, "
+            "       power_kw, total_yield_kwh "
+            "FROM   int_solar_today "
+            "WHERE  generation_date = date('now') "
+            "ORDER  BY ts"
         ):
             s = _slot(r["ts"])
             solar_bkt[s] = max(solar_bkt.get(s, 0.0), r["power_kw"] or 0.0)
