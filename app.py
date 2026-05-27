@@ -2201,6 +2201,7 @@ def energy_data():
         "solar_current_kw": None,
         "solar_today_kwh":  None,
         "solar":            [],   # aligned kw per slot (0-filled)
+        "night":            [],   # 1 = night slot (for chart shading)
         "outdoor":          [],   # aligned temp per slot (None = gap)
         "rooms":            {},   # {name: {temps:[…], heating:[…]}}
     }
@@ -2286,6 +2287,38 @@ def energy_data():
         ).fetchone()
         if row and row["kwh"] is not None:
             out["solar_today_kwh"] = row["kwh"]
+
+        # ── Night shading: is_day from hourly weather ─────────────────────────
+        # int_hourly_weather is processed nightly so today's rows may be absent;
+        # fall back to solar generation as a proxy (power_kw > 0 → daylight).
+        _isday: dict[str, int] = {}   # key = "YYYY-MM-DDTHH" UTC
+        for r in edb.execute(
+            "SELECT weather_date || 'T' || substr(weather_time_UTC,1,2) AS hr, is_day "
+            "FROM   int_hourly_weather "
+            "WHERE  weather_date >= date('now','-2 day') "
+            "ORDER  BY weather_date, weather_time_UTC"
+        ):
+            _isday[r["hr"]] = r["is_day"]
+
+        _today = date.today().isoformat()
+        if not any(k.startswith(_today) for k in _isday):
+            # Today not yet in int_hourly_weather — derive from solar generation
+            _solar_hrs: set[str] = set()
+            for r in edb.execute(
+                "SELECT substr(start_time_UTC,1,2) AS hr "
+                "FROM   int_solar_today "
+                "WHERE  generation_date=? AND power_kw > 0", (_today,)
+            ):
+                _solar_hrs.add(f"{_today}T{r['hr']}")
+            for h in range(24):
+                key = f"{_today}T{h:02d}"
+                _isday[key] = 1 if key in _solar_hrs else 0
+
+        # tl_strs are like "2026-05-27T20:00:00Z"; ts[:13] = "2026-05-27T20"
+        out["night"] = [
+            1 if _isday.get(ts[:13], 1) == 0 else 0
+            for ts in tl_strs
+        ]
 
         edb.close()
 

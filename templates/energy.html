@@ -147,6 +147,7 @@ let _solarChart   = null;
 let _outdoorChart = null;
 let _roomCharts   = {};     // canvasId → Chart instance
 let _renderedRooms = null;  // comma-joined name list for change detection
+let _nightAnn     = {};     // shared night-shading annotations for all charts
 
 // ── NHS shading annotations ───────────────────────────────────────────────────
 function nhsAnnotations() {
@@ -163,6 +164,30 @@ function nhsAnnotations() {
     nhs_cold:  b(14, 16,  'rgba(59,130,246,0.08)'),
     nhs_vcold: b(-10,14,  'rgba(29,78,216,0.08)'),
   };
+}
+
+// ── Night shading — convert boolean array into box annotation objects ─────────
+function buildNightAnnotations(nightArr) {
+  if (!nightArr || !nightArr.length) return {};
+  const ann = {};
+  let i = 0, n = nightArr.length;
+  while (i < n) {
+    if (nightArr[i]) {
+      const start = i;
+      while (i < n && nightArr[i]) i++;
+      ann['night_' + start] = {
+        type: 'box',
+        xMin: start - 0.5,
+        xMax: i - 0.5,
+        backgroundColor: 'rgba(0,0,0,0.18)',
+        borderWidth: 0,
+        drawTime: 'beforeDatasetsDraw',
+      };
+    } else {
+      i++;
+    }
+  }
+  return ann;
 }
 
 // ── Time helpers ──────────────────────────────────────────────────────────────
@@ -216,6 +241,7 @@ function buildOrUpdate(existing, id, emptyId, labels, datasets, yOpts) {
             },
           },
         },
+        annotation:{ annotations: _nightAnn },
       },
       scales:{
         x:{ ticks:{ maxTicksLimit:6, maxRotation:0, font:{ size:10 } }, grid:{ display:false } },
@@ -277,7 +303,7 @@ function buildRoomChart(existing, canvasId, roomData, labels, color, yMin, yMax)
             },
           },
         },
-        annotation:{ annotations: nhsAnnotations() },
+        annotation:{ annotations: { ..._nightAnn, ...nhsAnnotations() } },
       },
       scales:{
         x:{ ticks:{ maxTicksLimit:5, maxRotation:0, font:{ size:9 } }, grid:{ display:false } },
@@ -450,6 +476,9 @@ async function loadData() {
       document.getElementById('poll-status').textContent = 'No data yet';
       return;
     }
+
+    // ── Night shading (computed once, shared by all charts) ────────────────
+    _nightAnn = buildNightAnnotations(d.night || []);
 
     // ── Solar ──────────────────────────────────────────────────────────────
     _solarChart = buildOrUpdate(_solarChart, 'solar-chart', 'solar-empty', labels,
