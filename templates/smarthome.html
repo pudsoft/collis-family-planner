@@ -15,13 +15,12 @@
     </div>
   </div>
 
-  {% if not tapo_configured and not hive_configured %}
+  {% if not hive_configured %}
   <div class="card">
     <div class="empty-state">
-      <div class="empty-state-icon">🔌</div>
+      <div class="empty-state-icon">🌡️</div>
       <div class="empty-state-text">
-        Add <strong>TAPO_EMAIL / TAPO_PASSWORD</strong> and/or
-        <strong>HIVE_EMAIL / HIVE_PASSWORD</strong> to Doppler to get started.
+        Add <strong>HIVE_EMAIL / HIVE_PASSWORD</strong> to Doppler to get heating data.
       </div>
     </div>
   </div>
@@ -196,7 +195,7 @@
         <button class="btn btn-secondary btn-sm" id="discover-btn" onclick="discoverDevices()">Discover</button>
       </div>
       <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px">
-        Click Discover to load devices from Tapo and Hive, then assign each to a room.
+        Click Discover to load Hive heating zones, then assign each to a room.
       </div>
       <div id="device-assign-list">
         <div style="color:var(--text-muted);font-size:.85rem">Click Discover to load devices…</div>
@@ -404,7 +403,6 @@
 }
 </style>
 <script>
-const TAPO_CONFIGURED = {{ 'true' if tapo_configured else 'false' }};
 const HIVE_CONFIGURED = {{ 'true' if hive_configured else 'false' }};
 const IS_ADMIN        = {{ 'true' if is_admin else 'false' }};
 const FP_V = {
@@ -713,7 +711,7 @@ function _renderFloor(floor, rooms) {
       ? `<span style="font-size:.7rem;background:#FEE2E2;color:#EF4444;border-radius:4px;padding:1px 4px;font-weight:600">🔥</span>`
       : (mode === 'OFF' ? `<span style="font-size:.68rem;color:var(--text-muted)">Off</span>` : '');
 
-    const deviceButtons = (room.tapo || []).map(d => {
+    const deviceButtons = (room.lights || []).map(d => {
       const isOn = d.on === true;
       const isOff = d.on === false;
 
@@ -1186,8 +1184,8 @@ async function discoverDevices() {
     const r = await fetch('/admin/smarthome/discover', {method:'POST'});
     if (!r.ok) return;
     const data = await r.json();
-    _discoveredDevices = [...(data.tapo||[]), ...(data.hive||[])];
-    _networkDevices    = data.network || [];
+    _discoveredDevices = data.hive || [];
+    _networkDevices    = [];
     renderDeviceAssignList();
   } catch(e) {
     showToast('Discover failed: ' + e.message, 'error');
@@ -1209,68 +1207,24 @@ function renderDeviceAssignList() {
   let html = '';
   if (_discoveredDevices.length) {
     html += `<div style="font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;
-                         letter-spacing:.06em;padding:4px 0 6px">Tapo &amp; Hive — assign to rooms</div>`;
+                         letter-spacing:.06em;padding:4px 0 6px">Hive zones — assign to rooms</div>`;
     html += _discoveredDevices.map((d, i) => {
-      const provBadge = d.provider === 'hive'
-        ? `<span style="font-size:.6rem;background:#FEF9C3;color:#854D0E;border-radius:4px;padding:1px 4px">Hive</span>`
-        : `<span style="font-size:.6rem;background:#DBEAFE;color:#1D4ED8;border-radius:4px;padding:1px 4px">Tapo</span>`;
       const statusDot = d.online
         ? `<span style="font-size:.6rem;color:#22C55E">●</span>`
         : `<span style="font-size:.6rem;color:var(--text-muted)">●</span>`;
-      const ipLine = (d.ip || d.mac)
-        ? `<div class="device-mac">${d.ip ? d.ip + ' · ' : ''}${d.mac || ''}${d.essid ? ' · ' + d.essid : ''}</div>`
-        : `<div class="device-mac">${d.device_type || d.provider}</div>`;
       const opts = rooms.map(r => `<option value="${r.id}">${r.icon} ${r.name}</option>`).join('');
-      const haBadge = d.ha_entity_id
-        ? `<span style="font-size:.6rem;background:#DCFCE7;color:#166534;border-radius:4px;padding:1px 4px">HA ✓</span>`
-        : '';
       return `<div class="device-item" id="dev-assign-${i}" style="flex-wrap:wrap;gap:4px">
         <div style="flex:1;min-width:0">
-          <div class="device-name">${statusDot} ${d.name} ${provBadge} ${haBadge}</div>
-          ${ipLine}
+          <div class="device-name">${statusDot} ${d.name}</div>
+          <div class="device-mac">${d.device_type || 'Hive zone'}</div>
         </div>
         <select class="form-select" style="width:110px;font-size:.78rem" onchange="assignDevice(${i},this.value)">
           <option value="">— Room —</option>${opts}
         </select>
-        ${d.provider === 'tapo' ? `
-        <input class="form-input" placeholder="HA entity (switch.x)"
-               style="width:160px;font-size:.72rem;padding:4px 6px"
-               value="${d.ha_entity_id||''}"
-               onchange="setHaEntity(${i},this.value)"
-               title="Home Assistant entity ID — leave blank to use Tapo cloud">` : ''}
       </div>`;
     }).join('');
-  }
-
-  // ── All network devices (read-only reference) ─────────────────────────────
-  if (_networkDevices.length) {
-    // Group by SSID (wired last)
-    const byEssid = {};
-    for (const c of _networkDevices) {
-      const key = c.is_wired ? '📡 Wired' : (c.essid || 'Unknown');
-      (byEssid[key] = byEssid[key] || []).push(c);
-    }
-    html += `<div style="margin-top:14px">
-      <div style="font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;
-                  letter-spacing:.06em;padding:4px 0 4px">All network devices (${_networkDevices.length})</div>
-      <details>
-        <summary style="font-size:.8rem;color:var(--text-muted);cursor:pointer;padding:4px 0;list-style:none">
-          ▶ Expand to see all connected devices by network
-        </summary>`;
-    for (const [ssid, clients] of Object.entries(byEssid)) {
-      html += `<div style="margin-top:8px">
-        <div style="font-size:.7rem;font-weight:600;color:var(--text-muted);padding:2px 0 4px;
-                    border-bottom:1px solid var(--border);margin-bottom:4px">${ssid} (${clients.length})</div>`;
-      html += clients.map(c => `
-        <div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid var(--border-faint,#f0f0f0)">
-          <div style="flex:1;min-width:0">
-            <div style="font-size:.8rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.hostname}</div>
-            <div style="font-size:.7rem;color:var(--text-muted)">${c.ip}${c.mac ? ' · ' + c.mac : ''}${c.ap ? ' · ' + c.ap : ''}</div>
-          </div>
-        </div>`).join('');
-      html += `</div>`;
-    }
-    html += `</details></div>`;
+  } else {
+    html = '<div style="color:var(--text-muted);font-size:.85rem">No Hive zones found — check HIVE_EMAIL / HIVE_PASSWORD in Doppler.</div>';
   }
 
   el.innerHTML = html;
@@ -1278,7 +1232,7 @@ function renderDeviceAssignList() {
   // Restore current room assignments on selects
   _discoveredDevices.forEach((d, i) => {
     const sel  = document.querySelector(`#dev-assign-${i} select`);
-    const curr = rooms.find(r => r.tapo?.some(t => t.device_id===d.device_id) || r.hive?.id===d.device_id);
+    const curr = rooms.find(r => r.hive?.id === d.device_id);
     if (curr && sel) sel.value = curr.id;
   });
 }

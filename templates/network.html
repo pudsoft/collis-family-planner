@@ -9,12 +9,6 @@
     <div id="poll-status" style="font-size:.75rem;color:var(--text-muted)">Refreshing…</div>
   </div>
 
-  <!-- ── Family presence ───────────────────────────────────────────────────── -->
-  <div class="card admin-section" id="presence-card" style="display:none">
-    <div class="admin-section-title">📍 Who's home</div>
-    <div id="presence-list" style="display:flex;flex-wrap:wrap;gap:10px;padding-top:4px"></div>
-  </div>
-
   <!-- ── WiFi networks ──────────────────────────────────────────────────────── -->
   <div class="card admin-section" id="wlan-card">
     <div class="admin-section-title">📶 WiFi networks</div>
@@ -43,13 +37,6 @@
   </div>
   {% endif %}
 
-  <!-- ── Connected clients (live) ──────────────────────────────────────────── -->
-  <div class="card admin-section">
-    <div class="admin-section-title">🔗 Currently connected</div>
-    <div id="client-list">
-      <div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">Loading…</div>
-    </div>
-  </div>
 
 </div>
 
@@ -81,8 +68,6 @@ async function pollStatus() {
     _blockedMacs   = new Set((data.blocked_macs   || []).map(m => m.toLowerCase()));
     _protectedMacs = new Set((data.protected_macs || []).map(m => m.toLowerCase()));
     renderWlans(data.wlans || []);
-    renderClients(data.clients || []);
-    renderPresence(data.presence || {});
     updateBlockButtons(_blockedMacs);
     document.getElementById("poll-status").textContent =
       "Updated " + new Date().toLocaleTimeString("en-GB", {hour:"2-digit",minute:"2-digit",second:"2-digit"});
@@ -125,98 +110,6 @@ function renderWlans(wlans) {
     </div>`).join("");
 }
 
-function renderClients(clients) {
-  const el = document.getElementById("client-list");
-  if (!clients.length) {
-    el.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">No devices connected</div>';
-    return;
-  }
-
-  const regular   = clients.filter(c => !_protectedMacs.has(c.mac.toLowerCase()));
-  const protected_ = clients.filter(c =>  _protectedMacs.has(c.mac.toLowerCase()));
-
-  const signalIcon   = q => ({ excellent: "▂▄▆█", good: "▂▄▆_", fair: "▂▄__", poor: "▂___" }[q] || "");
-  const signalColour = q => ({ excellent: "var(--family)", good: "var(--family)", fair: "#F59E0B", poor: "#EF4444" }[q] || "var(--text-muted)");
-  const fmtUptime    = s => {
-    if (!s) return "";
-    if (s < 60)    return `${s}s`;
-    if (s < 3600)  return `${Math.floor(s/60)}m`;
-    if (s < 86400) return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`;
-    return `${Math.floor(s/86400)}d ${Math.floor((s%86400)/3600)}h`;
-  };
-
-  const renderRow = (c, allowBlock) => {
-    const mac       = c.mac.toLowerCase();
-    const isBlocked = _blockedMacs.has(mac);
-    const sigBadge  = (!c.is_wired && c.signal_quality)
-      ? `<span style="font-family:monospace;color:${signalColour(c.signal_quality)};letter-spacing:-.5px;margin-left:4px" title="${c.signal} dBm">${signalIcon(c.signal_quality)}</span>`
-      : "";
-    const netParts  = [
-      c.is_wired ? "🔌 Wired" : (c.essid ? `📶 ${c.essid}` : ""),
-      c.ap_name  ? c.ap_name : "",
-      c.uptime   ? `⏱ ${fmtUptime(c.uptime)}` : "",
-    ].filter(Boolean);
-    return `
-    <div class="device-item" style="font-size:.82rem" data-mac="${c.mac}">
-      <div style="flex:1;min-width:0">
-        <div class="device-name">${c.hostname || c.mac}${sigBadge}</div>
-        <div class="device-mac">${c.mac} · ${c.ip || "—"}</div>
-        ${netParts.length ? `<div class="device-mac" style="margin-top:1px">${netParts.join(" · ")}</div>` : ""}
-      </div>
-      ${allowBlock
-        ? `<button class="btn btn-secondary btn-sm dev-block-btn mac-block-btn"
-                   data-mac="${c.mac}"
-                   style="${isBlocked ? "color:var(--paul)" : ""}">
-             ${isBlocked ? "Unblock" : "Block"}
-           </button>`
-        : `<span style="font-size:.72rem;color:var(--text-muted);padding:.25rem .5rem">🔒</span>`
-      }
-    </div>`;
-  };
-
-  let html = regular.map(c => renderRow(c, true)).join("");
-
-  if (protected_.length) {
-    html += `
-    <details style="margin-top:${regular.length ? "8px" : "0"}">
-      <summary style="cursor:pointer;font-size:.75rem;font-weight:700;letter-spacing:.06em;
-                      text-transform:uppercase;color:var(--text-muted);padding:8px 0;
-                      border-top:${regular.length ? "1px solid var(--border)" : "none"}">
-        🔒 Protected devices (${protected_.length})
-      </summary>
-      ${protected_.map(c => renderRow(c, false)).join("")}
-    </details>`;
-  }
-
-  el.innerHTML = html;
-}
-
-// ── Presence ─────────────────────────────────────────────────────────────────
-const _personDisplay = {{ person_display | tojson }};
-
-function renderPresence(presence) {
-  const card   = document.getElementById("presence-card");
-  const listEl = document.getElementById("presence-list");
-  const entries = Object.entries(presence);
-  if (!entries.length) { card.style.display = "none"; return; }
-  card.style.display = "";
-  listEl.innerHTML = entries.map(([person, home]) => {
-    const pd    = _personDisplay[person] || {};
-    const emoji = pd.emoji || "👤";
-    const label = pd.label || person;
-    return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;
-                        padding:10px 14px;border-radius:12px;min-width:72px;text-align:center;
-                        background:${home ? "var(--card-bg)" : "transparent"};
-                        border:1.5px solid ${home ? "var(--family)" : "var(--border)"}">
-      <span style="font-size:1.4rem">${emoji}</span>
-      <span style="font-size:.75rem;font-weight:600">${label}</span>
-      <span style="font-size:.7rem;color:${home ? "var(--family)" : "var(--text-muted)"}">
-        ${home ? "🏠 Home" : "🚶 Away"}
-      </span>
-    </div>`;
-  }).join("");
-}
-
 // ── WLAN toggle ───────────────────────────────────────────────────────────────
 document.addEventListener("change", async (e) => {
   const tog = e.target.closest(".wlan-toggle");
@@ -240,18 +133,6 @@ document.addEventListener("click", async (e) => {
   const labels = { block: "Block", unblock: "Unblock", kick: "Kick" };
   if (!confirm(`${labels[action]} this device?`)) return;
   await adminPost(`/admin/device/${devId}/${action}`, null, `${labels[action]} sent`);
-  pollStatus();
-});
-
-// ── Live client block/unblock by MAC ─────────────────────────────────────────
-document.addEventListener("click", async (e) => {
-  const btn = e.target.closest(".mac-block-btn");
-  if (!btn) return;
-  const mac       = btn.dataset.mac.toLowerCase();
-  const isBlocked = _blockedMacs.has(mac);
-  const action    = isBlocked ? "unblock" : "block";
-  if (!confirm(`${isBlocked ? "Unblock" : "Block"} this device?`)) return;
-  await adminPost(`/admin/mac/${encodeURIComponent(mac)}/${action}`, null, `${isBlocked ? "Unblocked" : "Blocked"}`);
   pollStatus();
 });
 

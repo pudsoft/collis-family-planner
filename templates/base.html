@@ -65,16 +65,13 @@
      class="nav-item {% if request.endpoint == 'medicines_view' %}active{% endif %}">
     <span class="nav-icon">💊</span>Meds
   </a>
-  {% if is_admin %}
   <button class="nav-item {% if _house_active %}active{% endif %}" id="house-nav-btn"
           onclick="toggleHouseMenu(event)"
           style="border:none;background:none;cursor:pointer;padding:0">
     <span class="nav-icon">🏡</span>House
   </button>
-  {% endif %}
 </nav>
 
-{% if is_admin %}
 <!-- Backdrop to close menu on tap-away -->
 <div id="house-backdrop" onclick="closeHouseMenu()"
      style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.25)"></div>
@@ -86,7 +83,8 @@
             box-shadow:0 4px 28px rgba(0,0,0,0.22);z-index:210;overflow:hidden">
   <div style="padding:9px 16px 7px;font-size:.7rem;font-weight:700;
               color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;
-              border-bottom:1px solid var(--border)">House controls</div>
+              border-bottom:1px solid var(--border)">House</div>
+  {% if is_admin %}
   <a href="{{ url_for('network_view') }}"
      style="display:flex;align-items:center;gap:12px;padding:13px 18px;
             text-decoration:none;color:var(--text);font-size:.92rem;font-weight:500;
@@ -94,6 +92,7 @@
             {% if request.endpoint == 'network_view' %}background:var(--bg);color:var(--person-colour,#7B5BA6){% endif %}">
     <span style="font-size:1.15rem">📶</span>Network
   </a>
+  {% endif %}
   <a href="{{ url_for('smarthome_view') }}"
      style="display:flex;align-items:center;gap:12px;padding:13px 18px;
             text-decoration:none;color:var(--text);font-size:.92rem;font-weight:500;
@@ -108,7 +107,6 @@
     <span style="font-size:1.15rem">☀️</span>Energy
   </a>
 </div>
-{% endif %}
 
 <div class="toast-container" id="toast-container"></div>
 
@@ -118,7 +116,6 @@
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
-  {% if is_admin %}
   function toggleHouseMenu(e) {
     if (e) e.stopPropagation();
     const m  = document.getElementById('house-menu');
@@ -132,7 +129,6 @@
     document.getElementById('house-backdrop').style.display = 'none';
   }
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHouseMenu(); });
-  {% endif %}
 </script>
 </body>
 </html>

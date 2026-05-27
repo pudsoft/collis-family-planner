@@ -21,7 +21,7 @@ from flask import (
 import config
 from modules import (
     alexa, auth, calendar_sync, hive, meals, medicines, ntfy, push_notif,
-    home_assistant as ha_module, tapo, tasks, unifi, weather,
+    home_assistant as ha_module, tasks, unifi, weather,
 )
 
 # ── App setup ─────────────────────────────────────────────────────────────────
@@ -759,7 +759,14 @@ def calendar_view():
                 "attendees":    ["paul"],
                 "first_seen_at": None,
             })
-        events.sort(key=lambda e: e["start_dt"])
+
+    # Filter to today onwards — keep events where start or end is >= today
+    _today_iso = date.today().isoformat()
+    events = [
+        e for e in events
+        if (e.get("end_dt") or e.get("start_dt", ""))[:10] >= _today_iso
+    ]
+    events.sort(key=lambda e: e["start_dt"])
 
     return render_template(
         "calendar.html",
@@ -1284,38 +1291,13 @@ def network_status():
     protected_macs = [r["mac"].lower() for r in db.execute(
         "SELECT mac FROM known_devices WHERE protected=1"
     ).fetchall()]
-    clients = unifi.list_connected_clients()
-    connected_mac_set = {c["mac"].lower() for c in clients}
-    # Presence: which tracked people are home
-    presence_rows = db.execute(
-        "SELECT person, presence_mac FROM person_prefs WHERE presence_mac IS NOT NULL AND presence_mac != ''"
-    ).fetchall()
-    presence = {
-        r["person"]: r["presence_mac"].lower() in connected_mac_set
-        for r in presence_rows
-    }
     _out = {
         "wlans":          unifi.list_wlans(),
-        "clients":        clients,
         "blocked_macs":   list(unifi.list_blocked_macs()),
         "protected_macs": protected_macs,
-        "presence":       presence,
     }
     _pcache_set("network_status", _out)
     return jsonify(_out)
-
-
-@app.route("/admin/presence_mac", methods=["POST"])
-@require_admin
-def admin_save_presence_mac():
-    db = get_db()
-    for person in config.PEOPLE:
-        mac = request.form.get(f"mac_{person}", "").strip().lower()
-        db.execute("INSERT OR IGNORE INTO person_prefs (person) VALUES (?)", (person,))
-        db.execute("UPDATE person_prefs SET presence_mac=? WHERE person=?",
-                   (mac if mac else None, person))
-    db.commit()
-    return jsonify({"ok": True})
 
 
 # ── Admin ─────────────────────────────────────────────────────────────────────
@@ -1333,7 +1315,6 @@ def admin_view():
     google_connected = bool(
         db.execute("SELECT value FROM app_settings WHERE key='google_token'").fetchone()
     )
-    live_clients = unifi.list_connected_clients()
 
     pin_rows = db.execute(
         "SELECT person, login_pin FROM person_prefs WHERE person IN (?,?,?)",
@@ -1344,14 +1325,6 @@ def admin_view():
     ).fetchone()
     pin_status = {r["person"]: bool(r["login_pin"]) for r in pin_rows}
     pin_status["family"] = bool(family_passcode_row and family_passcode_row["value"])
-
-    presence_rows = db.execute(
-        "SELECT person, presence_mac FROM person_prefs WHERE person IN ({})".format(
-            ",".join("?" * len(config.PEOPLE))
-        ),
-        config.PEOPLE,
-    ).fetchall()
-    presence_macs = {r["person"]: r["presence_mac"] or "" for r in presence_rows}
 
     return render_template(
         "admin.html",
@@ -1365,9 +1338,7 @@ def admin_view():
         all_meds=all_meds,
         google_connected=google_connected,
         admin_pin=config.ADMIN_PIN,
-        live_clients=live_clients,
         pin_status=pin_status,
-        presence_macs=presence_macs,
     )
 
 
@@ -1751,11 +1722,10 @@ def start_medicine_reminders():
 
 @app.route("/smarthome")
 def smarthome_view():
-    if current_person() not in config.ADMINS:
-        return redirect(url_for("settings_view"))
-    db    = get_db()
-    prefs = get_prefs(db, current_person())
-    rooms = [dict(r) for r in db.execute(
+    person = current_person()
+    db     = get_db()
+    prefs  = get_prefs(db, person)
+    rooms  = [dict(r) for r in db.execute(
         "SELECT * FROM smart_rooms ORDER BY grid_row, grid_col, sort_order"
     ).fetchall()]
     devices = [dict(r) for r in db.execute(
@@ -1784,13 +1754,12 @@ def smarthome_view():
 
     return render_template(
         "smarthome.html",
-        person=current_person(),
+        person=person,
         prefs=prefs,
         people=config.PEOPLE,
         person_display=config.PERSON_DISPLAY,
-        is_admin=True,
+        is_admin=person in config.ADMINS,
         rooms=rooms,
-        tapo_configured=bool(config.TAPO_EMAIL),
         hive_configured=bool(config.HIVE_EMAIL),
         zone_temp_min=_setting_float("zone_temp_min", 17.5),
         zone_temp_max=_setting_float("zone_temp_max", 19.0),
@@ -1807,10 +1776,7 @@ def smarthome_view():
 
 @app.route("/smarthome/status")
 def smarthome_status():
-    """Live poll — returns room states with Tapo + Hive data merged."""
-    if current_person() not in config.ADMINS:
-        return jsonify({"error": "Admin only"}), 403
-
+    """Live poll — returns room states with Hive + HA data merged."""
     # Serve cached data if still fresh (30-second TTL)
     _cached = _pcache_get("smarthome_status", 30)
     if _cached is not None:
@@ -1826,10 +1792,8 @@ def smarthome_status():
         "SELECT * FROM smart_devices"
     ).fetchall()]
 
-    # Fetch live data
-    tapo_devices = {d["deviceId"]: d for d in tapo.get_all_device_states()} \
-        if config.TAPO_EMAIL else {}
-    hive_zones   = {z["id"]: z for z in hive.get_climate_data()} \
+    # Fetch live data (Hive only — Tapo removed)
+    hive_zones = {z["id"]: z for z in hive.get_climate_data()} \
         if config.HIVE_EMAIL else {}
 
     # HA entity states (batch fetch if HA is configured)
@@ -1867,26 +1831,25 @@ def smarthome_status():
 
     result = []
     for room in rooms:
-        room_id  = room["id"]
+        room_id   = room["id"]
         room_devs = [a for a in assignments if a["room_id"] == room_id]
-        tapo_rows = []
+        lights    = []
         hive_row  = None
         any_on    = False
 
         for d in room_devs:
-            if d["provider"] == "tapo":
+            if d["provider"] in ("tapo", "ha"):
+                # Use Home Assistant state if entity configured, else unknown
                 ha_eid = d.get("ha_entity_id")
                 if ha_eid and ha_eid in ha_states:
-                    # HA state takes priority — more reliable than Tapo cloud
                     on     = ha_states[ha_eid]
                     online = True
                 else:
-                    live   = tapo_devices.get(d["device_id"], {})
-                    on     = live.get("on")
-                    online = live.get("online", False)
+                    on     = None
+                    online = False
                 if on:
                     any_on = True
-                tapo_rows.append({
+                lights.append({
                     "id":           d["id"],
                     "name":         d["name"],
                     "device_id":    d["device_id"],
@@ -1900,18 +1863,18 @@ def smarthome_status():
                     hive_row = {**z, "trend": trend_map.get(d["name"])}
 
         result.append({
-            "id":           room_id,
-            "name":         room["name"],
-            "icon":         room["icon"],
-            "floor":        room.get("floor", "ground"),
-            "grid_col":     room["grid_col"],
-            "grid_row":     room["grid_row"],
+            "id":            room_id,
+            "name":          room["name"],
+            "icon":          room["icon"],
+            "floor":         room.get("floor", "ground"),
+            "grid_col":      room["grid_col"],
+            "grid_row":      room["grid_row"],
             "grid_col_span": room["grid_col_span"],
             "grid_row_span": room["grid_row_span"],
-            "zone_color":   room.get("zone_color"),
-            "any_on":       any_on,
-            "tapo":         tapo_rows,
-            "hive":         hive_row,
+            "zone_color":    room.get("zone_color"),
+            "any_on":        any_on,
+            "lights":        lights,
+            "hive":          hive_row,
         })
 
     wx           = weather.get_weather()
@@ -1926,34 +1889,21 @@ def smarthome_status():
 def smarthome_toggle(device_db_id: int):
     db  = get_db()
     row = db.execute("SELECT * FROM smart_devices WHERE id=?", (device_db_id,)).fetchone()
-    if not row or row["provider"] != "tapo":
+    if not row:
         return jsonify({"error": "Device not found"}), 404
 
-    # JS sends desired state in body: {on: true/false}
-    # Fall back to flipping the cached state (or default to ON if unknown)
+    ha_eid = row["ha_entity_id"] if "ha_entity_id" in row.keys() else None
+    if not ha_eid or not ha_module.is_configured():
+        return jsonify({"error": "No Home Assistant entity configured for this device"}), 400
+
+    # JS sends desired state in body: {on: true/false}; fall back to flipping HA state
     body = request.get_json(silent=True) or {}
     desired_on = body.get("on")
     if desired_on is None:
-        cached_dev = next(
-            (d for d in tapo.get_all_device_states() if d["deviceId"] == row["device_id"]),
-            {},
-        )
-        current = cached_dev.get("on")
+        current = ha_module.get_entity_state(ha_eid)
         desired_on = (not current) if current is not None else True
 
-    dev = next(
-        (d for d in tapo.list_cloud_devices() if d["deviceId"] == row["device_id"]),
-        None,
-    )
-    if not dev:
-        return jsonify({"error": "Device not found in Tapo cloud"}), 404
-
-    # Prefer HA over Tapo cloud if this device has an entity ID configured
-    ha_eid = row["ha_entity_id"] if "ha_entity_id" in row.keys() else None
-    if ha_eid and ha_module.is_configured():
-        ok, err = ha_module.set_entity_state(ha_eid, bool(desired_on))
-    else:
-        ok, err = tapo.set_device_state(dev, bool(desired_on))
+    ok, err = ha_module.set_entity_state(ha_eid, bool(desired_on))
     if ok:
         _pcache_bust("smarthome_status")
     return jsonify({"ok": ok, "now_on": bool(desired_on), **({"error": err} if err else {})})
@@ -2051,38 +2001,7 @@ def admin_smarthome_delete_room(room_id: int):
 @app.route("/admin/smarthome/discover", methods=["POST"])
 @require_admin
 def admin_smarthome_discover():
-    """Return discovered Tapo + Hive devices plus full UniFi client list."""
-
-    # ── UniFi lookup (MAC → IP / SSID) ───────────────────────────────────────
-    def _norm_mac(m: str) -> str:
-        """Normalise any MAC format to lower-case colon-separated."""
-        m = m.lower().replace("-", ":").replace(".", ":").replace(" ", "")
-        if len(m) == 12:  # no separators e.g. aabbccddeeff
-            m = ":".join(m[i:i+2] for i in range(0, 12, 2))
-        return m
-
-    unifi_clients = unifi.list_connected_clients()
-    unifi_by_mac  = {_norm_mac(c["mac"]): c for c in unifi_clients}
-
-    # ── Tapo cloud devices ────────────────────────────────────────────────────
-    tapo_devs = []
-    if config.TAPO_EMAIL:
-        for d in tapo.list_cloud_devices():
-            raw_mac = d.get("deviceMac", "")
-            mac     = _norm_mac(raw_mac) if raw_mac else ""
-            client  = unifi_by_mac.get(mac, {})
-            tapo_devs.append({
-                "provider":    "tapo",
-                "device_id":   d.get("deviceId", ""),
-                "name":        d.get("alias", d.get("deviceName", "Device")),
-                "device_type": d.get("deviceModel", ""),
-                "mac":         mac,
-                "ip":          client.get("ip", ""),
-                "essid":       client.get("essid", ""),
-                "online":      d.get("status") == 1,
-            })
-
-    # ── Hive heating zones ────────────────────────────────────────────────────
+    """Return discovered Hive heating zones for room assignment."""
     hive_devs = []
     if config.HIVE_EMAIL:
         for z in hive.get_climate_data():
@@ -2093,22 +2012,7 @@ def admin_smarthome_discover():
                 "device_type": z["type"],
                 "online":      z.get("online", True),
             })
-
-    # ── All UniFi network clients (for IoT identification) ───────────────────
-    network_devs = []
-    for c in unifi_clients:
-        network_devs.append({
-            "mac":      c["mac"],
-            "ip":       c.get("ip", ""),
-            "hostname": c.get("hostname") or c["mac"],
-            "essid":    c.get("essid", ""),
-            "ap":       c.get("ap_name", ""),
-            "is_wired": c.get("is_wired", False),
-        })
-    # Sort wired last, then by SSID then hostname
-    network_devs.sort(key=lambda x: (x["is_wired"], x["essid"], x["hostname"]))
-
-    return jsonify({"tapo": tapo_devs, "hive": hive_devs, "network": network_devs})
+    return jsonify({"hive": hive_devs})
 
 
 @app.route("/admin/smarthome/assign", methods=["POST"])
@@ -2228,24 +2132,21 @@ def admin_smarthome_seed():
 
 @app.route("/energy")
 def energy_view():
-    if current_person() not in config.ADMINS:
-        return redirect(url_for("settings_view"))
-    db    = get_db()
-    prefs = get_prefs(db, current_person())
+    person = current_person()
+    db     = get_db()
+    prefs  = get_prefs(db, person)
     return render_template(
         "energy.html",
-        person=current_person(),
+        person=person,
         prefs=prefs,
         people=config.PEOPLE,
         person_display=config.PERSON_DISPLAY,
-        is_admin=True,
+        is_admin=person in config.ADMINS,
     )
 
 
 @app.route("/energy/data")
 def energy_data():
-    if current_person() not in config.ADMINS:
-        return jsonify({"error": "forbidden"}), 403
 
     # Serve cached data if fresh (5-minute TTL — data logger runs every 15 min)
     _cached = _pcache_get("energy_data", 300)
