@@ -1839,31 +1839,10 @@ def smarthome_status():
     for room in rooms:
         room_id   = room["id"]
         room_devs = [a for a in assignments if a["room_id"] == room_id]
-        lights    = []
         hive_row  = None
-        any_on    = False
 
         for d in room_devs:
-            if d["provider"] in ("tapo", "ha"):
-                # Use Home Assistant state if entity configured, else unknown
-                ha_eid = d.get("ha_entity_id")
-                if ha_eid and ha_eid in ha_states:
-                    on     = ha_states[ha_eid]
-                    online = True
-                else:
-                    on     = None
-                    online = False
-                if on:
-                    any_on = True
-                lights.append({
-                    "id":           d["id"],
-                    "name":         d["name"],
-                    "device_id":    d["device_id"],
-                    "ha_entity_id": ha_eid,
-                    "on":           on,
-                    "online":       online,
-                })
-            elif d["provider"] == "hive":
+            if d["provider"] == "hive":
                 z = hive_zones.get(d["device_id"])
                 if z:
                     hive_row = {**z, "trend": trend_map.get(d["name"])}
@@ -1878,8 +1857,6 @@ def smarthome_status():
             "grid_col_span": room["grid_col_span"],
             "grid_row_span": room["grid_row_span"],
             "zone_color":    room.get("zone_color"),
-            "any_on":        any_on,
-            "lights":        lights,
             "hive":          hive_row,
         })
 

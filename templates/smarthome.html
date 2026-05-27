@@ -697,8 +697,6 @@ function _renderFloor(floor, rooms) {
     const target    = hive?.target_temp;
     const isHeating = hive?.is_heating;
     const mode      = hive?.mode;
-    const anyOn     = room.any_on;
-
     const tempStr = temp != null
       ? `<span style="font-size:1.1rem;font-weight:700;color:${tempColour(temp)}">${temp.toFixed(1)}°</span>`
         + (target != null
@@ -711,28 +709,8 @@ function _renderFloor(floor, rooms) {
       ? `<span style="font-size:.7rem;background:#FEE2E2;color:#EF4444;border-radius:4px;padding:1px 4px;font-weight:600">🔥</span>`
       : (mode === 'OFF' ? `<span style="font-size:.68rem;color:var(--text-muted)">Off</span>` : '');
 
-    const deviceButtons = (room.lights || []).map(d => {
-      const isOn = d.on === true;
-      const isOff = d.on === false;
-
-      const bulbStyle = isOn  ? '' :
-                        isOff ? 'filter:grayscale(1) opacity(.45)' :
-                                'filter:opacity(.7)';   // unknown state
-
-      return `<button onclick="toggleDevice(${d.id}, ${d.on === true ? 'true' : d.on === false ? 'false' : 'null'})"
-        title="${d.name}${isOn ? ' — on' : isOff ? ' — off' : ''}"
-        style="position:relative;display:inline-flex;align-items:center;justify-content:center;
-               width:24px;height:24px;padding:0;border-radius:5px;
-               border:1px solid ${isOn ? '#f59e0b' : 'rgba(0,0,0,.12)'};
-               background:${isOn ? 'rgba(245,158,11,.18)' : 'rgba(255,255,255,.35)'};
-               cursor:pointer">
-        <span style="font-size:.9rem;line-height:1;${bulbStyle}">💡</span>
-      </button>`;
-    }).join('');
-
     let badgeClass = 'room-badge';
     if (isHeating) badgeClass = 'room-badge room-badge-heating';
-    else if (anyOn) badgeClass = 'room-badge room-badge-on';
 
     const adv = windowAdvice(temp, _outdoorTemp);
     const windowIcon = adv ? (() => {
@@ -765,7 +743,6 @@ function _renderFloor(floor, rooms) {
         <div style="display:flex;gap:3px;align-items:center;flex-wrap:wrap;justify-content:center">
           ${heatingBadge}${windowIcon}
         </div>
-        ${deviceButtons ? `<div style="display:flex;flex-wrap:wrap;gap:2px;justify-content:center">${deviceButtons}</div>` : ''}
       </div>
     </div>`;
   }).join('');
