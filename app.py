@@ -1057,10 +1057,10 @@ def medicines_view():
         all_meds = medicines.get_doses_for_date(db, view_date.isoformat())
     all_meds.sort(key=lambda m: (0 if m["person"] == person else 1, m["person"], m["name"]))
 
-    # Non-admins (Joshua, Violet) only ever see their own medicines,
-    # regardless of which view (family, etc.) they're currently in.
+    # Non-admins (Joshua, Violet) only ever see their own medicines.
+    # "family" shared login and named admins can see everyone's medicines.
     viewer       = auth_person()
-    viewer_admin = viewer in config.ADMINS
+    viewer_admin = viewer in config.ADMINS or viewer == "family"
     if not viewer_admin:
         all_meds = [m for m in all_meds if m["person"] == viewer]
 
