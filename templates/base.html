@@ -116,6 +116,18 @@
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
+
+  // ── PWA install prompt capture (must be global, fires early) ──────────────
+  window._pwaPrompt = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    window._pwaPrompt = e;
+    window.dispatchEvent(new CustomEvent('pwa-installable'));
+  });
+  window.addEventListener('appinstalled', () => {
+    window._pwaPrompt = null;
+    window.dispatchEvent(new CustomEvent('pwa-installed'));
+  });
   function toggleHouseMenu(e) {
     if (e) e.stopPropagation();
     const m  = document.getElementById('house-menu');

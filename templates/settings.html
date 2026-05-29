@@ -103,6 +103,29 @@
     </form>
   </div>
 
+  <!-- ── PWA install ───────────────────────────────────────────────────────── -->
+  <div class="card" id="pwa-install-card" style="display:none">
+    <div class="card-title">📲 Install app</div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">Add to home screen</div>
+        <div class="settings-desc" id="pwa-install-desc">Install as an app for quick access</div>
+      </div>
+      <button class="btn btn-primary btn-sm" id="pwa-install-btn" onclick="installPWA()">Install</button>
+    </div>
+    <div id="pwa-ios-hint" style="display:none;margin-top:10px;padding:10px 12px;
+         background:var(--bg);border-radius:8px;font-size:.82rem;color:var(--text-muted);line-height:1.5">
+      Tap the <strong>Share</strong> button
+      <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:middle;margin:0 2px"
+           fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+        <polyline points="16 6 12 2 8 6"/>
+        <line x1="12" y1="2" x2="12" y2="15"/>
+      </svg>
+      in Safari, then choose <strong>Add to Home Screen</strong>.
+    </div>
+  </div>
+
   <!-- ── Change PIN ──────────────────────────────────────────────────────── -->
   <div class="card">
     <div class="card-title">🔑 Login PIN</div>
@@ -289,6 +312,76 @@ async function testPush() {
   const j = await r.json().catch(() => ({}));
   showToast(j.sent > 0 ? "Push sent ✓" : "No subscriptions found — subscribe this device first", j.sent > 0 ? "success" : "error");
 }
+
+// ── PWA install ────────────────────────────────────────────────────────────
+
+function _isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true;
+}
+
+function _isIosSafari() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent)
+      && /safari/i.test(navigator.userAgent)
+      && !/chrome|crios|fxios/i.test(navigator.userAgent);
+}
+
+function _updatePwaCard() {
+  const card    = document.getElementById('pwa-install-card');
+  const btn     = document.getElementById('pwa-install-btn');
+  const ios     = document.getElementById('pwa-ios-hint');
+  const desc    = document.getElementById('pwa-install-desc');
+  if (!card) return;
+
+  // Already running as installed PWA — hide the card
+  if (_isStandalone()) { card.style.display = 'none'; return; }
+
+  // iOS Safari: no beforeinstallprompt, show manual instructions
+  if (_isIosSafari()) {
+    card.style.display = '';
+    btn.style.display  = 'none';
+    ios.style.display  = '';
+    desc.textContent   = 'Use Safari's Share menu to install';
+    return;
+  }
+
+  // Android/Chrome/Edge: show button only when prompt is available
+  if (window._pwaPrompt) {
+    card.style.display = '';
+    btn.style.display  = '';
+    ios.style.display  = 'none';
+  } else {
+    card.style.display = 'none';
+  }
+}
+
+async function installPWA() {
+  const prompt = window._pwaPrompt;
+  if (!prompt) return;
+  const btn = document.getElementById('pwa-install-btn');
+  btn.disabled = true;
+  btn.textContent = 'Installing…';
+  await prompt.prompt();
+  const { outcome } = await prompt.userChoice;
+  if (outcome === 'accepted') {
+    window._pwaPrompt = null;
+    showToast('App installed ✓');
+    document.getElementById('pwa-install-card').style.display = 'none';
+  } else {
+    btn.disabled = false;
+    btn.textContent = 'Install';
+  }
+}
+
+// Run on load; also react if the prompt fires after page load
+_updatePwaCard();
+window.addEventListener('pwa-installable', _updatePwaCard);
+window.addEventListener('pwa-installed',   () => {
+  const card = document.getElementById('pwa-install-card');
+  if (card) card.style.display = 'none';
+});
+
+// ── PIN change ─────────────────────────────────────────────────────────────
 
 async function saveMyPin() {
   const pin     = document.getElementById("cp-new").value.trim();
