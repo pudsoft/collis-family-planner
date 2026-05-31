@@ -109,6 +109,7 @@
           <div class="med-stock {% if med.needs_reorder %}low{% endif %}">
             {% if med.frequency_type == 'monthly' %}<span style="font-size:.7rem;color:var(--text-muted);border:1px solid currentColor;border-radius:4px;padding:1px 4px;margin-right:4px">monthly</span>{% elif med.frequency_type == '3monthly' %}<span style="font-size:.7rem;color:var(--text-muted);border:1px solid currentColor;border-radius:4px;padding:1px 4px;margin-right:4px">every 3 months</span>{% endif %}{% if med.days_remaining is not none %}{{ med.days_remaining | int }} days left{% if med.needs_reorder %} — ⚠️ <a href="https://www.nhs.uk/nhs-app/repeat-prescriptions/" target="_blank" rel="noopener" style="color:inherit;font-weight:700;text-decoration:underline">Order on NHS</a>{% endif %}{% endif %}
           </div>
+          {% if med.next_future_due %}<div class="med-stock" style="color:var(--text-muted)">Next dose: {{ med.next_future_due }}</div>{% endif %}
           {% if med.end_date %}
             {% if med.course_days_remaining is not none %}
               {% if med.course_days_remaining < 0 %}

@@ -53,8 +53,10 @@ def _is_dose_due(med: dict, check_date: date) -> bool:
             return False
         try:
             sd = date.fromisoformat(start)
+            sched = _parse_monthly_schedule(med)
+            check_dom = int(sched.get("dom") or sd.day)
             months_diff = (check_date.year - sd.year) * 12 + (check_date.month - sd.month)
-            return months_diff % 3 == 0 and check_date.day == sd.day
+            return months_diff % 3 == 0 and check_date.day == check_dom
         except ValueError:
             return False
     return True
@@ -85,6 +87,8 @@ def _next_dose_date(med: dict, from_date: date) -> date | None:
             return None
         try:
             sd = date.fromisoformat(start)
+            sched = _parse_monthly_schedule(med)
+            check_dom = min(int(sched.get("dom") or sd.day), 28)
             if _is_dose_due(med, from_date):
                 return from_date
             months_diff = (from_date.year - sd.year) * 12 + (from_date.month - sd.month)
@@ -94,7 +98,7 @@ def _next_dose_date(med: dict, from_date: date) -> date | None:
                 y = sd.year + (m - 1) // 12
                 m = ((m - 1) % 12) + 1
                 try:
-                    candidate = date(y, m, sd.day)
+                    candidate = date(y, m, check_dom)
                     if candidate >= from_date:
                         return candidate
                 except ValueError:
@@ -183,6 +187,18 @@ def _annotate_med(db_conn, med: dict, dose_date: str, is_today: bool) -> dict:
     med["is_late"]       = any(s["is_late"] for s in slots)
     med["is_due_today"]  = bool(due_slots)
     med["next_dose_date"] = next((s["next_dose_date"] for s in slots if s.get("next_dose_date")), None)
+
+    # Next future due date: for due days compute the one after; for non-due days use slot value
+    freq_check = (med.get("frequency_type") or "daily").lower()
+    if freq_check in ("monthly", "3monthly"):
+        check_d = date.fromisoformat(dose_date)
+        if med["is_due_today"]:
+            nfd = _next_dose_date(med, check_d + timedelta(days=1))
+            med["next_future_due"] = nfd.isoformat() if nfd else None
+        else:
+            med["next_future_due"] = med["next_dose_date"]
+    else:
+        med["next_future_due"] = None
 
     freq          = (med.get("frequency_type") or "daily").lower()
     doses_per_day = int(med.get("doses_per_day") or 1)

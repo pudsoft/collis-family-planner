@@ -1319,6 +1319,30 @@ def admin_view():
     prefs        = get_prefs(db, person)
     chore_templates = [dict(r) for r in db.execute("SELECT * FROM chore_templates ORDER BY title").fetchall()]
     all_meds     = sorted(medicines.get_medicines(db), key=lambda m: m["name"].lower())
+    _today = date.today()
+    for _m in all_meds:
+        _freq = _m.get("frequency_type") or "daily"
+        _sched = {}
+        if _m.get("dose_times"):
+            try:
+                _s = json.loads(_m["dose_times"])
+                if isinstance(_s, dict):
+                    _sched = _s
+            except Exception:
+                pass
+        if _freq == "monthly":
+            _dom = _sched.get("dom", "?")
+            _m["_freq_label"] = f"Monthly (day {_dom})"
+        elif _freq == "3monthly":
+            _dom = _sched.get("dom", "?")
+            _m["_freq_label"] = f"Every 3 months (day {_dom})"
+        else:
+            _m["_freq_label"] = f"{_m.get('doses_per_day') or 1}× daily"
+        if _freq in ("monthly", "3monthly"):
+            _nd = medicines._next_dose_date(_m, _today)
+            _m["_next_due"] = _nd.isoformat() if _nd else None
+        else:
+            _m["_next_due"] = None
     all_devices  = [dict(r) for r in db.execute("SELECT * FROM known_devices ORDER BY display_name").fetchall()]
     google_connected = bool(
         db.execute("SELECT value FROM app_settings WHERE key='google_token'").fetchone()
@@ -1441,8 +1465,9 @@ def admin_medicine_save():
         dose_times     = json.dumps({"dom": dom, "time": scheduled_time})
         doses_per_day  = 1
     elif freq_type == "3monthly":
+        dom            = max(1, min(28, int(d.get("monthly_dom") or 1)))
         scheduled_time = d.get("dose_time_1", "").strip() or None
-        dose_times     = json.dumps({"time": scheduled_time}) if scheduled_time else None
+        dose_times     = json.dumps({"dom": dom, "time": scheduled_time})
         doses_per_day  = 1
     else:
         freq_type     = "daily"

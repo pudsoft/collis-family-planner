@@ -57,8 +57,9 @@
         </div>
         <div class="device-mac">
           {{ med.stock_count }} doses · {{ med.daily_dose }}/dose ·
-          {% if med.frequency_type == 'monthly' %}Monthly{% elif med.frequency_type == '3monthly' %}Every 3 months{% else %}{{ med.doses_per_day or 1 }}× daily{% endif %} ·
+          {{ med._freq_label }} ·
           Reorder at {{ med.reorder_threshold_days }} days
+          {% if med._next_due %} · <span style="color:var(--paul)">Next: {{ med._next_due }}</span>{% endif %}
           {% if not med.active %} · <span style="color:#EF4444">Paused</span>{% endif %}
           {% if med.start_date or med.end_date %}
            · <span style="color:var(--paul)">📅 {{ med.start_date or '…' }} → {{ med.end_date or '…' }}</span>
@@ -268,7 +269,7 @@
     <div id="med-single-time-section" class="form-group" style="display:none">
       <label class="form-label">Scheduled time — optional</label>
       <input class="form-input" id="med-single-time" type="time" style="width:130px">
-      <div id="med-3monthly-hint" style="display:none;font-size:.72rem;color:var(--text-muted);margin-top:3px">Set the first dose date in Course dates below — doses repeat every 3 months from that date</div>
+      <div id="med-3monthly-hint" style="display:none;font-size:.72rem;color:var(--text-muted);margin-top:3px">Set the start date below to anchor which months doses fall in (e.g. start May → doses in May/Aug/Nov/Feb)</div>
     </div>
     <div class="form-group">
       <label class="form-label">Current stock (doses)</label>
@@ -432,7 +433,7 @@ function updateFrequencyUI() {
   const is3monthly = freq === "3monthly";
 
   document.getElementById("med-dose-times-section").style.display    = isDaily    ? "" : "none";
-  document.getElementById("med-monthly-dom-section").style.display   = isMonthly  ? "" : "none";
+  document.getElementById("med-monthly-dom-section").style.display   = (isMonthly || is3monthly) ? "" : "none";
   document.getElementById("med-single-time-section").style.display   = (isMonthly || is3monthly) ? "" : "none";
   document.getElementById("med-3monthly-hint").style.display         = is3monthly ? "" : "none";
 
@@ -469,6 +470,7 @@ function editMed(med) {
     document.getElementById("med-single-time").value = sched.time || med.scheduled_time || "";
   } else if (freqType === "3monthly") {
     document.getElementById("med-frequency").value   = "3monthly";
+    document.getElementById("med-monthly-dom").value = sched.dom || 1;
     document.getElementById("med-single-time").value = sched.time || med.scheduled_time || "";
   } else {
     const dpd = med.doses_per_day || 1;
@@ -519,6 +521,7 @@ async function saveMed() {
     fd.append("monthly_dom", document.getElementById("med-monthly-dom").value || "1");
     fd.append("dose_time_1", document.getElementById("med-single-time").value || "");
   } else {
+    fd.append("monthly_dom", document.getElementById("med-monthly-dom").value || "1");
     fd.append("dose_time_1", document.getElementById("med-single-time").value || "");
   }
 
