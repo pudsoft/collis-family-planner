@@ -151,9 +151,14 @@
             </button>
           </div>
           {% else %}
-          <span style="font-size:.75rem;color:var(--text-muted)">
-            {% if slot.next_dose_date %}Next: {{ slot.next_dose_date }}{% endif %}
-          </span>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+            {% if slot.next_dose_date %}<span style="font-size:.75rem;color:var(--text-muted)">Next: {{ slot.next_dose_date }}</span>{% endif %}
+            <button class="take-btn"
+                    data-med-id="{{ med.id }}"
+                    data-dose-number="{{ slot.dose_number }}"
+                    style="font-size:.72rem;padding:.25rem .5rem;opacity:.6"
+                    title="Log dose for today even though not scheduled">Log today</button>
+          </div>
           {% endif %}
           {% endfor %}
           {% if med.needs_reorder and can_reorder %}

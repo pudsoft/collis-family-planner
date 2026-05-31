@@ -56,8 +56,8 @@
           <span class="chip chip-{{ med.person }}">{{ med.person | title }}</span>
         </div>
         <div class="device-mac">
-          {{ med.stock_count }} doses · {{ med.daily_dose }}/day ·
-          {{ med.doses_per_day or 1 }}× daily ·
+          {{ med.stock_count }} doses · {{ med.daily_dose }}/dose ·
+          {% if med.frequency_type == 'monthly' %}Monthly{% elif med.frequency_type == '3monthly' %}Every 3 months{% else %}{{ med.doses_per_day or 1 }}× daily{% endif %} ·
           Reorder at {{ med.reorder_threshold_days }} days
           {% if not med.active %} · <span style="color:#EF4444">Paused</span>{% endif %}
           {% if med.start_date or med.end_date %}
