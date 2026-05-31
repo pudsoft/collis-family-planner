@@ -107,9 +107,7 @@
             {% if not med.active %}<span style="font-size:.7rem;color:var(--text-muted);border:1px solid currentColor;border-radius:4px;padding:1px 4px">paused</span>{% endif %}
           </div>
           <div class="med-stock {% if med.needs_reorder %}low{% endif %}">
-            {% if med.days_remaining is not none %}
-              {{ med.days_remaining }} days left{% if med.needs_reorder %} — ⚠️ <a href="https://www.nhs.uk/nhs-app/repeat-prescriptions/" target="_blank" rel="noopener" style="color:inherit;font-weight:700;text-decoration:underline">Order on NHS</a>{% endif %}
-            {% endif %}
+            {% if med.frequency_type == 'monthly' %}<span style="font-size:.7rem;color:var(--text-muted);border:1px solid currentColor;border-radius:4px;padding:1px 4px;margin-right:4px">monthly</span>{% elif med.frequency_type == '3monthly' %}<span style="font-size:.7rem;color:var(--text-muted);border:1px solid currentColor;border-radius:4px;padding:1px 4px;margin-right:4px">every 3 months</span>{% endif %}{% if med.days_remaining is not none %}{{ med.days_remaining | int }} days left{% if med.needs_reorder %} — ⚠️ <a href="https://www.nhs.uk/nhs-app/repeat-prescriptions/" target="_blank" rel="noopener" style="color:inherit;font-weight:700;text-decoration:underline">Order on NHS</a>{% endif %}{% endif %}
           </div>
           {% if med.end_date %}
             {% if med.course_days_remaining is not none %}
@@ -130,6 +128,7 @@
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
           {% for slot in med.dose_slots %}
+          {% if slot.is_due %}
           {% set slot_label = '' %}
           {% if (med.dose_slots | length) > 1 %}
             {% set _labels = ['Morning','Afternoon','Evening','Night'] %}
@@ -151,6 +150,11 @@
               {% if slot.taken %}✓{% else %}Take{% endif %}
             </button>
           </div>
+          {% else %}
+          <span style="font-size:.75rem;color:var(--text-muted)">
+            {% if slot.next_dose_date %}Next: {{ slot.next_dose_date }}{% endif %}
+          </span>
+          {% endif %}
           {% endfor %}
           {% if med.needs_reorder and can_reorder %}
           <button class="btn btn-danger btn-sm" onclick="markReordered({{ med.id }})">Reordered</button>

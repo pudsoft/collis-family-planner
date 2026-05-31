@@ -239,22 +239,36 @@
       </select>
     </div>
     <div class="form-group">
-      <label class="form-label">Daily dose total (tablets/units)</label>
+      <label class="form-label" id="med-dose-label">Daily dose total (tablets/units)</label>
       <input class="form-input" id="med-dose" type="number" min="0.5" step="0.5" value="1">
     </div>
     <div class="form-group">
-      <label class="form-label">Doses per day</label>
-      <select class="form-select" id="med-doses-per-day" onchange="updateDoseTimes()">
-        <option value="1">1× daily</option>
-        <option value="2">2× daily</option>
-        <option value="3">3× daily</option>
-        <option value="4">4× daily</option>
+      <label class="form-label">Frequency</label>
+      <select class="form-select" id="med-frequency" onchange="updateFrequencyUI()">
+        <option value="daily:1">1× daily</option>
+        <option value="daily:2">2× daily</option>
+        <option value="daily:3">3× daily</option>
+        <option value="daily:4">4× daily</option>
+        <option value="monthly">Monthly</option>
+        <option value="3monthly">Every 3 months</option>
       </select>
     </div>
+    <!-- Daily: multiple time slots -->
     <div id="med-dose-times-section" class="form-group">
       <label class="form-label">Scheduled time(s) — optional</label>
       <div id="med-dose-times-inputs" style="display:flex;flex-direction:column;gap:6px"></div>
       <div style="font-size:.72rem;color:var(--text-muted);margin-top:3px">Late warning shown 30 min after each scheduled time</div>
+    </div>
+    <!-- Monthly: day of month -->
+    <div id="med-monthly-dom-section" class="form-group" style="display:none">
+      <label class="form-label">Day of month (1–28)</label>
+      <input class="form-input" id="med-monthly-dom" type="number" min="1" max="28" value="1" style="width:80px">
+    </div>
+    <!-- Monthly / 3-monthly: single scheduled time -->
+    <div id="med-single-time-section" class="form-group" style="display:none">
+      <label class="form-label">Scheduled time — optional</label>
+      <input class="form-input" id="med-single-time" type="time" style="width:130px">
+      <div id="med-3monthly-hint" style="display:none;font-size:.72rem;color:var(--text-muted);margin-top:3px">Set the first dose date in Course dates below — doses repeat every 3 months from that date</div>
     </div>
     <div class="form-group">
       <label class="form-label">Current stock (doses)</label>
@@ -389,22 +403,20 @@ async function deleteChore(id) {
   if (r) setTimeout(() => location.reload(), 400);
 }
 
-function updateDoseTimes() {
-  const n      = parseInt(document.getElementById("med-doses-per-day").value) || 1;
+function _buildDoseTimeInputs(n) {
   const wrap   = document.getElementById("med-dose-times-inputs");
   const labels = ["Morning", "Afternoon", "Evening", "Night"];
-  // preserve existing values
   const existing = Array.from(wrap.querySelectorAll("input")).map(i => i.value);
   wrap.innerHTML = "";
   for (let i = 0; i < n; i++) {
     const label = n > 1 ? labels[i] || `Dose ${i+1}` : "Time";
     const inp = document.createElement("input");
-    inp.type      = "time";
-    inp.className = "form-input";
-    inp.id        = `med-dose-time-${i+1}`;
+    inp.type        = "time";
+    inp.className   = "form-input";
+    inp.id          = `med-dose-time-${i+1}`;
     inp.placeholder = label;
     inp.style.width = "130px";
-    inp.value = existing[i] || "";
+    inp.value       = existing[i] || "";
     const lbl = document.createElement("label");
     lbl.style.cssText = "font-size:.78rem;color:var(--text-muted);display:flex;align-items:center;gap:8px";
     lbl.textContent = label + ": ";
@@ -413,37 +425,78 @@ function updateDoseTimes() {
   }
 }
 
-function editMed(med) {
-  document.getElementById("med-id").value          = med.id || "";
-  document.getElementById("med-name").value        = med.name || "";
-  document.getElementById("med-person").value      = med.person || "";
-  document.getElementById("med-dose").value        = med.daily_dose || 1;
-  document.getElementById("med-stock").value       = med.stock_count || 0;
-  document.getElementById("med-threshold").value   = med.reorder_threshold_days || 14;
-  document.getElementById("med-notes").value       = med.notes || "";
-  document.getElementById("med-active").checked      = med.active !== 0;
-  document.getElementById("med-start-date").value   = med.start_date || "";
-  document.getElementById("med-end-date").value     = med.end_date   || "";
-  const dpd = med.doses_per_day || 1;
-  document.getElementById("med-doses-per-day").value = dpd;
-  updateDoseTimes();
-  // Fill in times
-  let times = [];
-  if (med.dose_times) {
-    try { times = JSON.parse(med.dose_times); } catch {}
-  } else if (med.scheduled_time) {
-    times = [med.scheduled_time];
+function updateFrequencyUI() {
+  const freq       = document.getElementById("med-frequency").value;
+  const isDaily    = freq.startsWith("daily:");
+  const isMonthly  = freq === "monthly";
+  const is3monthly = freq === "3monthly";
+
+  document.getElementById("med-dose-times-section").style.display    = isDaily    ? "" : "none";
+  document.getElementById("med-monthly-dom-section").style.display   = isMonthly  ? "" : "none";
+  document.getElementById("med-single-time-section").style.display   = (isMonthly || is3monthly) ? "" : "none";
+  document.getElementById("med-3monthly-hint").style.display         = is3monthly ? "" : "none";
+
+  const doseLabel = document.getElementById("med-dose-label");
+  doseLabel.textContent = isDaily ? "Daily dose total (tablets/units)" : "Dose amount (tablets/units per dose)";
+
+  if (isDaily) {
+    _buildDoseTimeInputs(parseInt(freq.split(":")[1]) || 1);
   }
-  times.forEach((t, i) => {
-    const el = document.getElementById(`med-dose-time-${i+1}`);
-    if (el) el.value = t || "";
-  });
+}
+
+// Keep old name available (called by updateFrequencyUI internally)
+function updateDoseTimes() { updateFrequencyUI(); }
+
+function editMed(med) {
+  document.getElementById("med-id").value        = med.id || "";
+  document.getElementById("med-name").value      = med.name || "";
+  document.getElementById("med-person").value    = med.person || "";
+  document.getElementById("med-dose").value      = med.daily_dose || 1;
+  document.getElementById("med-stock").value     = med.stock_count || 0;
+  document.getElementById("med-threshold").value = med.reorder_threshold_days || 14;
+  document.getElementById("med-notes").value     = med.notes || "";
+  document.getElementById("med-active").checked  = med.active !== 0;
+  document.getElementById("med-start-date").value = med.start_date || "";
+  document.getElementById("med-end-date").value   = med.end_date   || "";
+
+  const freqType = med.frequency_type || "daily";
+  let sched = {};
+  if (med.dose_times) { try { sched = JSON.parse(med.dose_times); } catch {} }
+
+  if (freqType === "monthly") {
+    document.getElementById("med-frequency").value   = "monthly";
+    document.getElementById("med-monthly-dom").value = sched.dom || 1;
+    document.getElementById("med-single-time").value = sched.time || med.scheduled_time || "";
+  } else if (freqType === "3monthly") {
+    document.getElementById("med-frequency").value   = "3monthly";
+    document.getElementById("med-single-time").value = sched.time || med.scheduled_time || "";
+  } else {
+    const dpd = med.doses_per_day || 1;
+    document.getElementById("med-frequency").value = `daily:${dpd}`;
+  }
+
+  updateFrequencyUI();
+
+  // Fill daily time slots (sched may be an array for daily, object for monthly)
+  if (freqType === "daily") {
+    let times = Array.isArray(sched) ? sched : [];
+    if (!times.length && med.scheduled_time) times = [med.scheduled_time];
+    times.forEach((t, i) => {
+      const el = document.getElementById(`med-dose-time-${i+1}`);
+      if (el) el.value = t || "";
+    });
+  }
+
   document.getElementById("add-med-modal").classList.add("open");
 }
 
 async function saveMed() {
-  const fd  = new FormData();
-  const dpd = parseInt(document.getElementById("med-doses-per-day").value) || 1;
+  const fd       = new FormData();
+  const freq     = document.getElementById("med-frequency").value;
+  const isDaily  = freq.startsWith("daily:");
+  const dpd      = isDaily ? (parseInt(freq.split(":")[1]) || 1) : 1;
+  const freqType = isDaily ? "daily" : freq;
+
   fd.append("id",                     document.getElementById("med-id").value);
   fd.append("name",                   document.getElementById("med-name").value.trim());
   fd.append("person",                 document.getElementById("med-person").value);
@@ -452,13 +505,23 @@ async function saveMed() {
   fd.append("reorder_threshold_days", document.getElementById("med-threshold").value);
   fd.append("notes",                  document.getElementById("med-notes").value);
   fd.append("doses_per_day",          dpd);
+  fd.append("frequency_type",         freqType);
   fd.append("active",                 document.getElementById("med-active").checked ? "1" : "0");
-  fd.append("start_date",            document.getElementById("med-start-date").value);
-  fd.append("end_date",              document.getElementById("med-end-date").value);
-  for (let i = 1; i <= dpd; i++) {
-    const el = document.getElementById(`med-dose-time-${i}`);
-    fd.append(`dose_time_${i}`, el ? el.value : "");
+  fd.append("start_date",             document.getElementById("med-start-date").value);
+  fd.append("end_date",               document.getElementById("med-end-date").value);
+
+  if (isDaily) {
+    for (let i = 1; i <= dpd; i++) {
+      const el = document.getElementById(`med-dose-time-${i}`);
+      fd.append(`dose_time_${i}`, el ? el.value : "");
+    }
+  } else if (freq === "monthly") {
+    fd.append("monthly_dom", document.getElementById("med-monthly-dom").value || "1");
+    fd.append("dose_time_1", document.getElementById("med-single-time").value || "");
+  } else {
+    fd.append("dose_time_1", document.getElementById("med-single-time").value || "");
   }
+
   const r = await adminPost("/admin/medicine", fd, "Medicine saved");
   if (r) { document.getElementById("add-med-modal").classList.remove("open"); setTimeout(() => location.reload(), 400); }
 }
@@ -480,12 +543,14 @@ document.querySelector('[data-modal="add-med-modal"]').addEventListener("click",
   document.getElementById("med-active").checked    = true;
   document.getElementById("med-start-date").value  = "";
   document.getElementById("med-end-date").value    = "";
-  document.getElementById("med-doses-per-day").value = "1";
-  updateDoseTimes();
+  document.getElementById("med-frequency").value   = "daily:1";
+  document.getElementById("med-monthly-dom").value = "1";
+  document.getElementById("med-single-time").value = "";
+  updateFrequencyUI();
 });
 
-// initialise time inputs for the "add new" case
-updateDoseTimes();
+// Initialise on page load
+updateFrequencyUI();
 
 const _protectedMacs = new Set({{ all_devices | selectattr('protected') | map(attribute='mac') | list | tojson }});
 

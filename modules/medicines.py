@@ -25,10 +25,121 @@ def _parse_dose_times(med: dict) -> list[str | None]:
     return [st] if st else [None]
 
 
+def _parse_monthly_schedule(med: dict) -> dict:
+    """Return schedule dict {dom, time} from dose_times JSON for monthly/3monthly meds."""
+    raw = med.get("dose_times")
+    if raw:
+        try:
+            data = json.loads(raw)
+            if isinstance(data, dict):
+                return data
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return {}
+
+
+def _is_dose_due(med: dict, check_date: date) -> bool:
+    """Return True if the medicine has a dose due on check_date."""
+    freq = (med.get("frequency_type") or "daily").lower()
+    if freq == "daily":
+        return True
+    sched = _parse_monthly_schedule(med)
+    if freq == "monthly":
+        dom = int(sched.get("dom") or 1)
+        return check_date.day == dom
+    if freq == "3monthly":
+        start = med.get("start_date")
+        if not start:
+            return False
+        try:
+            sd = date.fromisoformat(start)
+            months_diff = (check_date.year - sd.year) * 12 + (check_date.month - sd.month)
+            return months_diff % 3 == 0 and check_date.day == sd.day
+        except ValueError:
+            return False
+    return True
+
+
+def _next_dose_date(med: dict, from_date: date) -> date | None:
+    """Return the next due date on or after from_date for monthly/3monthly meds."""
+    freq = (med.get("frequency_type") or "daily").lower()
+    if freq == "daily":
+        return None
+    if freq == "monthly":
+        sched = _parse_monthly_schedule(med)
+        dom = min(int(sched.get("dom") or 1), 28)
+        for delta in range(0, 3):
+            m = from_date.month + delta
+            y = from_date.year + (m - 1) // 12
+            m = ((m - 1) % 12) + 1
+            try:
+                candidate = date(y, m, dom)
+                if candidate >= from_date:
+                    return candidate
+            except ValueError:
+                pass
+        return None
+    if freq == "3monthly":
+        start = med.get("start_date")
+        if not start:
+            return None
+        try:
+            sd = date.fromisoformat(start)
+            if _is_dose_due(med, from_date):
+                return from_date
+            months_diff = (from_date.year - sd.year) * 12 + (from_date.month - sd.month)
+            cycles = (months_diff // 3) + 1
+            for c in range(cycles, cycles + 4):
+                m = sd.month + c * 3
+                y = sd.year + (m - 1) // 12
+                m = ((m - 1) % 12) + 1
+                try:
+                    candidate = date(y, m, sd.day)
+                    if candidate >= from_date:
+                        return candidate
+                except ValueError:
+                    pass
+        except ValueError:
+            pass
+    return None
+
+
 def _build_dose_slots(db_conn, med: dict, dose_date: str, is_today: bool) -> list[dict]:
+    freq = (med.get("frequency_type") or "daily").lower()
+
+    if freq in ("monthly", "3monthly"):
+        check_date = date.fromisoformat(dose_date)
+        due        = _is_dose_due(med, check_date)
+        sched      = _parse_monthly_schedule(med)
+        sched_time = sched.get("time") or med.get("scheduled_time")
+        if due:
+            row = db_conn.execute(
+                "SELECT * FROM medicine_doses WHERE medicine_id=? AND dose_date=? AND dose_number=?",
+                (med["id"], dose_date, 1),
+            ).fetchone()
+            taken    = row is not None
+            taken_at = row["taken_at"] if row else None
+            is_late  = False
+            if is_today and sched_time and not taken:
+                try:
+                    h, m = map(int, sched_time.split(":"))
+                    sched_dt = datetime.combine(date.today(), time(h, m))
+                    is_late  = datetime.now() > sched_dt + timedelta(minutes=LATE_GRACE_MINUTES)
+                except ValueError:
+                    pass
+            return [{"dose_number": 1, "taken": taken, "taken_at": taken_at,
+                     "scheduled_time": sched_time, "is_late": is_late,
+                     "is_due": True, "next_dose_date": None}]
+        else:
+            next_d = _next_dose_date(med, check_date)
+            return [{"dose_number": 1, "taken": False, "taken_at": None,
+                     "scheduled_time": None, "is_late": False,
+                     "is_due": False,
+                     "next_dose_date": next_d.isoformat() if next_d else None}]
+
+    # Daily logic
     doses_per_day = int(med.get("doses_per_day") or 1)
     times = _parse_dose_times(med)
-    # Pad/trim to doses_per_day
     while len(times) < doses_per_day:
         times.append(None)
     times = times[:doses_per_day]
@@ -57,23 +168,44 @@ def _build_dose_slots(db_conn, med: dict, dose_date: str, is_today: bool) -> lis
             "taken_at":       taken_at,
             "scheduled_time": sched_time,
             "is_late":        is_late,
+            "is_due":         True,
+            "next_dose_date": None,
         })
     return slots
 
 
 def _annotate_med(db_conn, med: dict, dose_date: str, is_today: bool) -> dict:
     slots = _build_dose_slots(db_conn, med, dose_date, is_today)
-    med["dose_slots"]  = slots
-    med["taken_today"] = all(s["taken"] for s in slots)
-    med["taken_at"]    = slots[0]["taken_at"] if slots else None  # backward compat
-    med["is_late"]     = any(s["is_late"] for s in slots)
+    med["dose_slots"]    = slots
+    due_slots            = [s for s in slots if s.get("is_due", True)]
+    med["taken_today"]   = bool(due_slots) and all(s["taken"] for s in due_slots)
+    med["taken_at"]      = slots[0]["taken_at"] if slots else None
+    med["is_late"]       = any(s["is_late"] for s in slots)
+    med["is_due_today"]  = bool(due_slots)
+    med["next_dose_date"] = next((s["next_dose_date"] for s in slots if s.get("next_dose_date")), None)
 
+    freq          = (med.get("frequency_type") or "daily").lower()
     doses_per_day = int(med.get("doses_per_day") or 1)
-    per_dose      = (med["daily_dose"] / doses_per_day) if doses_per_day else med["daily_dose"]
-    med["days_remaining"] = (
-        round(med["stock_count"] / med["daily_dose"], 1)
-        if med["daily_dose"] and med["stock_count"] else None
-    )
+
+    if freq == "monthly":
+        per_dose = med["daily_dose"]
+        med["days_remaining"] = (
+            round(med["stock_count"] / per_dose * 30, 0)
+            if per_dose and med["stock_count"] else None
+        )
+    elif freq == "3monthly":
+        per_dose = med["daily_dose"]
+        med["days_remaining"] = (
+            round(med["stock_count"] / per_dose * 90, 0)
+            if per_dose and med["stock_count"] else None
+        )
+    else:
+        per_dose = (med["daily_dose"] / doses_per_day) if doses_per_day else med["daily_dose"]
+        med["days_remaining"] = (
+            round(med["stock_count"] / med["daily_dose"], 1)
+            if med["daily_dose"] and med["stock_count"] else None
+        )
+
     med["needs_reorder"] = (
         med["days_remaining"] is not None
         and med["days_remaining"] <= med["reorder_threshold_days"]
@@ -99,12 +231,7 @@ def _annotate_med(db_conn, med: dict, dose_date: str, is_today: bool) -> dict:
 
 def get_medicines(db_conn, person: str = None, active_only: bool = False,
                   on_date: str = None) -> list[dict]:
-    """Return medicines, optionally filtered to those active on a given ISO date.
-
-    on_date filtering:
-      - start_date NULL  OR  start_date <= on_date  (course not yet started is hidden)
-      - end_date   NULL  OR  end_date   >= on_date  (course already ended is hidden)
-    """
+    """Return medicines, optionally filtered to those active on a given ISO date."""
     where = []
     params = []
     if person and person != "family":
@@ -129,16 +256,16 @@ def add_medicine(db_conn, name: str, person: str, daily_dose: float = 1,
                  notes: str = None, scheduled_time: str = None,
                  doses_per_day: int = 1, dose_times: str = None,
                  active: int = 1, start_date: str = None,
-                 end_date: str = None) -> int:
+                 end_date: str = None, frequency_type: str = "daily") -> int:
     db_conn.execute(
         """INSERT INTO medicines
            (name, person, daily_dose, stock_count, reorder_threshold_days,
             notes, scheduled_time, doses_per_day, dose_times, active,
-            start_date, end_date)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+            start_date, end_date, frequency_type)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (name, person, daily_dose, stock_count, reorder_threshold_days,
          notes, scheduled_time, doses_per_day, dose_times, active,
-         start_date, end_date),
+         start_date, end_date, frequency_type),
     )
     db_conn.commit()
     return db_conn.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -147,7 +274,7 @@ def add_medicine(db_conn, name: str, person: str, daily_dose: float = 1,
 def update_medicine(db_conn, med_id: int, **fields):
     allowed = {"name", "person", "daily_dose", "stock_count", "reorder_threshold_days",
                "notes", "last_ordered", "scheduled_time", "doses_per_day", "dose_times",
-               "active", "start_date", "end_date"}
+               "active", "start_date", "end_date", "frequency_type"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return

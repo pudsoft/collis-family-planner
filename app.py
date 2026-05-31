@@ -211,7 +211,8 @@ def _init_db_mysql(db):
             scheduled_time         VARCHAR(10),
             doses_per_day          INT DEFAULT 1,
             dose_times             TEXT,
-            active                 TINYINT DEFAULT 1
+            active                 TINYINT DEFAULT 1,
+            frequency_type         VARCHAR(20) DEFAULT 'daily'
         )""",
         """CREATE TABLE IF NOT EXISTS medicine_doses (
             id          INT AUTO_INCREMENT PRIMARY KEY,
@@ -306,6 +307,7 @@ def _init_db_mysql(db):
         ("smart_devices",    "ha_entity_id",   "VARCHAR(200)"),
         ("medicines",        "start_date",     "VARCHAR(20)"),
         ("medicines",        "end_date",       "VARCHAR(20)"),
+        ("medicines",        "frequency_type", "VARCHAR(20) DEFAULT 'daily'"),
     ]:
         if not _col_exists_mysql(db, table, col):
             db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {defn}")
@@ -404,7 +406,8 @@ def _init_db_sqlite(db):
             scheduled_time         TEXT,
             doses_per_day          INTEGER DEFAULT 1,
             dose_times             TEXT,
-            active                 INTEGER DEFAULT 1
+            active                 INTEGER DEFAULT 1,
+            frequency_type         TEXT DEFAULT 'daily'
         );
         CREATE TABLE IF NOT EXISTS medicine_doses (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -493,6 +496,7 @@ def _init_db_sqlite(db):
         ("smart_devices",    "ha_entity_id",  "TEXT"),
         ("medicines",        "start_date",    "TEXT"),
         ("medicines",        "end_date",      "TEXT"),
+        ("medicines",        "frequency_type","TEXT DEFAULT 'daily'"),
     ]:
         cols = [r[1] for r in db.execute(f"PRAGMA table_info({table})").fetchall()]
         if col not in cols:
@@ -1425,17 +1429,27 @@ def admin_set_pin():
 @app.route("/admin/medicine", methods=["POST"])
 @require_admin
 def admin_medicine_save():
-    d             = request.form
-    db            = get_db()
-    med_id        = d.get("id", type=int)
-    doses_per_day = max(1, int(d.get("doses_per_day") or 1))
-    active        = 1 if d.get("active") != "0" else 0
+    d          = request.form
+    db         = get_db()
+    med_id     = d.get("id", type=int)
+    active     = 1 if d.get("active") != "0" else 0
+    freq_type  = d.get("frequency_type", "daily")
 
-    # Build dose_times JSON from individual time fields
-    raw_times = [d.get(f"dose_time_{i}", "").strip() for i in range(1, doses_per_day + 1)]
-    dose_times = json.dumps([t or None for t in raw_times]) if doses_per_day > 1 else None
-    # For single dose keep scheduled_time for legacy compat
-    scheduled_time = raw_times[0] if raw_times[0] else None
+    if freq_type == "monthly":
+        dom            = max(1, min(28, int(d.get("monthly_dom") or 1)))
+        scheduled_time = d.get("dose_time_1", "").strip() or None
+        dose_times     = json.dumps({"dom": dom, "time": scheduled_time})
+        doses_per_day  = 1
+    elif freq_type == "3monthly":
+        scheduled_time = d.get("dose_time_1", "").strip() or None
+        dose_times     = json.dumps({"time": scheduled_time}) if scheduled_time else None
+        doses_per_day  = 1
+    else:
+        freq_type     = "daily"
+        doses_per_day = max(1, int(d.get("doses_per_day") or 1))
+        raw_times      = [d.get(f"dose_time_{i}", "").strip() for i in range(1, doses_per_day + 1)]
+        dose_times     = json.dumps([t or None for t in raw_times]) if doses_per_day > 1 else None
+        scheduled_time = raw_times[0] if raw_times[0] else None
 
     kwargs = dict(
         name=d["name"], person=d["person"],
@@ -1446,6 +1460,7 @@ def admin_medicine_save():
         scheduled_time=scheduled_time,
         doses_per_day=doses_per_day,
         dose_times=dose_times,
+        frequency_type=freq_type,
         active=active,
         start_date=d.get("start_date") or None,
         end_date=d.get("end_date") or None,
@@ -1652,12 +1667,17 @@ def _send_medicine_reminders_now():
         meds = conn.execute(
             "SELECT m.*, pp.ntfy_channel, pp.notif_method "
             "FROM medicines m "
-            "JOIN person_prefs pp ON pp.person = m.person "
+            "LEFT JOIN person_prefs pp ON pp.person = m.person "
             "WHERE m.active = 1"
         ).fetchall()
 
         for med in meds:
             med = dict(med)
+            # For monthly/3monthly, only remind on the due day
+            freq = (med.get("frequency_type") or "daily").lower()
+            if freq in ("monthly", "3monthly"):
+                if not medicines._is_dose_due(med, now.date()):
+                    continue
             doses_per_day = int(med.get("doses_per_day") or 1)
             # Build list of dose times
             raw = med.get("dose_times")
