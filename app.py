@@ -714,6 +714,8 @@ def dashboard():
     if viewer not in config.ADMINS:
         today_meds = [m for m in today_meds if m["person"] == viewer]
 
+    today_meds.sort(key=lambda m: m.get("scheduled_time") or "99:99")
+
     return render_template(
         "dashboard.html",
         person=person,
@@ -1059,7 +1061,12 @@ def medicines_view():
         all_meds = medicines.get_today_doses(db, None)
     else:
         all_meds = medicines.get_doses_for_date(db, view_date.isoformat())
-    all_meds.sort(key=lambda m: (0 if m["person"] == person else 1, m["person"], m["name"]))
+    def _next_slot_time(m):
+        for s in m.get("dose_slots", []):
+            if s.get("is_due") and not s.get("taken") and s.get("scheduled_time"):
+                return s["scheduled_time"]
+        return "99:99"
+    all_meds.sort(key=lambda m: (0 if m["person"] == person else 1, m["person"], _next_slot_time(m), m["name"]))
 
     # Non-admins (Joshua, Violet) only ever see their own medicines.
     # "family" shared login and named admins can see everyone's medicines.

@@ -134,6 +134,8 @@
           {% if (med.dose_slots | length) > 1 %}
             {% set _labels = ['Morning','Afternoon','Evening','Night'] %}
             {% set slot_label = slot.scheduled_time or _labels[loop.index0] %}
+          {% elif slot.scheduled_time %}
+            {% set slot_label = slot.scheduled_time %}
           {% endif %}
           <div style="display:flex;align-items:center;gap:4px">
             {% if slot_label and not slot.taken %}
