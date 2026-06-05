@@ -308,6 +308,8 @@ def _init_db_mysql(db):
         ("medicines",        "start_date",     "VARCHAR(20)"),
         ("medicines",        "end_date",       "VARCHAR(20)"),
         ("medicines",        "frequency_type", "VARCHAR(20) DEFAULT 'daily'"),
+        ("shopping_items",   "asda_product_id", "TEXT"),
+        ("shopping_items",   "is_manual",       "INTEGER DEFAULT 0"),
     ]:
         if not _col_exists_mysql(db, table, col):
             db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {defn}")
@@ -966,11 +968,34 @@ def meal_clear():
     return jsonify({"ok": True})
 
 
+@app.route("/shopping")
+def shopping_view():
+    person = current_person()
+    db     = get_db()
+    prefs  = get_prefs(db, person)
+    regulars_path = Path(__file__).parent / "data" / "asda_regulars.json"
+    regulars = json.loads(regulars_path.read_text()) if regulars_path.exists() else []
+    shopping = meals.get_shopping_list(db)
+    return render_template(
+        "shopping.html",
+        regulars=regulars,
+        shopping=shopping,
+        person=person,
+        prefs=prefs,
+        people=config.PEOPLE,
+        person_display=config.PERSON_DISPLAY,
+        is_admin=person in config.ADMINS,
+    )
+
+
 @app.route("/shopping/add", methods=["POST"])
 def shopping_add():
     d = request.form
     item_id = meals.add_shopping_item(
-        get_db(), d["item"], d.get("quantity"), d.get("category", "Other"), "manual",
+        get_db(), d["item"], d.get("quantity"), d.get("category", "Other"),
+        source="asda" if d.get("asda_product_id") else "manual",
+        asda_product_id=d.get("asda_product_id") or None,
+        is_manual=1 if not d.get("asda_product_id") else 0,
     )
     return jsonify({"ok": True, "id": item_id})
 

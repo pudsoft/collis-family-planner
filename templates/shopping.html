@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}Shopping{% endblock %}
+
+{% block content %}
+<div class="page">
+
+  <!-- ── Search regulars ──────────────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">🛒 Add from favourites</div>
+    <input class="form-input" id="reg-search" placeholder="Search your ASDA favourites…"
+           autocomplete="off" oninput="filterRegulars(this.value)">
+    <div id="reg-results" style="margin-top:10px;max-height:320px;overflow-y:auto"></div>
+  </div>
+
+  <!-- ── Manual add ───────────────────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">✏️ Add item manually</div>
+    <div style="display:flex;gap:8px">
+      <input class="form-input" id="manual-name" placeholder="Item name" autocomplete="off" style="flex:1">
+      <input class="form-input" id="manual-qty" placeholder="Qty" style="width:70px">
+      <button class="btn btn-primary" onclick="addManual()">Add</button>
+    </div>
+    <div style="font-size:.75rem;color:var(--text-muted);margin-top:6px">
+      Manually added items will be flagged when ordering from ASDA.
+    </div>
+  </div>
+
+  <!-- ── Current list ─────────────────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title" style="margin-bottom:0">📋 This week's list</span>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-secondary btn-sm" onclick="exportList()">⬇️ Export for ASDA</button>
+        <button class="btn btn-secondary btn-sm" onclick="clearChecked()">Clear ticked</button>
+      </div>
+    </div>
+
+    <div id="shopping-list">
+    {% if shopping %}
+      {% for item in shopping %}
+      <div class="shopping-item {% if item.checked %}checked{% endif %}" data-item-id="{{ item.id }}" id="sitem-{{ item.id }}">
+        <input type="checkbox" class="shopping-checkbox"
+               onchange="toggleCheck({{ item.id }}, this.checked)"
+               {% if item.checked %}checked{% endif %}>
+        <span class="shopping-item-name">{{ item.item }}</span>
+        {% if item.quantity %}<span class="shopping-item-qty">× {{ item.quantity }}</span>{% endif %}
+        {% if item.is_manual %}<span class="manual-flag" title="Manual — needs checking when ordering">✏️</span>{% endif %}
+        <button class="shopping-delete-btn" onclick="deleteItem({{ item.id }})" style="color:var(--text-muted);font-size:1rem;margin-left:auto">✕</button>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:16px 0" id="empty-state">
+        <div class="empty-state-icon">🛒</div>
+        <div class="empty-state-text">List is empty — search for items above</div>
+      </div>
+    {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const REGULARS = {{ regulars | tojson }};
+const onList   = new Set({{ shopping | selectattr('asda_product_id') | map(attribute='asda_product_id') | list | tojson }});
+
+function filterRegulars(q) {
+  const box = document.getElementById('reg-results');
+  q = q.trim().toLowerCase();
+  if (!q) { box.innerHTML = ''; return; }
+  const hits = REGULARS.filter(r => r.name.toLowerCase().includes(q));
+  if (!hits.length) {
+    box.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">No favourites match — use the manual field below.</div>';
+    return;
+  }
+  box.innerHTML = hits.map(r => `
+    <div class="shopping-item" style="cursor:pointer" onclick="addRegular('${r.product_id}','${escHtml(r.name)}',${r.usual_qty})">
+      <span class="shopping-item-name">${escHtml(r.name)}</span>
+      <span class="shopping-item-qty" style="margin-left:auto;margin-right:8px">
+        ${onList.has(r.product_id) ? '✓ on list' : `usual: ×${r.usual_qty}`}
+      </span>
+      ${onList.has(r.product_id) ? '' : '<span style="color:var(--person-colour,#7B5BA6);font-size:1.1rem">＋</span>'}
+    </div>
+  `).join('');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/'/g,'&#39;');
+}
+
+async function addRegular(productId, name, qty) {
+  if (onList.has(productId)) { showToast('Already on the list', 'error'); return; }
+  const fd = new FormData();
+  fd.append('item', name);
+  fd.append('quantity', qty);
+  fd.append('category', 'ASDA');
+  fd.append('asda_product_id', productId);
+  const r = await fetch('/shopping/add', { method: 'POST', body: fd });
+  const data = await r.json();
+  if (data.ok) {
+    onList.add(productId);
+    showToast('Added: ' + name);
+    appendToList({ id: data.id, item: name, quantity: qty, checked: 0, is_manual: 0, asda_product_id: productId });
+    filterRegulars(document.getElementById('reg-search').value);
+  }
+}
+
+async function addManual() {
+  const name = document.getElementById('manual-name').value.trim();
+  const qty  = document.getElementById('manual-qty').value.trim();
+  if (!name) { showToast('Enter an item name', 'error'); return; }
+  const fd = new FormData();
+  fd.append('item', name);
+  fd.append('quantity', qty);
+  fd.append('category', 'Other');
+  const r = await fetch('/shopping/add', { method: 'POST', body: fd });
+  const data = await r.json();
+  if (data.ok) {
+    showToast('Added: ' + name);
+    appendToList({ id: data.id, item: name, quantity: qty, checked: 0, is_manual: 1, asda_product_id: null });
+    document.getElementById('manual-name').value = '';
+    document.getElementById('manual-qty').value  = '';
+  }
+}
+
+function appendToList(item) {
+  const empty = document.getElementById('empty-state');
+  if (empty) empty.remove();
+  const el = document.createElement('div');
+  el.className = 'shopping-item';
+  el.id = 'sitem-' + item.id;
+  el.dataset.itemId = item.id;
+  el.innerHTML = `
+    <input type="checkbox" class="shopping-checkbox" onchange="toggleCheck(${item.id}, this.checked)">
+    <span class="shopping-item-name">${escHtml(item.item)}</span>
+    ${item.quantity ? `<span class="shopping-item-qty">× ${item.quantity}</span>` : ''}
+    ${item.is_manual ? '<span class="manual-flag" title="Manual — needs checking when ordering">✏️</span>' : ''}
+    <button class="shopping-delete-btn" onclick="deleteItem(${item.id})" style="color:var(--text-muted);font-size:1rem;margin-left:auto">✕</button>
+  `;
+  document.getElementById('shopping-list').appendChild(el);
+}
+
+async function toggleCheck(id, checked) {
+  const fd = new FormData();
+  fd.append('checked', checked ? '1' : '0');
+  await fetch(`/shopping/${id}/check`, { method: 'POST', body: fd });
+  const el = document.getElementById('sitem-' + id);
+  if (el) el.classList.toggle('checked', checked);
+}
+
+async function deleteItem(id) {
+  await fetch(`/shopping/${id}/delete`, { method: 'POST' });
+  const el = document.getElementById('sitem-' + id);
+  if (el) {
+    const pid = el.dataset.asdaProductId;
+    if (pid) onList.delete(pid);
+    el.remove();
+  }
+  filterRegulars(document.getElementById('reg-search').value);
+}
+
+async function clearChecked() {
+  await fetch('/shopping/clear_checked', { method: 'POST' });
+  document.querySelectorAll('.shopping-item.checked').forEach(el => el.remove());
+  showToast('Cleared ticked items');
+}
+
+function exportList() {
+  const items = [];
+  document.querySelectorAll('#shopping-list .shopping-item').forEach(el => {
+    const name = el.querySelector('.shopping-item-name')?.textContent;
+    const qty  = el.querySelector('.shopping-item-qty')?.textContent?.replace('× ','');
+    const manual = !!el.querySelector('.manual-flag');
+    if (name) items.push({ name, qty: qty || null, manual });
+  });
+  const blob = new Blob([JSON.stringify(items, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'asda-shopping-list.json';
+  a.click();
+}
+</script>
+{% endblock %}

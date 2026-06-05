@@ -19,7 +19,7 @@
 <!-- ── Person / top bar ─────────────────────────────────────────────────────── -->
 <nav class="top-bar">
   <div class="top-bar-inner">
-    <span class="top-bar-title">🏠 Family Planner</span>
+    <a href="{{ url_for('dashboard') }}?person={{ person }}" class="top-bar-title {% if request.endpoint == 'dashboard' %}active{% endif %}" style="text-decoration:none;color:inherit">🏠 Family Planner</a>
     {% if is_admin %}
     <a href="{{ url_for('admin_view') }}" class="top-bar-icon {% if request.endpoint == 'admin_view' %}active{% endif %}" title="Admin">🔐</a>
     {% endif %}
@@ -45,10 +45,6 @@
 <!-- ── Bottom nav ───────────────────────────────────────────────────────────── -->
 {% set _house_active = request.endpoint in ['network_view', 'smarthome_view', 'energy_view'] %}
 <nav class="bottom-nav">
-  <a href="{{ url_for('dashboard') }}?person={{ person }}"
-     class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
-    <span class="nav-icon">🏠</span>Home
-  </a>
   <a href="{{ url_for('calendar_view') }}?person={{ person }}"
      class="nav-item {% if request.endpoint == 'calendar_view' %}active{% endif %}">
     <span class="nav-icon">📅</span>Calendar
@@ -56,6 +52,10 @@
   <a href="{{ url_for('tasks_view') }}?person={{ person }}"
      class="nav-item {% if request.endpoint == 'tasks_view' %}active{% endif %}">
     <span class="nav-icon">✅</span>Tasks
+  </a>
+  <a href="{{ url_for('shopping_view') }}"
+     class="nav-item {% if request.endpoint == 'shopping_view' %}active{% endif %}">
+    <span class="nav-icon">🛒</span>Shopping
   </a>
   <a href="{{ url_for('meals_view') }}?person={{ person }}"
      class="nav-item {% if request.endpoint == 'meals_view' %}active{% endif %}">
