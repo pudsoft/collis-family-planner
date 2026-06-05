@@ -116,6 +116,18 @@ function summarisePath(url) {
   console.log('\nPress Enter in this terminal when done...\n');
 
   await new Promise(resolve => process.stdin.once('data', resolve));
+
+  // Save session cookies before closing — used by asda_enrich_regulars.js
+  const cookies = await context.cookies(['https://www.asda.com', 'https://api2.asda.com']);
+  if (cookies.length) {
+    const sessionId = calls.find(c => c.requestHeaders?.['x-apisession-id'])?.requestHeaders['x-apisession-id'] || null;
+    fs.writeFileSync(
+      'data/asda_session.json',
+      JSON.stringify({ cookies, sessionId, captured: new Date().toISOString() }, null, 2)
+    );
+    console.log(`Session saved to data/asda_session.json (${cookies.length} cookies)`);
+  }
+
   await context.close();
   save(calls);
 })();

@@ -11,7 +11,6 @@
  * Prereq: Close Edge before running.
  */
 
-const { chromium } = require('playwright');
 const https  = require('https');
 const fs     = require('fs');
 const path   = require('path');
@@ -75,48 +74,20 @@ function cleanName(name) {
     .trim();
 }
 
-// ── Phase 1: Open Edge, grab session cookies, close immediately ───────────────
+// ── Phase 1: Load session saved by asda_discover.js ──────────────────────────
 
-async function grabSession() {
-  console.log('\n[1/4] Opening Edge to grab session cookies…');
-  console.log('      (Edge will close automatically — do not interact with it)\n');
-
-  // Remove profile lock files that survive force-kill
-  const profileDir = 'C:/Users/Rythm/AppData/Local/Microsoft/Edge/User Data/Default';
-  for (const lock of ['LOCK', 'SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
-    const p = path.join(profileDir.replace(/\//g, path.sep), lock);
-    try { fs.unlinkSync(p); } catch {}
+function loadSession() {
+  if (!fs.existsSync(SESSION_FILE)) {
+    throw new Error(
+      'No session file found.\nRun  node asda_discover.js  first — it saves your session when you press Enter.'
+    );
   }
-  // Also root-level lockfile
-  const rootLock = path.join(profileDir, '..', 'lockfile');
-  try { fs.unlinkSync(rootLock); } catch {}
-
-  const context = await chromium.launchPersistentContext(
-    'C:/Users/Rythm/AppData/Local/Microsoft/Edge/User Data',
-    { headless: false, channel: 'msedge', args: ['--profile-directory=Default'] }
-  );
-  const page = await context.newPage();
-
-  let sessionId = null;
-
-  // Capture x-apisession-id from any api2 request
-  page.on('request', req => {
-    if (req.url().includes('api2.asda.com') && !sessionId) {
-      sessionId = req.headers()['x-apisession-id'] || null;
-    }
-  });
-
-  await page.goto('https://www.asda.com/groceries', { waitUntil: 'domcontentloaded', timeout: 30000 });
-  // Brief wait for background API calls to fire
-  await page.waitForTimeout(4000);
-
-  const cookies = await context.cookies(['https://www.asda.com', 'https://api2.asda.com']);
-  await context.close();
-
-  if (!cookies.length) throw new Error('No cookies captured — are you logged in to ASDA in Edge?');
-  const session = { cookies, sessionId, captured: new Date().toISOString() };
-  fs.writeFileSync(SESSION_FILE, JSON.stringify(session, null, 2));
-  console.log(`      Session ready (${cookies.length} cookies) — saved to asda_session.json for future runs`);
+  const session = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'));
+  const ageH = (Date.now() - new Date(session.captured)) / 3600000;
+  if (ageH > 48) {
+    console.warn(`[WARN] Session is ${ageH.toFixed(0)}h old — cookies may have expired. Re-run asda_discover.js if requests fail.`);
+  }
+  console.log(`\n[1/4] Loaded session from asda_session.json (${session.cookies.length} cookies, ${ageH.toFixed(1)}h old)`);
   return session;
 }
 
@@ -240,18 +211,7 @@ function merge(orderItems) {
 
 (async () => {
   try {
-    // Reuse saved session if recent (< 6 hours old), otherwise grab fresh one
-    let session;
-    if (fs.existsSync(SESSION_FILE)) {
-      const saved = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'));
-      const age = (Date.now() - new Date(saved.captured)) / 3600000;
-      if (age < 6) {
-        console.log(`\n[1/4] Reusing saved session (${age.toFixed(1)}h old) — skipping browser`);
-        session = saved;
-      }
-    }
-    if (!session) session = await grabSession();
-    const { cookies, sessionId } = session;
+    const { cookies, sessionId } = loadSession();
     const orderItems = await fetchOrders(cookies, sessionId);
     const existing   = JSON.parse(fs.readFileSync(REGULARS_FILE, 'utf8'));
     const existingIds = new Set(existing.map(r => r.product_id));
