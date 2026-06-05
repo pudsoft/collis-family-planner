@@ -39,13 +39,18 @@
     {% if shopping %}
       {% for item in shopping %}
       <div class="shopping-item {% if item.checked %}checked{% endif %}" data-item-id="{{ item.id }}" id="sitem-{{ item.id }}">
-        <input type="checkbox" class="shopping-checkbox"
-               onchange="toggleCheck({{ item.id }}, this.checked)"
+        <input type="checkbox" class="shopping-checkbox" data-item-id="{{ item.id }}"
                {% if item.checked %}checked{% endif %}>
         <span class="shopping-item-name">{{ item.item }}</span>
-        {% if item.quantity %}<span class="shopping-item-qty">× {{ item.quantity }}</span>{% endif %}
         {% if item.is_manual %}<span class="manual-flag" title="Manual — needs checking when ordering">✏️</span>{% endif %}
-        <button class="shopping-delete-btn" data-item-id="{{ item.id }}" style="color:var(--text-muted);font-size:1rem;margin-left:auto">✕</button>
+        <div class="list-qty-ctrl" style="display:flex;align-items:center;gap:3px;margin-left:auto;flex-shrink:0">
+          <button class="list-qty-dec" data-item-id="{{ item.id }}"
+                  style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--bg);cursor:pointer;font-size:.9rem;line-height:1">−</button>
+          <span class="list-qty-val" style="min-width:22px;text-align:center;font-size:.85rem;font-weight:600">{{ item.quantity or 1 }}</span>
+          <button class="list-qty-inc" data-item-id="{{ item.id }}"
+                  style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--bg);cursor:pointer;font-size:.9rem;line-height:1">+</button>
+        </div>
+        <button class="shopping-delete-btn" data-item-id="{{ item.id }}" style="color:var(--text-muted);font-size:1rem;margin-left:6px">✕</button>
       </div>
       {% endfor %}
     {% else %}
@@ -165,12 +170,32 @@ function appendToList(item) {
   el.innerHTML = `
     <input type="checkbox" class="shopping-checkbox" data-item-id="${item.id}">
     <span class="shopping-item-name">${escHtml(item.item)}</span>
-    ${item.quantity ? `<span class="shopping-item-qty">× ${item.quantity}</span>` : ''}
     ${item.is_manual ? '<span class="manual-flag" title="Manual — needs checking when ordering">✏️</span>' : ''}
-    <button class="shopping-delete-btn" data-item-id="${item.id}" style="color:var(--text-muted);font-size:1rem;margin-left:auto">✕</button>
+    <div class="list-qty-ctrl" style="display:flex;align-items:center;gap:3px;margin-left:auto;flex-shrink:0">
+      <button class="list-qty-dec" data-item-id="${item.id}" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--bg);cursor:pointer;font-size:.9rem;line-height:1">−</button>
+      <span class="list-qty-val" style="min-width:22px;text-align:center;font-size:.85rem;font-weight:600">${item.quantity || 1}</span>
+      <button class="list-qty-inc" data-item-id="${item.id}" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--bg);cursor:pointer;font-size:.9rem;line-height:1">+</button>
+    </div>
+    <button class="shopping-delete-btn" data-item-id="${item.id}" style="color:var(--text-muted);font-size:1rem;margin-left:6px">✕</button>
   `;
   document.getElementById('shopping-list').appendChild(el);
 }
+
+document.getElementById('shopping-list').addEventListener('click', async e => {
+  const dec = e.target.closest('.list-qty-dec');
+  const inc = e.target.closest('.list-qty-inc');
+  if (!dec && !inc) return;
+  const btn    = dec || inc;
+  const itemId = btn.dataset.itemId;
+  const row    = document.getElementById('sitem-' + itemId);
+  const span   = row.querySelector('.list-qty-val');
+  let val = parseInt(span.textContent) || 1;
+  val = dec ? Math.max(1, val - 1) : val + 1;
+  span.textContent = val;
+  const fd = new FormData();
+  fd.append('quantity', val);
+  await postAction(`/shopping/${itemId}/qty`, fd, null);
+});
 
 async function clearChecked() {
   const data = await postAction('/shopping/clear_checked', new FormData(), 'Cleared ticked items');

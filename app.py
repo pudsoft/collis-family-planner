@@ -1000,6 +1000,14 @@ def shopping_add():
     return jsonify({"ok": True, "id": item_id})
 
 
+@app.route("/shopping/<int:item_id>/qty", methods=["POST"])
+def shopping_qty(item_id: int):
+    qty = request.form.get("quantity", "1")
+    get_db().execute("UPDATE shopping_items SET quantity=? WHERE id=?", (qty, item_id))
+    get_db().commit()
+    return jsonify({"ok": True})
+
+
 @app.route("/shopping/<int:item_id>/check", methods=["POST"])
 def shopping_check(item_id: int):
     checked = request.form.get("checked", "1") == "1"
