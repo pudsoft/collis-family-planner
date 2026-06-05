@@ -76,13 +76,20 @@ function filterRegulars(q) {
   }
   box.innerHTML = hits.map(r => {
     const already = onList.has(r.product_id);
-    return `<div class="shopping-item reg-result${already ? '' : ' reg-addable'}" style="cursor:${already?'default':'pointer'}"
-         data-pid="${escAttr(r.product_id)}" data-name="${escAttr(r.name)}" data-qty="${r.usual_qty}">
+    if (already) {
+      return `<div class="shopping-item reg-result">
+        <span class="shopping-item-name">${escHtml(r.name)}</span>
+        <span class="shopping-item-qty" style="margin-left:auto;color:var(--text-muted)">✓ on list</span>
+      </div>`;
+    }
+    return `<div class="shopping-item reg-result" data-pid="${escAttr(r.product_id)}" data-name="${escAttr(r.name)}">
       <span class="shopping-item-name">${escHtml(r.name)}</span>
-      <span class="shopping-item-qty" style="margin-left:auto;margin-right:8px">
-        ${already ? '✓ on list' : `usual: ×${r.usual_qty}`}
-      </span>
-      ${already ? '' : '<span style="color:var(--person-colour,#7B5BA6);font-size:1.1rem">＋</span>'}
+      <div style="display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0">
+        <button class="qty-dec" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg);font-size:1rem;cursor:pointer;line-height:1">−</button>
+        <span class="qty-val" style="min-width:20px;text-align:center;font-weight:600">${r.usual_qty}</span>
+        <button class="qty-inc" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg);font-size:1rem;cursor:pointer;line-height:1">+</button>
+        <button class="reg-add btn btn-primary btn-sm" style="margin-left:4px">Add</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -95,9 +102,24 @@ function escAttr(s) {
 }
 
 document.getElementById('reg-results').addEventListener('click', e => {
-  const row = e.target.closest('.reg-addable');
+  const row = e.target.closest('.shopping-item');
   if (!row) return;
-  addRegular(row.dataset.pid, row.dataset.name, row.dataset.qty);
+
+  if (e.target.classList.contains('qty-dec')) {
+    const span = row.querySelector('.qty-val');
+    const v = parseInt(span.textContent);
+    if (v > 1) span.textContent = v - 1;
+    return;
+  }
+  if (e.target.classList.contains('qty-inc')) {
+    const span = row.querySelector('.qty-val');
+    span.textContent = parseInt(span.textContent) + 1;
+    return;
+  }
+  if (e.target.classList.contains('reg-add')) {
+    const qty = row.querySelector('.qty-val').textContent;
+    addRegular(row.dataset.pid, row.dataset.name, qty);
+  }
 });
 
 async function addRegular(productId, name, qty) {
