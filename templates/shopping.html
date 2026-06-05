@@ -74,20 +74,31 @@ function filterRegulars(q) {
     box.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">No favourites match — use the manual field below.</div>';
     return;
   }
-  box.innerHTML = hits.map(r => `
-    <div class="shopping-item" style="cursor:pointer" onclick="addRegular('${r.product_id}','${escHtml(r.name)}',${r.usual_qty})">
+  box.innerHTML = hits.map(r => {
+    const already = onList.has(r.product_id);
+    return `<div class="shopping-item reg-result${already ? '' : ' reg-addable'}" style="cursor:${already?'default':'pointer'}"
+         data-pid="${escAttr(r.product_id)}" data-name="${escAttr(r.name)}" data-qty="${r.usual_qty}">
       <span class="shopping-item-name">${escHtml(r.name)}</span>
       <span class="shopping-item-qty" style="margin-left:auto;margin-right:8px">
-        ${onList.has(r.product_id) ? '✓ on list' : `usual: ×${r.usual_qty}`}
+        ${already ? '✓ on list' : `usual: ×${r.usual_qty}`}
       </span>
-      ${onList.has(r.product_id) ? '' : '<span style="color:var(--person-colour,#7B5BA6);font-size:1.1rem">＋</span>'}
-    </div>
-  `).join('');
+      ${already ? '' : '<span style="color:var(--person-colour,#7B5BA6);font-size:1.1rem">＋</span>'}
+    </div>`;
+  }).join('');
 }
 
 function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/'/g,'&#39;');
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
 }
+function escAttr(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+}
+
+document.getElementById('reg-results').addEventListener('click', e => {
+  const row = e.target.closest('.reg-addable');
+  if (!row) return;
+  addRegular(row.dataset.pid, row.dataset.name, row.dataset.qty);
+});
 
 async function addRegular(productId, name, qty) {
   if (onList.has(productId)) { showToast('Already on the list', 'error'); return; }

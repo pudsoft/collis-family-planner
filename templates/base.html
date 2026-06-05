@@ -19,7 +19,8 @@
 <!-- ── Person / top bar ─────────────────────────────────────────────────────── -->
 <nav class="top-bar">
   <div class="top-bar-inner">
-    <a href="{{ url_for('dashboard') }}?person={{ person }}" class="top-bar-title {% if request.endpoint == 'dashboard' %}active{% endif %}" style="text-decoration:none;color:inherit">🏠 Family Planner</a>
+    <span class="top-bar-title">🏠 Family Planner</span>
+    <a href="{{ url_for('dashboard') }}?person={{ person }}" class="top-bar-icon {% if request.endpoint == 'dashboard' %}active{% endif %}" title="Home">🏠</a>
     {% if is_admin %}
     <a href="{{ url_for('admin_view') }}" class="top-bar-icon {% if request.endpoint == 'admin_view' %}active{% endif %}" title="Admin">🔐</a>
     {% endif %}
