@@ -4,6 +4,14 @@ from __future__ import annotations
 import json
 import logging
 from datetime import date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
+
+_LONDON = ZoneInfo('Europe/London')
+
+
+def _now() -> datetime:
+    """Current datetime in Europe/London as a naive (tz-stripped) datetime."""
+    return datetime.now(_LONDON).replace(tzinfo=None)
 
 LATE_GRACE_MINUTES = 30
 
@@ -128,7 +136,7 @@ def _build_dose_slots(db_conn, med: dict, dose_date: str, is_today: bool) -> lis
                 try:
                     h, m = map(int, sched_time.split(":"))
                     sched_dt = datetime.combine(date.today(), time(h, m))
-                    is_late  = datetime.now() > sched_dt + timedelta(minutes=LATE_GRACE_MINUTES)
+                    is_late  = _now() > sched_dt + timedelta(minutes=LATE_GRACE_MINUTES)
                 except ValueError:
                     pass
             return [{"dose_number": 1, "taken": taken, "taken_at": taken_at,
@@ -162,7 +170,7 @@ def _build_dose_slots(db_conn, med: dict, dose_date: str, is_today: bool) -> lis
             try:
                 h, m = map(int, sched_time.split(":"))
                 sched_dt = datetime.combine(date.today(), time(h, m))
-                is_late  = datetime.now() > sched_dt + timedelta(minutes=LATE_GRACE_MINUTES)
+                is_late  = _now() > sched_dt + timedelta(minutes=LATE_GRACE_MINUTES)
             except ValueError:
                 pass
 
@@ -340,7 +348,7 @@ def log_dose(db_conn, medicine_id: int, taken_by: str,
 
     db_conn.execute(
         "INSERT INTO medicine_doses (medicine_id, taken_by, taken_at, dose_date, dose_number) VALUES (?,?,?,?,?)",
-        (medicine_id, taken_by, datetime.now().isoformat(), dose_date, dose_number),
+        (medicine_id, taken_by, _now().isoformat(), dose_date, dose_number),
     )
     db_conn.execute(
         "UPDATE medicines SET stock_count = MAX(0, stock_count - ?) WHERE id=?",
@@ -420,7 +428,7 @@ def delete_prn(db_conn, entry_id: int):
 def log_prn(db_conn, person: str, prn_type: str, value: float = None):
     db_conn.execute(
         "INSERT INTO prn_log (person, type, value, logged_at) VALUES (?,?,?,?)",
-        (person, prn_type, value, datetime.now().isoformat()),
+        (person, prn_type, value, _now().isoformat()),
     )
     db_conn.commit()
 
@@ -428,7 +436,7 @@ def log_prn(db_conn, person: str, prn_type: str, value: float = None):
 def get_prn_status(db_conn, person: str) -> dict:
     """Return safe-to-take status for each PRN med type, accounting for both
     the minimum interval between doses and the 24-hour maximum dose count."""
-    now = datetime.now()
+    now = _now()
     result = {}
     for prn_type, min_interval in PRN_MIN_INTERVALS.items():
         if prn_type == "temperature":
@@ -491,7 +499,7 @@ def get_prn_log(db_conn, person: str, limit: int = 20) -> list[dict]:
         min_interval = PRN_MIN_INTERVALS.get(row["type"], 0)
         if min_interval:
             logged  = datetime.fromisoformat(row["logged_at"])
-            elapsed = (datetime.now() - logged).total_seconds() / 60
+            elapsed = (_now() - logged).total_seconds() / 60
             row["minutes_ago"]  = int(elapsed)
             row["next_safe_at"] = (logged + timedelta(minutes=min_interval)).strftime("%H:%M")
             row["safe_now"]     = elapsed >= min_interval

@@ -130,6 +130,12 @@
             <div class="med-stock" style="color:var(--text-muted)">📅 Started {{ med.start_date }}</div>
           {% endif %}
           {% if med.notes %}<div class="med-stock" style="font-style:italic">{{ med.notes }}</div>{% endif %}
+          {% if can_reorder %}
+          <div><button onclick="openEndCourse({{ med.id }}, '{{ med.end_date or '' }}')"
+               style="background:none;border:none;padding:0;font-size:.68rem;color:var(--text-muted);cursor:pointer;text-decoration:underline">
+            {% if med.end_date %}edit end date{% else %}set end date{% endif %}
+          </button></div>
+          {% endif %}
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
           {% for slot in med.dose_slots %}
@@ -203,6 +209,20 @@
       <input class="form-input" id="add-stock-qty" type="number" min="0" step="0.5" placeholder="e.g. 56">
     </div>
     <button class="btn btn-primary btn-full" onclick="submitAddStock()">Add to stock</button>
+  </div>
+</div>
+<!-- ── Set end date modal ─────────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="end-course-modal">
+  <div class="modal-sheet">
+    <span class="modal-close">✕</span>
+    <div class="modal-title">Set end date</div>
+    <input type="hidden" id="end-course-med-id">
+    <div class="form-group">
+      <label class="form-label">Course end date</label>
+      <input class="form-input" id="end-course-date" type="date">
+      <div style="font-size:.72rem;color:var(--text-muted);margin-top:3px">Leave blank to clear (ongoing medication)</div>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="submitEndCourse()">Save end date</button>
   </div>
 </div>
 {% endblock %}
@@ -365,6 +385,24 @@ async function refreshPrnStatus() {
       <button class="prn-delete-btn" data-id="${e.id}" title="Remove">&#x2715;</button>
     </div>`;
   }).join("");
+}
+
+function openEndCourse(medId, currentEndDate) {
+  document.getElementById("end-course-med-id").value = medId;
+  document.getElementById("end-course-date").value = currentEndDate || "";
+  document.getElementById("end-course-modal").classList.add("open");
+}
+
+async function submitEndCourse() {
+  const medId = document.getElementById("end-course-med-id").value;
+  const endDate = document.getElementById("end-course-date").value;
+  const fd = new FormData();
+  fd.append("end_date", endDate);
+  const result = await postAction(`/medicines/${medId}/end_date`, fd, "End date saved ✓");
+  if (result) {
+    document.getElementById("end-course-modal").classList.remove("open");
+    setTimeout(() => location.reload(), 400);
+  }
 }
 
 const _viewDate = "{{ view_date }}";

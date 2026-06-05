@@ -1143,6 +1143,17 @@ def medicine_add_stock(med_id: int):
     return jsonify({"ok": True})
 
 
+@app.route("/medicines/<int:med_id>/end_date", methods=["POST"])
+def medicine_set_end_date(med_id: int):
+    if auth_person() not in config.ADMINS and auth_person() != "family":
+        return jsonify({"error": "Admin only"}), 403
+    end_date = request.form.get("end_date") or None
+    db = get_db()
+    db.execute("UPDATE medicines SET end_date=? WHERE id=?", (end_date, med_id))
+    db.commit()
+    return jsonify({"ok": True})
+
+
 @app.route("/prn/log", methods=["POST"])
 def prn_log():
     person   = request.form.get("person") or current_person()
