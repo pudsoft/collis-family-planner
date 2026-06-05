@@ -1159,6 +1159,12 @@ def prn_log():
     return jsonify({"ok": True})
 
 
+@app.route("/prn/<int:entry_id>/delete", methods=["POST"])
+def prn_delete(entry_id: int):
+    medicines.delete_prn(get_db(), entry_id)
+    return jsonify({"ok": True})
+
+
 @app.route("/prn/status")
 def prn_status():
     person = request.args.get("person") or current_person()

@@ -52,7 +52,7 @@
       <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:6px">Recent</div>
       <div id="prn-recent-list">
         {% for entry in prn_log %}
-        <div class="prn-log-row">
+        <div class="prn-log-row" id="prn-entry-{{ entry.id }}">
           <span class="prn-log-icon">
             {% if entry.type == 'temperature' %}🌡️{% else %}💊{% endif %}
           </span>
@@ -67,6 +67,7 @@
           {% if entry.type != 'temperature' and not entry.safe_now %}
           <span class="prn-next-dose">next at {{ entry.next_safe_at }}</span>
           {% endif %}
+          <button class="prn-delete-btn" data-id="{{ entry.id }}" title="Remove">✕</button>
         </div>
         {% endfor %}
       </div>
@@ -272,6 +273,17 @@ async function logTemperature() {
   }
 }
 
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".prn-delete-btn");
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const result = await postAction(`/prn/${id}/delete`, new FormData(), "Entry removed");
+  if (result) {
+    document.getElementById(`prn-entry-${id}`)?.remove();
+    refreshPrnStatus();
+  }
+});
+
 function _fmtCountdown(secs) {
   if (secs <= 0) return "Ready now";
   const h = Math.floor(secs / 3600);
@@ -346,10 +358,11 @@ async function refreshPrnStatus() {
     const time  = e.logged_at.slice(11,16);
     const next  = (e.type !== "temperature" && !e.safe_now)
       ? `<span class="prn-next-dose">next at ${e.next_safe_at}</span>` : "";
-    return `<div class="prn-log-row">
+    return `<div class="prn-log-row" id="prn-entry-${e.id}">
       <span class="prn-log-icon">${icon}</span>
       <span class="prn-log-label">${label}</span>
       <span class="prn-log-time">${time}</span>${next}
+      <button class="prn-delete-btn" data-id="${e.id}" title="Remove">&#x2715;</button>
     </div>`;
   }).join("");
 }

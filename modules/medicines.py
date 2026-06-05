@@ -412,6 +412,11 @@ PRN_MAX_DOSES_24H = {
 }
 
 
+def delete_prn(db_conn, entry_id: int):
+    db_conn.execute("DELETE FROM prn_log WHERE id=?", (entry_id,))
+    db_conn.commit()
+
+
 def log_prn(db_conn, person: str, prn_type: str, value: float = None):
     db_conn.execute(
         "INSERT INTO prn_log (person, type, value, logged_at) VALUES (?,?,?,?)",
