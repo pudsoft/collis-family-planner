@@ -386,6 +386,14 @@ def mark_reordered(db_conn, medicine_id: int, new_stock: float = None):
     db_conn.commit()
 
 
+def add_stock(db_conn, medicine_id: int, quantity: float):
+    db_conn.execute(
+        "UPDATE medicines SET stock_count = COALESCE(stock_count, 0) + ? WHERE id=?",
+        (quantity, medicine_id),
+    )
+    db_conn.commit()
+
+
 def check_reorder_alerts(db_conn) -> list[dict]:
     return [m for m in get_today_doses(db_conn) if m.get("needs_reorder")]
 

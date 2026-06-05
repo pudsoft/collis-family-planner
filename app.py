@@ -1094,6 +1094,7 @@ def medicines_view():
         is_today=is_today,
         prev_date=prev_date,
         next_date=next_date,
+        today=date.today().isoformat(),
     )
 
 
@@ -1127,8 +1128,18 @@ def medicine_untake(med_id: int):
 def medicine_reordered(med_id: int):
     if auth_person() not in config.ADMINS:
         return jsonify({"error": "Admin only"}), 403
-    new_stock = request.form.get("new_stock", type=float)
-    medicines.mark_reordered(get_db(), med_id, new_stock)
+    medicines.mark_reordered(get_db(), med_id)
+    return jsonify({"ok": True})
+
+
+@app.route("/medicines/<int:med_id>/add_stock", methods=["POST"])
+def medicine_add_stock(med_id: int):
+    if auth_person() not in config.ADMINS:
+        return jsonify({"error": "Admin only"}), 403
+    quantity = request.form.get("quantity", type=float)
+    if not quantity:
+        return jsonify({"error": "Quantity required"}), 400
+    medicines.add_stock(get_db(), med_id, quantity)
     return jsonify({"ok": True})
 
 
