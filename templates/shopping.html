@@ -45,7 +45,7 @@
         <span class="shopping-item-name">{{ item.item }}</span>
         {% if item.quantity %}<span class="shopping-item-qty">× {{ item.quantity }}</span>{% endif %}
         {% if item.is_manual %}<span class="manual-flag" title="Manual — needs checking when ordering">✏️</span>{% endif %}
-        <button class="shopping-delete-btn" onclick="deleteItem({{ item.id }})" style="color:var(--text-muted);font-size:1rem;margin-left:auto">✕</button>
+        <button class="shopping-delete-btn" data-item-id="{{ item.id }}" style="color:var(--text-muted);font-size:1rem;margin-left:auto">✕</button>
       </div>
       {% endfor %}
     {% else %}
@@ -107,9 +107,8 @@ async function addRegular(productId, name, qty) {
   fd.append('quantity', qty);
   fd.append('category', 'ASDA');
   fd.append('asda_product_id', productId);
-  const r = await fetch('/shopping/add', { method: 'POST', body: fd });
-  const data = await r.json();
-  if (data.ok) {
+  const data = await postAction('/shopping/add', fd, null);
+  if (data) {
     onList.add(productId);
     showToast('Added: ' + name);
     appendToList({ id: data.id, item: name, quantity: qty, checked: 0, is_manual: 0, asda_product_id: productId });
@@ -125,9 +124,8 @@ async function addManual() {
   fd.append('item', name);
   fd.append('quantity', qty);
   fd.append('category', 'Other');
-  const r = await fetch('/shopping/add', { method: 'POST', body: fd });
-  const data = await r.json();
-  if (data.ok) {
+  const data = await postAction('/shopping/add', fd, null);
+  if (data) {
     showToast('Added: ' + name);
     appendToList({ id: data.id, item: name, quantity: qty, checked: 0, is_manual: 1, asda_product_id: null });
     document.getElementById('manual-name').value = '';
@@ -143,38 +141,18 @@ function appendToList(item) {
   el.id = 'sitem-' + item.id;
   el.dataset.itemId = item.id;
   el.innerHTML = `
-    <input type="checkbox" class="shopping-checkbox" onchange="toggleCheck(${item.id}, this.checked)">
+    <input type="checkbox" class="shopping-checkbox" data-item-id="${item.id}">
     <span class="shopping-item-name">${escHtml(item.item)}</span>
     ${item.quantity ? `<span class="shopping-item-qty">× ${item.quantity}</span>` : ''}
     ${item.is_manual ? '<span class="manual-flag" title="Manual — needs checking when ordering">✏️</span>' : ''}
-    <button class="shopping-delete-btn" onclick="deleteItem(${item.id})" style="color:var(--text-muted);font-size:1rem;margin-left:auto">✕</button>
+    <button class="shopping-delete-btn" data-item-id="${item.id}" style="color:var(--text-muted);font-size:1rem;margin-left:auto">✕</button>
   `;
   document.getElementById('shopping-list').appendChild(el);
 }
 
-async function toggleCheck(id, checked) {
-  const fd = new FormData();
-  fd.append('checked', checked ? '1' : '0');
-  await fetch(`/shopping/${id}/check`, { method: 'POST', body: fd });
-  const el = document.getElementById('sitem-' + id);
-  if (el) el.classList.toggle('checked', checked);
-}
-
-async function deleteItem(id) {
-  await fetch(`/shopping/${id}/delete`, { method: 'POST' });
-  const el = document.getElementById('sitem-' + id);
-  if (el) {
-    const pid = el.dataset.asdaProductId;
-    if (pid) onList.delete(pid);
-    el.remove();
-  }
-  filterRegulars(document.getElementById('reg-search').value);
-}
-
 async function clearChecked() {
-  await fetch('/shopping/clear_checked', { method: 'POST' });
-  document.querySelectorAll('.shopping-item.checked').forEach(el => el.remove());
-  showToast('Cleared ticked items');
+  const data = await postAction('/shopping/clear_checked', new FormData(), 'Cleared ticked items');
+  if (data) document.querySelectorAll('.shopping-item.checked').forEach(el => el.remove());
 }
 
 function exportList() {
