@@ -1150,8 +1150,19 @@ def prn_log():
     value    = request.form.get("value", type=float)
     if prn_type not in ("paracetamol", "ibuprofen", "temperature"):
         return jsonify({"ok": False, "error": "Invalid type"}), 400
+    if prn_type in ("paracetamol", "ibuprofen"):
+        status = medicines.get_prn_status(get_db(), person).get(prn_type, {})
+        if not status.get("safe_now", True):
+            reason = "Daily limit reached" if status.get("max_reached") else f"Next dose allowed at {status.get('next_safe_at', '?')}"
+            return jsonify({"ok": False, "error": reason}), 400
     medicines.log_prn(get_db(), person, prn_type, value)
     return jsonify({"ok": True})
+
+
+@app.route("/prn/status")
+def prn_status():
+    person = request.args.get("person") or current_person()
+    return jsonify(medicines.get_prn_status(get_db(), person))
 
 
 @app.route("/prn/recent")

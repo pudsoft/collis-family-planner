@@ -557,6 +557,7 @@ input, select, textarea { font: inherit; max-width: 100%; }
   cursor: pointer; transition: var(--transition); flex: 1; min-width: 130px;
 }
 .prn-med-btn:active { filter: brightness(.92); }
+.prn-med-btn:disabled { opacity: .45; cursor: not-allowed; filter: none; }
 .prn-log-row {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 0; border-bottom: 1px solid var(--border); font-size: .83rem;

@@ -22,17 +22,20 @@
     </div>
 
     <!-- Med buttons -->
-    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-      <button class="prn-med-btn" data-type="paracetamol" style="background:#FEF9C3;color:#854D0E;border:2px solid #FDE047">
-        💊 Paracetamol
-      </button>
-      <button class="prn-med-btn" data-type="ibuprofen" style="background:#FEE2E2;color:#991B1B;border:2px solid #FCA5A5">
-        💊 Ibuprofen
-      </button>
+    <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:130px">
+        <button id="prn-btn-paracetamol" class="prn-med-btn" data-type="paracetamol" style="background:#FEF9C3;color:#854D0E;border:2px solid #FDE047;width:100%">
+          💊 Paracetamol
+        </button>
+        <div id="prn-status-paracetamol" style="font-size:.72rem;margin-top:4px;min-height:1.3em;text-align:center"></div>
+      </div>
+      <div style="flex:1;min-width:130px">
+        <button id="prn-btn-ibuprofen" class="prn-med-btn" data-type="ibuprofen" style="background:#FEE2E2;color:#991B1B;border:2px solid #FCA5A5;width:100%">
+          💊 Ibuprofen
+        </button>
+        <div id="prn-status-ibuprofen" style="font-size:.72rem;margin-top:4px;min-height:1.3em;text-align:center"></div>
+      </div>
     </div>
-
-    <!-- PRN status (next-dose safe indicator) -->
-    <div id="prn-status" style="font-size:.8rem;color:var(--text-muted);margin-bottom:12px;min-height:1.4em"></div>
 
     <!-- Temperature -->
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
@@ -236,18 +239,8 @@ async function submitAddStock() {
 
 // ── PRN logging ────────────────────────────────────────────────────────────── //
 
-// PRN minimum intervals in minutes
-const PRN_INTERVALS = { paracetamol: 240, ibuprofen: 360 };
-
-// Track the most recent dose of each type from the server-rendered log
-const _prnLastDose = {};
-document.querySelectorAll(".prn-log-row").forEach(row => {
-  const label = row.querySelector(".prn-log-label")?.textContent.trim().toLowerCase();
-  const time  = row.querySelector(".prn-log-time")?.textContent.trim();
-  if ((label === "paracetamol" || label === "ibuprofen") && time && !_prnLastDose[label]) {
-    _prnLastDose[label] = row.dataset.loggedAt || null;
-  }
-});
+const _prnStatus = {};  // live status per type, updated from server
+let _prnTickTimer = null;
 
 function _prnPerson() {
   return document.getElementById("prn-person").value;
@@ -279,30 +272,74 @@ async function logTemperature() {
   }
 }
 
-async function refreshPrnStatus() {
-  const person = _prnPerson();
-  const resp = await fetch(`/prn/recent?person=${encodeURIComponent(person)}`);
-  if (!resp.ok) return;
-  const entries = await resp.json();
+function _fmtCountdown(secs) {
+  if (secs <= 0) return "Ready now";
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
 
-  // Update status bar
-  const statusEl = document.getElementById("prn-status");
-  const msgs = [];
+function _renderPrnButtons() {
   for (const type of ["paracetamol", "ibuprofen"]) {
-    const last = entries.find(e => e.type === type);
-    if (last) {
-      if (last.safe_now) {
-        msgs.push(`${type.charAt(0).toUpperCase()+type.slice(1)}: ✓ safe to take`);
-      } else {
-        msgs.push(`${type.charAt(0).toUpperCase()+type.slice(1)}: next dose at ${last.next_safe_at}`);
-      }
+    const s = _prnStatus[type];
+    const btn = document.getElementById(`prn-btn-${type}`);
+    const statusEl = document.getElementById(`prn-status-${type}`);
+    if (!btn || !statusEl) continue;
+
+    if (!s) { statusEl.textContent = ""; return; }
+
+    btn.disabled = !s.safe_now;
+    const doseText = `${s.doses_24h}/${s.max_doses} today`;
+
+    if (s.safe_now) {
+      statusEl.innerHTML = `<span style="color:#16a34a;font-weight:600">✓ Safe</span> <span style="color:var(--text-muted)">${doseText}</span>`;
+    } else if (s.max_reached) {
+      statusEl.innerHTML = `<span style="color:#dc2626;font-weight:600">🚫 Limit reached</span> <span style="color:var(--text-muted)">${doseText} · frees at ${s.next_safe_at}</span>`;
+    } else {
+      const cd = _fmtCountdown(s.seconds_until_safe);
+      statusEl.innerHTML = `<span style="color:#d97706;font-weight:600">⏱ ${cd}</span> <span style="color:var(--text-muted)">${doseText} · next at ${s.next_safe_at}</span>`;
     }
   }
-  statusEl.textContent = msgs.join("  ·  ");
+}
+
+function _prnTick() {
+  let anyActive = false;
+  for (const type of ["paracetamol", "ibuprofen"]) {
+    const s = _prnStatus[type];
+    if (!s || s.safe_now) continue;
+    s.seconds_until_safe = Math.max(0, s.seconds_until_safe - 1);
+    if (s.seconds_until_safe === 0) s.safe_now = true;
+    anyActive = true;
+  }
+  if (anyActive) _renderPrnButtons();
+}
+
+async function refreshPrnStatus() {
+  const person = _prnPerson();
+
+  // Fetch live status (interval + 24h max)
+  const statusResp = await fetch(`/prn/status?person=${encodeURIComponent(person)}`);
+  if (statusResp.ok) {
+    const data = await statusResp.json();
+    for (const type of ["paracetamol", "ibuprofen"]) {
+      _prnStatus[type] = data[type] || null;
+    }
+    _renderPrnButtons();
+  }
+
+  // Also refresh the recent log
+  const logResp = await fetch(`/prn/recent?person=${encodeURIComponent(person)}`);
+  if (!logResp.ok) return;
+  const entries = await logResp.json();
 
   // Rebuild recent list
   const listEl = document.getElementById("prn-recent-list");
+  if (!listEl) return;
   if (!entries.length) { listEl.innerHTML = ""; return; }
+
   listEl.innerHTML = entries.map(e => {
     const icon  = e.type === "temperature" ? "🌡️" : "💊";
     const label = e.type === "temperature" ? `${e.value}°C` : e.type.charAt(0).toUpperCase()+e.type.slice(1);
@@ -320,10 +357,13 @@ async function refreshPrnStatus() {
 const _viewDate = "{{ view_date }}";
 const _isToday  = {{ 'true' if is_today else 'false' }};
 
-// On load: show status for the current person's recent PRN
+// On load: fetch status, start countdown ticker, wire up person change
 document.addEventListener("DOMContentLoaded", () => {
   refreshPrnStatus();
   document.getElementById("prn-person").addEventListener("change", refreshPrnStatus);
+  _prnTickTimer = setInterval(_prnTick, 1000);
+  // Re-sync from server every 60s to correct any drift
+  setInterval(refreshPrnStatus, 60_000);
 });
 </script>
 {% endblock %}

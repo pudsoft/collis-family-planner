@@ -406,6 +406,11 @@ PRN_MIN_INTERVALS = {
     "temperature": 0,
 }
 
+PRN_MAX_DOSES_24H = {
+    "paracetamol": 4,
+    "ibuprofen":   4,
+}
+
 
 def log_prn(db_conn, person: str, prn_type: str, value: float = None):
     db_conn.execute(
@@ -413,6 +418,60 @@ def log_prn(db_conn, person: str, prn_type: str, value: float = None):
         (person, prn_type, value, datetime.now().isoformat()),
     )
     db_conn.commit()
+
+
+def get_prn_status(db_conn, person: str) -> dict:
+    """Return safe-to-take status for each PRN med type, accounting for both
+    the minimum interval between doses and the 24-hour maximum dose count."""
+    now = datetime.now()
+    result = {}
+    for prn_type, min_interval in PRN_MIN_INTERVALS.items():
+        if prn_type == "temperature":
+            continue
+        max_doses = PRN_MAX_DOSES_24H.get(prn_type, 4)
+        cutoff_24h = (now - timedelta(hours=24)).isoformat()
+
+        rows = db_conn.execute(
+            "SELECT logged_at FROM prn_log "
+            "WHERE person=? AND type=? AND logged_at > ? ORDER BY logged_at DESC",
+            (person, prn_type, cutoff_24h),
+        ).fetchall()
+
+        doses_24h = len(rows)
+        last_dose = datetime.fromisoformat(rows[0]["logged_at"]) if rows else None
+
+        # Interval rule
+        interval_ok = True
+        interval_next = None
+        if last_dose:
+            elapsed_mins = (now - last_dose).total_seconds() / 60
+            if elapsed_mins < min_interval:
+                interval_ok = False
+                interval_next = last_dose + timedelta(minutes=min_interval)
+
+        # 24h max rule — when the oldest qualifying dose falls outside the 24h window
+        max_ok = doses_24h < max_doses
+        max_next = None
+        if not max_ok:
+            oldest = datetime.fromisoformat(rows[-1]["logged_at"])
+            max_next = oldest + timedelta(hours=24)
+
+        safe_now = interval_ok and max_ok
+
+        candidates = [t for t in [interval_next, max_next] if t is not None]
+        next_safe_dt = max(candidates) if candidates else None
+
+        result[prn_type] = {
+            "safe_now":           safe_now,
+            "doses_24h":          doses_24h,
+            "max_doses":          max_doses,
+            "max_reached":        not max_ok,
+            "interval_ok":        interval_ok,
+            "next_safe_at":       next_safe_dt.strftime("%H:%M") if next_safe_dt else None,
+            "seconds_until_safe": max(0, int((next_safe_dt - now).total_seconds())) if next_safe_dt else 0,
+            "last_dose_at":       last_dose.isoformat() if last_dose else None,
+        }
+    return result
 
 
 def get_prn_log(db_conn, person: str, limit: int = 20) -> list[dict]:
