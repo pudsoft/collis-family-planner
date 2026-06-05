@@ -45,10 +45,10 @@
         {% if item.is_manual %}<span class="manual-flag" title="Manual — needs checking when ordering">✏️</span>{% endif %}
         <div class="list-qty-ctrl" style="display:flex;align-items:center;gap:3px;margin-left:auto;flex-shrink:0">
           <button class="list-qty-dec" data-item-id="{{ item.id }}"
-                  style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--bg);cursor:pointer;font-size:.9rem;line-height:1">−</button>
+                  style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;font-size:.9rem;line-height:1">−</button>
           <span class="list-qty-val" style="min-width:22px;text-align:center;font-size:.85rem;font-weight:600">{{ item.quantity or 1 }}</span>
           <button class="list-qty-inc" data-item-id="{{ item.id }}"
-                  style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--bg);cursor:pointer;font-size:.9rem;line-height:1">+</button>
+                  style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;font-size:.9rem;line-height:1">+</button>
         </div>
         <button class="shopping-delete-btn" data-item-id="{{ item.id }}" style="color:var(--text-muted);font-size:1rem;margin-left:6px">✕</button>
       </div>
@@ -90,9 +90,9 @@ function filterRegulars(q) {
     return `<div class="shopping-item reg-result" data-pid="${escAttr(r.product_id)}" data-name="${escAttr(r.name)}">
       <span class="shopping-item-name">${escHtml(r.name)}</span>
       <div style="display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0">
-        <button class="qty-dec" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg);font-size:1rem;cursor:pointer;line-height:1">−</button>
+        <button class="qty-dec" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1rem;cursor:pointer;line-height:1">−</button>
         <span class="qty-val" style="min-width:20px;text-align:center;font-weight:600">${r.usual_qty}</span>
-        <button class="qty-inc" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg);font-size:1rem;cursor:pointer;line-height:1">+</button>
+        <button class="qty-inc" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1rem;cursor:pointer;line-height:1">+</button>
         <button class="reg-add btn btn-primary btn-sm" style="margin-left:4px">Add</button>
       </div>
     </div>`;
@@ -172,9 +172,9 @@ function appendToList(item) {
     <span class="shopping-item-name">${escHtml(item.item)}</span>
     ${item.is_manual ? '<span class="manual-flag" title="Manual — needs checking when ordering">✏️</span>' : ''}
     <div class="list-qty-ctrl" style="display:flex;align-items:center;gap:3px;margin-left:auto;flex-shrink:0">
-      <button class="list-qty-dec" data-item-id="${item.id}" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--bg);cursor:pointer;font-size:.9rem;line-height:1">−</button>
+      <button class="list-qty-dec" data-item-id="${item.id}" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;font-size:.9rem;line-height:1">−</button>
       <span class="list-qty-val" style="min-width:22px;text-align:center;font-size:.85rem;font-weight:600">${item.quantity || 1}</span>
-      <button class="list-qty-inc" data-item-id="${item.id}" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--bg);cursor:pointer;font-size:.9rem;line-height:1">+</button>
+      <button class="list-qty-inc" data-item-id="${item.id}" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;font-size:.9rem;line-height:1">+</button>
     </div>
     <button class="shopping-delete-btn" data-item-id="${item.id}" style="color:var(--text-muted);font-size:1rem;margin-left:6px">✕</button>
   `;
