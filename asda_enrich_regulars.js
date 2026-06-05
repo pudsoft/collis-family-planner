@@ -18,6 +18,7 @@ const path   = require('path');
 const crypto = require('crypto');
 
 const REGULARS_FILE = path.join(__dirname, 'data', 'asda_regulars.json');
+const SESSION_FILE  = path.join(__dirname, 'data', 'asda_session.json');
 const OCP_KEY       = 'bc042eff107c4bca87dccb19ae707d16';
 const ORDER_LIMIT   = 20;   // older orders to fetch (recent + this many)
 
@@ -80,9 +81,19 @@ async function grabSession() {
   console.log('\n[1/4] Opening Edge to grab session cookies…');
   console.log('      (Edge will close automatically — do not interact with it)\n');
 
+  // Remove profile lock files that survive force-kill
+  const profileDir = 'C:/Users/Rythm/AppData/Local/Microsoft/Edge/User Data/Default';
+  for (const lock of ['LOCK', 'SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
+    const p = path.join(profileDir.replace(/\//g, path.sep), lock);
+    try { fs.unlinkSync(p); } catch {}
+  }
+  // Also root-level lockfile
+  const rootLock = path.join(profileDir, '..', 'lockfile');
+  try { fs.unlinkSync(rootLock); } catch {}
+
   const context = await chromium.launchPersistentContext(
     'C:/Users/Rythm/AppData/Local/Microsoft/Edge/User Data',
-    { headless: true, channel: 'msedge', args: ['--profile-directory=Default'] }
+    { headless: false, channel: 'msedge', args: ['--profile-directory=Default'] }
   );
   const page = await context.newPage();
 
@@ -103,8 +114,10 @@ async function grabSession() {
   await context.close();
 
   if (!cookies.length) throw new Error('No cookies captured — are you logged in to ASDA in Edge?');
-  console.log(`      Session ready (${cookies.length} cookies, apisession: ${sessionId || 'not seen — will omit'})`);
-  return { cookies, sessionId };
+  const session = { cookies, sessionId, captured: new Date().toISOString() };
+  fs.writeFileSync(SESSION_FILE, JSON.stringify(session, null, 2));
+  console.log(`      Session ready (${cookies.length} cookies) — saved to asda_session.json for future runs`);
+  return session;
 }
 
 // ── Phase 2: Fetch order list + all order details via direct HTTP ─────────────
@@ -227,7 +240,18 @@ function merge(orderItems) {
 
 (async () => {
   try {
-    const { cookies, sessionId } = await grabSession();
+    // Reuse saved session if recent (< 6 hours old), otherwise grab fresh one
+    let session;
+    if (fs.existsSync(SESSION_FILE)) {
+      const saved = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'));
+      const age = (Date.now() - new Date(saved.captured)) / 3600000;
+      if (age < 6) {
+        console.log(`\n[1/4] Reusing saved session (${age.toFixed(1)}h old) — skipping browser`);
+        session = saved;
+      }
+    }
+    if (!session) session = await grabSession();
+    const { cookies, sessionId } = session;
     const orderItems = await fetchOrders(cookies, sessionId);
     const existing   = JSON.parse(fs.readFileSync(REGULARS_FILE, 'utf8'));
     const existingIds = new Set(existing.map(r => r.product_id));
