@@ -103,7 +103,10 @@ async function fetchOrders() {
 
   const context = await chromium.launchPersistentContext(
     'C:/Users/Rythm/AppData/Local/Microsoft/Edge/User Data',
-    { headless: false, channel: 'msedge', args: ['--profile-directory=Default'] }
+    { headless: false, channel: 'msedge', args: [
+        '--profile-directory=Default',
+        '--disable-blink-features=AutomationControlled',
+    ]}
   );
   const page = await context.newPage();
 
