@@ -8,6 +8,7 @@ Three scripts work together to maintain a searchable product catalogue and (even
 |--------|---------|---------------|
 | `extract_edge_cookies.js` | Extracts your ASDA session from Edge's cookie store | Before each enrich run |
 | `asda_enrich_regulars.js` | Scrapes order history, merges new products into regulars list | Monthly or after a big shop |
+| `asda_add_to_basket.js` | Reads exported shopping list, adds ASDA items to basket automatically | Each shop |
 | `asda_discover.js` | Full API discovery tool (dev use) | Only when investigating new endpoints |
 
 ---
@@ -66,6 +67,22 @@ For convenience, `asda_refresh.ps1` does Steps 1–3 in one go:
 ```powershell
 .\asda_refresh.ps1
 ```
+
+---
+
+## Adding items to the basket automatically
+
+Once your shopping list is ready in the Family Planner:
+
+1. On the shopping page, press **"Export for ASDA"** — saves `asda-shopping-list.json`
+2. Close Edge
+3. Run:
+   ```powershell
+   node asda_add_to_basket.js C:\path\to\asda-shopping-list.json
+   ```
+   Edge opens, logs into your ASDA session, and adds each item with random human-like delays.
+4. The browser lands on your basket — review, make any adjustments, and checkout yourself.
+5. Any ✏️ manual items are listed in the terminal for you to add by hand.
 
 ---
 
