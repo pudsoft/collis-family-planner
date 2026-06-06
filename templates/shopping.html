@@ -66,13 +66,29 @@
   {% if is_admin %}
   <div class="card">
     <div class="card-title">🛠️ ASDA Tools</div>
-    <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:10px">
-      Run these in a terminal on your PC to update the favourites list from your order history.
+    <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:12px">
+      Run in a PowerShell terminal on your PC.
     </div>
 
-    <div style="display:flex;gap:6px;align-items:flex-start">
-      <code style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:.78rem;white-space:pre-wrap;word-break:break-all">cd "C:\Collis Family Planner"; node extract_edge_cookies.js; Stop-Process -Name msedge -Force -ErrorAction SilentlyContinue; node asda_enrich_regulars.js; git add data/asda_regulars.json; git commit -m "Update ASDA regulars"; git push; &amp; "C:\Claude_Helpers\claude-helpers\cfp_ssh.ps1" deploy</code>
-      <button class="btn btn-secondary btn-sm" style="flex-shrink:0" onclick="copyCmd(this, 'cd &quot;C:\\Collis Family Planner&quot;; node extract_edge_cookies.js; Stop-Process -Name msedge -Force -ErrorAction SilentlyContinue; node asda_enrich_regulars.js; git add data/asda_regulars.json; git commit -m &quot;Update ASDA regulars&quot;; git push; & &quot;C:\\Claude_Helpers\\claude-helpers\\cfp_ssh.ps1&quot; deploy')">Copy</button>
+    <div style="margin-bottom:10px">
+      <div style="font-size:.75rem;font-weight:600;color:var(--text-muted);margin-bottom:4px">
+        🛒 Add this week's list to your ASDA basket
+        <span style="font-weight:400">(export the list first using the button above)</span>
+      </div>
+      <div style="display:flex;gap:6px;align-items:flex-start">
+        <code style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:.78rem;white-space:pre-wrap;word-break:break-all">cd "C:\Collis Family Planner"; Stop-Process -Name msedge -Force -ErrorAction SilentlyContinue; node asda_shop.js</code>
+        <button class="btn btn-secondary btn-sm" style="flex-shrink:0" onclick="copyCmd(this, 'cd &quot;C:\\Collis Family Planner&quot;; Stop-Process -Name msedge -Force -ErrorAction SilentlyContinue; node asda_shop.js')">Copy</button>
+      </div>
+    </div>
+
+    <div>
+      <div style="font-size:.75rem;font-weight:600;color:var(--text-muted);margin-bottom:4px">
+        🔄 Update favourites list from order history &amp; deploy
+      </div>
+      <div style="display:flex;gap:6px;align-items:flex-start">
+        <code style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:.78rem;white-space:pre-wrap;word-break:break-all">cd "C:\Collis Family Planner"; node extract_edge_cookies.js; Stop-Process -Name msedge -Force -ErrorAction SilentlyContinue; node asda_enrich_regulars.js; git add data/asda_regulars.json; git commit -m "Update ASDA regulars"; git push; &amp; "C:\Claude_Helpers\claude-helpers\cfp_ssh.ps1" deploy</code>
+        <button class="btn btn-secondary btn-sm" style="flex-shrink:0" onclick="copyCmd(this, 'cd &quot;C:\\Collis Family Planner&quot;; node extract_edge_cookies.js; Stop-Process -Name msedge -Force -ErrorAction SilentlyContinue; node asda_enrich_regulars.js; git add data/asda_regulars.json; git commit -m &quot;Update ASDA regulars&quot;; git push; & &quot;C:\\Claude_Helpers\\claude-helpers\\cfp_ssh.ps1&quot; deploy')">Copy</button>
+      </div>
     </div>
   </div>
   {% endif %}
