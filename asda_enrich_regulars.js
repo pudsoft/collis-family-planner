@@ -198,10 +198,12 @@ async function algoliaLookup(productIds, label) {
     for (const hit of (result.results?.[0]?.hits || [])) {
       if (!hit.CIN) continue;
       const pid  = String(hit.CIN);
-      const cat = hit.PRIMARY_TAXONOMY?.CAT_NAME;
+      const cat  = hit.PRIMARY_TAXONOMY?.CAT_NAME;
+      const dept = hit.PRIMARY_TAXONOMY?.DEPT_NAME;
       byId[pid] = {
         name:     hit.NAME || null,
-        category: (typeof cat === 'object' ? cat?.value : cat) || null,
+        category: (typeof cat  === 'object' ? cat?.value  : cat)  || null,
+        dept:     (typeof dept === 'object' ? dept?.value : dept) || null,
       };
     }
   }
@@ -283,7 +285,8 @@ function merge(orderItems) {
       if (!name) { skipped++; continue; }
       const avgQty  = Math.round(orderItems[pid].totalQty / orderItems[pid].orderCount) || 1;
       const category = orderItems[pid].category || algoliaData[pid]?.category || null;
-      existing.push({ product_id: pid, name, usual_qty: avgQty, category });
+      const dept     = orderItems[pid].dept     || algoliaData[pid]?.dept     || null;
+      existing.push({ product_id: pid, name, usual_qty: avgQty, category, dept });
       added++;
     }
 

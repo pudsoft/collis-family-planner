@@ -40,13 +40,17 @@
     {% if shopping %}
       {% set by_cat = {} %}
       {% for item in shopping %}
-        {% set cat = item.category or 'Other' %}
-        {% if cat not in by_cat %}{% set _ = by_cat.update({cat: []}) %}{% endif %}
-        {% set _ = by_cat[cat].append(item) %}
+        {% set cat  = item.category or 'Other' %}
+        {% set dept = item.dept or '' %}
+        {% if cat not in by_cat %}{% set _ = by_cat.update({cat: {}}) %}{% endif %}
+        {% if dept not in by_cat[cat] %}{% set _ = by_cat[cat].update({dept: []}) %}{% endif %}
+        {% set _ = by_cat[cat][dept].append(item) %}
       {% endfor %}
       {% for cat in by_cat.keys() | sort %}
-      <div class="shopping-category-header" style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);padding:10px 2px 4px;border-top:1px solid var(--border);margin-top:4px">{{ cat }}</div>
-      {% for item in by_cat[cat] | sort(attribute='item') %}
+      <div class="shopping-category-header" style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--person-colour,#7B5BA6);padding:12px 2px 2px;border-top:2px solid var(--person-colour,#7B5BA6);margin-top:8px">{{ cat }}</div>
+      {% for dept in by_cat[cat].keys() | sort %}
+      {% if dept %}<div style="font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);padding:7px 2px 2px;margin-top:2px">{{ dept }}</div>{% endif %}
+      {% for item in by_cat[cat][dept] | sort(attribute='item') %}
       <div class="shopping-item {% if item.checked %}checked{% endif %}" data-item-id="{{ item.id }}" data-asda-pid="{{ item.asda_product_id or '' }}" data-manual="{{ '1' if item.is_manual else '0' }}" id="sitem-{{ item.id }}">
         <input type="checkbox" class="shopping-checkbox" data-item-id="{{ item.id }}"
                {% if item.checked %}checked{% endif %}>
@@ -65,6 +69,7 @@
         </div>
         <button class="shopping-delete-btn" data-item-id="{{ item.id }}" style="color:var(--text-muted);font-size:1rem;margin-left:6px">✕</button>
       </div>
+      {% endfor %}
       {% endfor %}
       {% endfor %}
     {% else %}
@@ -121,7 +126,10 @@ function filterRegulars(q) {
   if (!q) { box.innerHTML = ''; return; }
   const hits = REGULARS.filter(r => r.name.toLowerCase().includes(q));
   if (!hits.length) {
-    box.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">No favourites match — use the manual field below.</div>';
+    box.innerHTML = `<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">
+      No favourites match.
+      <button class="btn btn-secondary btn-sm" style="margin-left:8px" onclick="searchAlgolia('${escAttr(q)}')">Search ASDA catalogue</button>
+    </div>`;
     return;
   }
   box.innerHTML = hits.map(r => {
@@ -167,15 +175,18 @@ document.getElementById('reg-results').addEventListener('click', e => {
     return;
   }
   if (e.target.classList.contains('reg-add')) {
-    const qty = row.querySelector('.qty-val').textContent;
-    addRegular(row.dataset.pid, row.dataset.name, qty);
+    const qty  = row.querySelector('.qty-val').textContent;
+    const cat  = row.dataset.cat  || null;
+    const dept = row.dataset.dept || null;
+    addRegular(row.dataset.pid, row.dataset.name, qty, cat, dept);
   }
 });
 
-async function addRegular(productId, name, qty) {
+async function addRegular(productId, name, qty, overrideCat, overrideDept) {
   if (onList.has(productId)) { showToast('Already on the list', 'error'); return; }
   const regular  = REGULARS.find(r => r.product_id === productId);
-  const category = regular?.category || 'Other';
+  const category = overrideCat  || regular?.category || 'Other';
+  const dept     = overrideDept || regular?.dept     || '';
   const fd = new FormData();
   fd.append('item', name);
   fd.append('quantity', qty);
@@ -185,7 +196,7 @@ async function addRegular(productId, name, qty) {
   if (data) {
     onList.add(productId);
     showToast('Added: ' + name);
-    appendToList({ id: data.id, item: name, quantity: qty, checked: 0, is_manual: 0, asda_product_id: productId, category });
+    appendToList({ id: data.id, item: name, quantity: qty, checked: 0, is_manual: 0, asda_product_id: productId, category, dept });
     filterRegulars(document.getElementById('reg-search').value);
   }
 }
@@ -211,19 +222,47 @@ function appendToList(item) {
   document.getElementById('empty-state')?.remove();
   const list = document.getElementById('shopping-list');
   const cat  = item.category || 'Other';
+  const dept = item.dept     || '';
 
-  // Find or create the category header group
+  // Find or create top-level category header
   let header = [...list.querySelectorAll('.shopping-category-header')]
-    .find(h => h.textContent === cat.toUpperCase());
+    .find(h => h.dataset.cat === cat);
   if (!header) {
-    // Insert in alphabetical order among existing headers
     header = document.createElement('div');
     header.className = 'shopping-category-header';
+    header.dataset.cat = cat;
     header.textContent = cat.toUpperCase();
-    header.style.cssText = 'font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);padding:10px 2px 4px;border-top:1px solid var(--border);margin-top:4px';
-    const headers = [...list.querySelectorAll('.shopping-category-header')];
-    const after = headers.find(h => h.textContent > cat.toUpperCase());
+    header.style.cssText = 'font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--person-colour,#7B5BA6);padding:12px 2px 2px;border-top:2px solid var(--person-colour,#7B5BA6);margin-top:8px';
+    const allHeaders = [...list.querySelectorAll('.shopping-category-header')];
+    const after = allHeaders.find(h => h.dataset.cat > cat);
     list.insertBefore(header, after || null);
+  }
+
+  // Find or create dept sub-header within this category
+  let insertAnchor = header.nextSibling;
+  if (dept) {
+    let deptHeader = null;
+    let node = header.nextSibling;
+    while (node && !node.classList?.contains('shopping-category-header')) {
+      if (node.dataset?.dept === dept) { deptHeader = node; break; }
+      node = node.nextSibling;
+    }
+    if (!deptHeader) {
+      deptHeader = document.createElement('div');
+      deptHeader.dataset.dept = dept;
+      deptHeader.textContent = dept.toUpperCase();
+      deptHeader.style.cssText = 'font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);padding:7px 2px 2px;margin-top:2px';
+      // Insert dept header after cat header (or after last dept header alphabetically)
+      let pos = header.nextSibling;
+      while (pos && !pos.classList?.contains('shopping-category-header') && pos.dataset?.dept && pos.dataset.dept < dept) {
+        // skip past items in earlier depts
+        while (pos && pos.classList?.contains('shopping-item')) pos = pos.nextSibling;
+        if (pos && pos.dataset?.dept && pos.dataset.dept < dept) pos = pos.nextSibling;
+        else break;
+      }
+      list.insertBefore(deptHeader, pos);
+    }
+    insertAnchor = deptHeader.nextSibling;
   }
 
   const el = document.createElement('div');
@@ -241,8 +280,8 @@ function appendToList(item) {
     </div>
     <button class="shopping-delete-btn" data-item-id="${item.id}" style="color:var(--text-muted);font-size:1rem;margin-left:6px">✕</button>
   `;
-  // Insert after the header (and any existing items in that category, alphabetically)
-  let insertBefore = header.nextSibling;
+  // Insert alphabetically within the dept group
+  let insertBefore = insertAnchor;
   while (insertBefore && insertBefore.classList?.contains('shopping-item')) {
     const existingName = insertBefore.querySelector('.shopping-item-name')?.textContent || '';
     if (existingName.toLowerCase() > item.item.toLowerCase()) break;
@@ -278,6 +317,43 @@ function copyCmd(btn, text) {
     btn.textContent = 'Copied!';
     setTimeout(() => btn.textContent = orig, 1500);
   });
+}
+
+async function searchAlgolia(q) {
+  const box = document.getElementById('reg-results');
+  box.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">Searching ASDA catalogue…</div>';
+  const now    = Math.floor(Date.now() / 1000);
+  const storeId = '4383';
+  const filter = `(STATUS:A OR STATUS:I) AND NOT DISPLAY_ONLINE:false AND NOT UNTRAITED_STORES:${storeId} AND STOCK.${storeId}>0 AND END_DATE>${now}`;
+  try {
+    const r = await fetch('https://8i6wskccnv-dsn.algolia.net/1/indexes/ASDA_PRODUCTS/query', {
+      method: 'POST',
+      headers: { 'x-algolia-application-id': '8I6WSKCCNV', 'x-algolia-api-key': '03e4272048dd17f771da37b57ff8a75e', 'content-type': 'application/json' },
+      body: JSON.stringify({ query: q, hitsPerPage: 15, filters: filter,
+        attributesToRetrieve: ['CIN','NAME','PRICES.EN','PACK_SIZE','PRIMARY_TAXONOMY'] })
+    });
+    const data = await r.json();
+    const hits = data.hits || [];
+    if (!hits.length) { box.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">Nothing found on ASDA.</div>'; return; }
+    box.innerHTML = '<div style="font-size:.72rem;color:var(--text-muted);padding:4px 0 6px">ASDA catalogue results:</div>' +
+      hits.map(h => {
+        const pid     = String(h.CIN);
+        const name    = h.NAME || '';
+        const already = onList.has(pid);
+        const cat     = h.PRIMARY_TAXONOMY?.CAT_NAME || 'Other';
+        const dept    = h.PRIMARY_TAXONOMY?.DEPT_NAME || '';
+        if (already) return `<div class="shopping-item reg-result"><span class="shopping-item-name">${escHtml(name)}</span><span class="shopping-item-qty" style="margin-left:auto;color:var(--text-muted)">✓ on list</span></div>`;
+        return `<div class="shopping-item reg-result" data-pid="${escAttr(pid)}" data-name="${escAttr(name)}" data-cat="${escAttr(cat)}" data-dept="${escAttr(dept)}">
+          <span class="shopping-item-name">${escHtml(name)}</span>
+          <div style="display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0">
+            <button class="qty-dec" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1rem;cursor:pointer;line-height:1">−</button>
+            <span class="qty-val" style="min-width:20px;text-align:center;font-weight:600">1</span>
+            <button class="qty-inc" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1rem;cursor:pointer;line-height:1">+</button>
+            <button class="reg-add btn btn-primary btn-sm" style="margin-left:4px">Add</button>
+          </div>
+        </div>`;
+      }).join('');
+  } catch(e) { box.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">Search failed — check connection.</div>'; }
 }
 
 async function exportList() {

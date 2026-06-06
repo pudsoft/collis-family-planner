@@ -979,14 +979,19 @@ def shopping_view():
     regulars = json.loads(regulars_path.read_text()) if regulars_path.exists() else []
     shopping = meals.get_shopping_list(db)
 
-    # Always sync category from regulars for ASDA items (keeps in step with regulars file)
-    cat_by_pid = {r["product_id"]: r.get("category") for r in regulars if r.get("category")}
+    # Always sync category from regulars for ASDA items; attach dept in-memory
+    reg_by_pid = {r["product_id"]: r for r in regulars}
     for item in shopping:
         if item.get("asda_product_id"):
-            cat = cat_by_pid.get(item["asda_product_id"])
-            if cat and cat != item.get("category"):
-                db.execute("UPDATE shopping_items SET category=? WHERE id=?", (cat, item["id"]))
-                item["category"] = cat
+            reg = reg_by_pid.get(item["asda_product_id"])
+            if reg:
+                cat = reg.get("category")
+                if cat and cat != item.get("category"):
+                    db.execute("UPDATE shopping_items SET category=? WHERE id=?", (cat, item["id"]))
+                    item["category"] = cat
+                item["dept"] = reg.get("dept") or ""
+        if not item.get("dept"):
+            item["dept"] = ""
     db.commit()
 
     return render_template(

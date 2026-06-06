@@ -3,2082 +3,2429 @@
     "product_id": "9111121",
     "name": "10 Classic Pork Sausages 667g",
     "usual_qty": 1,
-    "category": "Meat, Poultry & Fish"
+    "category": "Meat, Poultry & Fish",
+    "dept": "Meat & Poultry"
   },
   {
     "product_id": "5779405",
     "name": "The Bakery 6 Toastie Crumpets",
     "usual_qty": 2,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Crumpets, Muffins & Pancakes"
   },
   {
     "product_id": "1525219",
     "name": "15% Fat Beef Mince 500g",
     "usual_qty": 1,
-    "category": "Meat, Poultry & Fish"
+    "category": "Meat, Poultry & Fish",
+    "dept": "Meat & Poultry"
   },
   {
     "product_id": "9084493",
     "name": "6 Sweet & Creamy Bananas",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Fruit"
   },
   {
     "product_id": "6808404",
     "name": "Carved Cumberland Sausage Slices 170g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Cooked Meat"
   },
   {
     "product_id": "6986738",
     "name": "The Bakery 5 Plain Bagels",
     "usual_qty": 1,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Wraps, Bagels, Pittas & Naans"
   },
   {
     "product_id": "3117486",
     "name": "The Bakery 8 White Wraps 488g",
     "usual_qty": 1,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Wraps, Bagels, Pittas & Naans"
   },
   {
     "product_id": "5689083",
     "name": "6 Hot Cross Buns",
     "usual_qty": 2,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Scones, Teacakes & Fruit Loaves"
   },
   {
     "product_id": "9184436",
     "name": "Seedless Mixed Grapes 500g",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Fruit"
   },
   {
     "product_id": "7370972",
     "name": "Sweet & Delicate Conference Pears",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Fruit"
   },
   {
     "product_id": "152446",
     "name": "Whole Cucumber",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Salad & Stir Fry"
   },
   {
     "product_id": "3291551",
     "name": "2 Mango",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Fruit"
   },
   {
     "product_id": "6808382",
     "name": "Chargrill Style Chicken Breast 5 Slices 120g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Cooked Meat"
   },
   {
     "product_id": "7682171",
     "name": "Oat Drink Whole 1L Long Life",
     "usual_qty": 3,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Milk, Butter, Cream & Eggs"
   },
   {
     "product_id": "7479513",
     "name": "Strawberry Yoghurt 4 x 90g",
     "usual_qty": 1,
-    "category": "Dietary & Lifestyle"
+    "category": "Dietary & Lifestyle",
+    "dept": "Free From"
   },
   {
     "product_id": "4827498",
     "name": "Tangy & Tropical Pineapple",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Fruit"
   },
   {
     "product_id": "6647966",
     "name": "24 Pork Cocktail Sausages 240g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Party Food, Pies, Salads & Dips"
   },
   {
     "product_id": "6808368",
     "name": "4 Slices Corned Beef 125g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Cooked Meat"
   },
   {
     "product_id": "9167530",
     "name": "Chilli Heatwave Tortilla Chips Sharing Crisps 180g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "5697915",
     "name": "Delicious 6 Breaded Chicken Steaks 750g",
     "usual_qty": 1,
-    "category": "Meat, Poultry & Fish"
+    "category": "Meat, Poultry & Fish",
+    "dept": "Meat & Poultry"
   },
   {
     "product_id": "9100620",
     "name": "Light & Fluffy Maris Piper Potatoes 2kg",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Potatoes"
   },
   {
     "product_id": "2607155",
     "name": "Smooth Brussels Pâté 175g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Cooked Meat"
   },
   {
     "product_id": "5761317",
     "name": "Sweetclems 600g",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Fruit"
   },
   {
     "product_id": "7311082",
     "name": "Tender Diced Chicken Breast 650g",
     "usual_qty": 1,
-    "category": "Meat, Poultry & Fish"
+    "category": "Meat, Poultry & Fish",
+    "dept": "Meat & Poultry"
   },
   {
     "product_id": "4450740",
     "name": "The Bakery Apple Pie",
     "usual_qty": 1,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Desserts & Cream Cakes"
   },
   {
     "product_id": "5718174",
     "name": "The Bakery Soft White Medium Sliced 800g",
     "usual_qty": 1,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Bread & Rolls"
   },
   {
     "product_id": "228397",
     "name": "Toasting Waffles Multipack 8 x 28g, 222g",
     "usual_qty": 4,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Crumpets, Muffins & Pancakes"
   },
   {
     "product_id": "6702208",
     "name": "10 Mini Pork Pies 250g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Party Food, Pies, Salads & Dips"
   },
   {
     "product_id": "5844638",
     "name": "Crisp & Fragrant Sweet Peppers 3 Pack",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Salad & Stir Fry"
   },
   {
     "product_id": "9227412",
     "name": "Crisp & Juicy Apples 1.5kg",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Fruit"
   },
   {
     "product_id": "410006",
     "name": "Iceberg Lettuce",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Salad & Stir Fry"
   },
   {
     "product_id": "5636067",
     "name": "Orange & Pineapple Squash 1.5 Litres",
     "usual_qty": 1,
-    "category": "Drinks"
+    "category": "Drinks",
+    "dept": "Squash & Cordial"
   },
   {
     "product_id": "6980458",
     "name": "Plant Based Coleslaw 300g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Party Food, Pies, Salads & Dips"
   },
   {
     "product_id": "9299716",
     "name": "Savoury Crackers 200g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Biscuits"
   },
   {
     "product_id": "5400475",
     "name": "Sweet & Sour Chicken with Egg Fried Rice 400g",
     "usual_qty": 3,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Ready Meals"
   },
   {
     "product_id": "9230517",
     "name": "Sweet BBQ Tortilla Chips Sharing Bag Crisps 180g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "9254104",
     "name": "4 Mini Frieda The Caterpillar Cakes 160g",
     "usual_qty": 1,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Cake Bars, Slices & Tarts"
   },
   {
     "product_id": "3807826",
     "name": "5 Sweet & Juicy Medium Oranges",
     "usual_qty": 2,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Fruit"
   },
   {
     "product_id": "2041527",
     "name": "Arla Filtered Fresh Semi Skimmed Milk 1L",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Milk, Butter, Cream & Eggs"
   },
   {
     "product_id": "21897",
     "name": "Baked Beans in Rich Tomato Sauce 4 x 410g",
     "usual_qty": 2,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Tinned Food"
   },
   {
     "product_id": "9225090",
     "name": "BBQ Chicken Stonebaked Pizza 340g",
     "usual_qty": 1,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Pizza & Garlic Bread"
   },
   {
     "product_id": "9308762",
     "name": "Big & Fresh 10 Large Eggs",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Milk, Butter, Cream & Eggs"
   },
   {
     "product_id": "6126468",
     "name": "Cheeky Monkey Potato Snacks 6 x 15g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "817936",
     "name": "Fluffy & Golden Large Baking Potatoes 4 Pack",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Potatoes"
   },
   {
     "product_id": "7368408",
     "name": "Muller Corner Strawberry Yogurt",
     "usual_qty": 2,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Yogurts & Desserts"
   },
   {
     "product_id": "7368404",
     "name": "Muller Muller Corner Strawberry Yogurt with White Chocolate Shortcake Balls",
     "usual_qty": 2,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Yogurts & Desserts"
   },
   {
     "product_id": "9025012",
     "name": "Smooth Caramelised Biscuit Spread 400g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Jams, Spreads & Desserts"
   },
   {
     "product_id": "6685998",
     "name": "Tomato Ketchup 910g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Condiments & Cooking Ingredients"
   },
   {
     "product_id": "9133780",
     "name": "12 Italian Inspired Meatballs 340g",
     "usual_qty": 1,
-    "category": "Meat, Poultry & Fish"
+    "category": "Meat, Poultry & Fish",
+    "dept": "Meat & Poultry"
   },
   {
     "product_id": "9168250",
     "name": "38 Battered Chicken Dippers 684g",
     "usual_qty": 1,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Chicken & Meat"
   },
   {
     "product_id": "6808374",
     "name": "5 Slices Oak Smoked Dry Cured Ham 120g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Cooked Meat"
   },
   {
     "product_id": "9014191",
     "name": "Apple & Orange Soft Oaty Bars Toddler Snacks 138g",
     "usual_qty": 1,
-    "category": "Baby, Toddler & Kids"
+    "category": "Baby, Toddler & Kids",
+    "dept": "Baby, Toddler & Kids Snacks"
   },
   {
     "product_id": "3982403",
     "name": "Bacon Flavour Bites 150g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "164325",
     "name": "Baked Beans & Sausages in Rich Tomato Sauce 405g",
     "usual_qty": 6,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Tinned Food"
   },
   {
     "product_id": "9014194",
     "name": "Banana Soft Oaty Bars Toddler Snacks 138g",
     "usual_qty": 1,
-    "category": "Baby, Toddler & Kids"
+    "category": "Baby, Toddler & Kids",
+    "dept": "Baby, Toddler & Kids Snacks"
   },
   {
     "product_id": "9284830",
     "name": "Cadbury Brunch Oats Chocolate Chip Cereal Bars, 4 Pack Multipack 112g (4 x 28g)",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Cereals & Cereal Bars"
   },
   {
     "product_id": "6685364",
     "name": "Classic Real Mayonnaise 500ml",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Condiments & Cooking Ingredients"
   },
   {
     "product_id": "5387668",
     "name": "COOK by ASDA Cook Diced Onions 650g",
     "usual_qty": 1,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Vegetables, Fruit & Herbs"
   },
   {
     "product_id": "1176062",
     "name": "Finely Sliced Beef 100g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Cooked Meat"
   },
   {
     "product_id": "6710947",
     "name": "Home Chips Straight Cut 1.6kg",
     "usual_qty": 2,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Chips, Potatoes & Sides"
   },
   {
     "product_id": "7371066",
     "name": "Low Fat Fruit Yogurts 6 x 125g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Yogurts & Desserts"
   },
   {
     "product_id": "7594656",
     "name": "Max No Caffeine No Sugar Cola Cans 24 x 330ml",
     "usual_qty": 2,
-    "category": "Drinks"
+    "category": "Drinks",
+    "dept": "Fizzy Drinks"
   },
   {
     "product_id": "3658154",
     "name": "Midweek Meals Spaghetti Bolognese Meal Maker 44g",
     "usual_qty": 2,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Cooking Sauces, Meal Kits & Sides"
   },
   {
     "product_id": "9025015",
     "name": "Moreish Crunchy Caramelised Biscuit Spread 400g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Jams, Spreads & Desserts"
   },
   {
     "product_id": "7626807",
     "name": "Muller Corner Peach and Apricot Yogurt",
     "usual_qty": 2,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Yogurts & Desserts"
   },
   {
     "product_id": "7368406",
     "name": "Muller Corner Toffee Yogurt with Chocolate Hoops",
     "usual_qty": 2,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Yogurts & Desserts"
   },
   {
     "product_id": "9288980",
     "name": "Protein Sweet & Sour Chicken Noodles 400g",
     "usual_qty": 1,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Ready Meals"
   },
   {
     "product_id": "9014185",
     "name": "Raspberry & Apple Soft Oaty Bars Toddler Snacks 138g",
     "usual_qty": 1,
-    "category": "Baby, Toddler & Kids"
+    "category": "Baby, Toddler & Kids",
+    "dept": "Baby, Toddler & Kids Snacks"
   },
   {
     "product_id": "1929780",
     "name": "Salt & Vinegar Flavour Potato Twists 120g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "5080550",
     "name": "Smooth Bolognese Pasta Sauce 500g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Cooking Sauces, Meal Kits & Sides"
   },
   {
     "product_id": "9014197",
     "name": "Strawberry & Apple Soft Oaty Bars Toddler Snacks 138g",
     "usual_qty": 1,
-    "category": "Baby, Toddler & Kids"
+    "category": "Baby, Toddler & Kids",
+    "dept": "Baby, Toddler & Kids Snacks"
   },
   {
     "product_id": "9220433",
     "name": "Strawberry Flavour Jelly 460g (4 x 115g)",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Jams, Spreads & Desserts"
   },
   {
     "product_id": "5764562",
     "name": "Sweet & Sour Cooking Sauce 425g",
     "usual_qty": 3,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Cooking Sauces, Meal Kits & Sides"
   },
   {
     "product_id": "1578125",
     "name": "Tropical & Sweet Large Mango",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Fruit"
   },
   {
     "product_id": "9091794",
     "name": "Violife Original Grated Vegan Cheese Alternative 175g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Cheese"
   },
   {
     "product_id": "7271350",
     "name": "Wotsits Prawn Cocktail Multipack Crisps 6x13.5g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "5648293",
     "name": "Zingy & Crisp Braeburn Apples",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Fruit"
   },
   {
     "product_id": "1991466",
     "name": "10 Garlic Baguette Slices 260g",
     "usual_qty": 1,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Pizza & Garlic Bread"
   },
   {
     "product_id": "9110314",
     "name": "100% Plant-based Mayo 750ml",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Condiments & Cooking Ingredients"
   },
   {
     "product_id": "9341164",
     "name": "4 Big Smash Burgers 390g",
     "usual_qty": 1,
-    "category": "Meat, Poultry & Fish"
+    "category": "Meat, Poultry & Fish",
+    "dept": "Meat & Poultry"
   },
   {
     "product_id": "6808402",
     "name": "5 Extra Tasty Chicken Breast 120g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Cooked Meat"
   },
   {
     "product_id": "1785837",
     "name": "6 Cherry Bakewells",
     "usual_qty": 1,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Cake Bars, Slices & Tarts"
   },
   {
     "product_id": "5658559",
     "name": "8 Tender Pork Loin Steaks 800g",
     "usual_qty": 1,
-    "category": "Meat, Poultry & Fish"
+    "category": "Meat, Poultry & Fish",
+    "dept": "Meat & Poultry"
   },
   {
     "product_id": "9291648",
     "name": "BBQ Sauce Multipack Crisps 6x25g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "4897995",
     "name": "BEAR BEAR Little Paws Raspberry and Blueberry 2+ years 5x20g",
     "usual_qty": 1,
-    "category": "Baby, Toddler & Kids"
+    "category": "Baby, Toddler & Kids",
+    "dept": "Baby, Toddler & Kids Snacks"
   },
   {
     "product_id": "5099108",
     "name": "Blackcurrant Squash No Added Sugar 850ml",
     "usual_qty": 2,
-    "category": "Drinks"
+    "category": "Drinks",
+    "dept": "Squash & Cordial"
   },
   {
     "product_id": "9302118",
     "name": "Blitz Household Towel",
     "usual_qty": 1,
-    "category": "Laundry & Household"
+    "category": "Laundry & Household",
+    "dept": "Kitchen Roll"
   },
   {
     "product_id": "4682325",
     "name": "Bourbon Biscuits 300g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Biscuits"
   },
   {
     "product_id": "7504719",
     "name": "British Milk Filtered Semi Skimmed 2 Litres",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Milk, Butter, Cream & Eggs"
   },
   {
     "product_id": "5400477",
     "name": "Chicken Chow Mein 400g",
     "usual_qty": 1,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Ready Meals"
   },
   {
     "product_id": "9143400",
     "name": "Chicken Teriyaki with Coriander Rice 400g",
     "usual_qty": 2,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Ready Meals"
   },
   {
     "product_id": "9108772",
     "name": "Chocolate Honeycomb 140g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Chocolates & Sweets"
   },
   {
     "product_id": "5085192",
     "name": "Cracker Crisps Salt & Balsamic Flavour 150g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "3263421",
     "name": "Crispbreads 125g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Biscuits"
   },
   {
     "product_id": "3111485",
     "name": "Fanta Orange 8 x 330ml",
     "usual_qty": 1,
-    "category": "Drinks"
+    "category": "Drinks",
+    "dept": "Fizzy Drinks"
   },
   {
     "product_id": "6808386",
     "name": "Finely Sliced Oven Baked Dry Cured Ham 120g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Cooked Meat"
   },
   {
     "product_id": "9059800",
     "name": "Flora Buttery Butter Alternative With Natural Ingredients 1kg",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Milk, Butter, Cream & Eggs"
   },
   {
     "product_id": "9219143",
     "name": "Hartley's No Added Sugar Blackcurrant Flavour Jelly 4 x 115g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Jams, Spreads & Desserts"
   },
   {
     "product_id": "9220055",
     "name": "Hartley's No Added Sugar Raspberry Flavour Jelly 4 x 115g (460g)",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Jams, Spreads & Desserts"
   },
   {
     "product_id": "5717783",
     "name": "Hula Hoops BBQ Beef Multipack Crisps 6 Pack",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "9108283",
     "name": "Isotonic Sports Drink Orange Flavour 4 x 500ml",
     "usual_qty": 1,
-    "category": "Drinks"
+    "category": "Drinks",
+    "dept": "Sports, Energy & Health Drinks"
   },
   {
     "product_id": "5498609",
     "name": "Long Grain Micro Rice 250g",
     "usual_qty": 3,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Rice, Pasta & Noodles"
   },
   {
     "product_id": "1857068",
     "name": "Loose Orange Pepper",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Salad & Stir Fry"
   },
   {
     "product_id": "1857071",
     "name": "Loose Yellow Pepper",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Salad & Stir Fry"
   },
   {
     "product_id": "5721971",
     "name": "Milk Chocolate Mini Rolls 10 Pack",
     "usual_qty": 1,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Cake Bars, Slices & Tarts"
   },
   {
     "product_id": "4598432",
     "name": "Mitchum Women Powder Fresh Roll-On Antiperspirant & Deodorant 100ml",
     "usual_qty": 1,
-    "category": "Toiletries & Beauty"
+    "category": "Toiletries & Beauty",
+    "dept": "Deodorants & Body Sprays"
   },
   {
     "product_id": "5821063",
     "name": "Mixed Beans 400g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Tinned Food"
   },
   {
     "product_id": "7368402",
     "name": "Muller Corner Banana Yogurt with Chocolate Flakes",
     "usual_qty": 2,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Yogurts & Desserts"
   },
   {
     "product_id": "7368400",
     "name": "Muller Corner Vanilla Yogurt with Chocolate Balls",
     "usual_qty": 2,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Yogurts & Desserts"
   },
   {
     "product_id": "7368594",
     "name": "Muller Muller Rice Strawberry Low Fat Dessert",
     "usual_qty": 2,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Yogurts & Desserts"
   },
   {
     "product_id": "7368602",
     "name": "Muller Rice Vanilla Custard Low Fat Dessert",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Yogurts & Desserts"
   },
   {
     "product_id": "9078954",
     "name": "Nestlé Nesquik Chocolate Breakfast Cereal Bars Multipack 6 x 25g (150g)",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Cereals & Cereal Bars"
   },
   {
     "product_id": "3982407",
     "name": "Onion Rings 150g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "9173858",
     "name": "Quadruple Strength Orange Squash 1.5 Litres",
     "usual_qty": 2,
-    "category": "Drinks"
+    "category": "Drinks",
+    "dept": "Squash & Cordial"
   },
   {
     "product_id": "7069558",
     "name": "Shades Balm Facial Tissues - Twin Pack",
     "usual_qty": 2,
-    "category": "Laundry & Household"
+    "category": "Laundry & Household",
+    "dept": "Tissues"
   },
   {
     "product_id": "5910797",
     "name": "Slightly Salted Rice Cakes 130g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Biscuits"
   },
   {
     "product_id": "9100626",
     "name": "Smooth & Rich Red Potatoes 2kg",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Potatoes"
   },
   {
     "product_id": "5295909",
     "name": "Straight to Wok Noodles 300g",
     "usual_qty": 2,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Rice, Pasta & Noodles"
   },
   {
     "product_id": "5986511",
     "name": "Sweetcorn in Water 198g",
     "usual_qty": 3,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Tinned Food"
   },
   {
     "product_id": "5892371",
     "name": "The Bakery Soft White Toastie Thick Sliced 800g",
     "usual_qty": 1,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Bread & Rolls"
   },
   {
     "product_id": "7458116",
     "name": "Tomato & Basil Stir-In Sauce 190g",
     "usual_qty": 2,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Cooking Sauces, Meal Kits & Sides"
   },
   {
     "product_id": "9196018",
     "name": "Vegan Ice Cream Sticks Classic 3x 90ml",
     "usual_qty": 1,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Ice Cream & Ice Lollies"
   },
   {
     "product_id": "5261027",
     "name": "Wafer Thin Honey Roast Turkey 200g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Cooked Meat"
   },
   {
     "product_id": "139866",
     "name": "Warburtons 12 White Rolls",
     "usual_qty": 1,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Bread & Rolls"
   },
   {
     "product_id": "6702216",
     "name": "10 Beef & Vegetable Pasties 300g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Party Food, Pies, Salads & Dips"
   },
   {
     "product_id": "9310010",
     "name": "10 Night Ultra Towels with Wings",
     "usual_qty": 2,
-    "category": "Toiletries & Beauty"
+    "category": "Toiletries & Beauty",
+    "dept": "Women's Toiletries"
   },
   {
     "product_id": "7741433",
     "name": "10 Slices Oven Baked Dry Cured Ham 250g",
     "usual_qty": 2,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Cooked Meat"
   },
   {
     "product_id": "166781",
     "name": "12 Free Range Large Eggs",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Milk, Butter, Cream & Eggs"
   },
   {
     "product_id": "4298946",
     "name": "12 Savoury Mini Eggs 216g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Party Food, Pies, Salads & Dips"
   },
   {
     "product_id": "6019142",
     "name": "130 Cotton Wool Buds",
     "usual_qty": 1,
-    "category": "Toiletries & Beauty"
+    "category": "Toiletries & Beauty",
+    "dept": "Skin Care"
   },
   {
     "product_id": "5784010",
     "name": "16 Double Chocolate Mini Muffins",
     "usual_qty": 1,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "In Store Bakery"
   },
   {
     "product_id": "6702220",
     "name": "16 Savoury Mini Eggs 192g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Party Food, Pies, Salads & Dips"
   },
   {
     "product_id": "6702200",
     "name": "18 Sausage Rolls 180g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Party Food, Pies, Salads & Dips"
   },
   {
     "product_id": "9119407",
     "name": "2 Aberdeen Angus Beef Steak Burgers 340g",
     "usual_qty": 1,
-    "category": "Meat, Poultry & Fish"
+    "category": "Meat, Poultry & Fish",
+    "dept": "Meat & Poultry"
   },
   {
     "product_id": "5492806",
     "name": "200 Cotton Wool Round Pads",
     "usual_qty": 2,
-    "category": "Toiletries & Beauty"
+    "category": "Toiletries & Beauty",
+    "dept": "Skin Care"
   },
   {
     "product_id": "7416794",
     "name": "24 Party Snacks 510g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "217406",
     "name": "24 Wheat Bisks",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Cereals & Cereal Bars"
   },
   {
     "product_id": "5211358",
     "name": "30 Omega 3 Fish Fingers 900g",
     "usual_qty": 1,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Fish & Seafood"
   },
   {
     "product_id": "6942149",
     "name": "30 Small Bin Liners 35 Litres",
     "usual_qty": 1,
-    "category": "Laundry & Household"
+    "category": "Laundry & Household",
+    "dept": "Household Essentials"
   },
   {
     "product_id": "1578127",
     "name": "4 Soft & Sweet Kiwi Fruit",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Fruit"
   },
   {
     "product_id": "4431131",
     "name": "4 Sweet & Juicy Sweetcorn Cobettes",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Vegetables"
   },
   {
     "product_id": "9140607",
     "name": "4 Triple Chocolate Cookies",
     "usual_qty": 1,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "In Store Bakery"
   },
   {
     "product_id": "6808376",
     "name": "5 Slices Oven Baked Dry Cured Ham 120g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Cooked Meat"
   },
   {
     "product_id": "5648285",
     "name": "6 Soft & Sweet Golden Delicious Apples",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Fruit"
   },
   {
     "product_id": "7694369",
     "name": "7UP Zero Sugar Free Lemon & Lime Cans 8 x 330ml",
     "usual_qty": 1,
-    "category": "Drinks"
+    "category": "Drinks",
+    "dept": "Fizzy Drinks"
   },
   {
     "product_id": "7741437",
     "name": "8 Slices Corned Beef 250g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Cooked Meat"
   },
   {
     "product_id": "7328815",
     "name": "Almonds 180g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "9188510",
     "name": "Ambrosia Light Low Fat & Reduced Sugar Custard Dessert Snack Pots 4 x 120g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Jams, Spreads & Desserts"
   },
   {
     "product_id": "5853076",
     "name": "Ambrosia Rice Pudding Dessert Snack Pot 150g",
     "usual_qty": 4,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Jams, Spreads & Desserts"
   },
   {
     "product_id": "9144311",
     "name": "Andrex Complete Clean Toilet Tissue 12 MEGA Rolls 50% More sheets",
     "usual_qty": 1,
-    "category": "Laundry & Household"
+    "category": "Laundry & Household",
+    "dept": "Toilet Roll"
   },
   {
     "product_id": "6757887",
     "name": "Apple & Mango Juice Drink 150ml",
     "usual_qty": 1,
-    "category": "Drinks"
+    "category": "Drinks",
+    "dept": "Kids & Lunchbox Drinks"
   },
   {
     "product_id": "6757885",
     "name": "Apple & Pear Juice Drink 150ml",
     "usual_qty": 1,
-    "category": "Drinks"
+    "category": "Drinks",
+    "dept": "Fruit Juice"
   },
   {
     "product_id": "6757877",
     "name": "Apple Juice from Concentrate 150ml",
     "usual_qty": 1,
-    "category": "Drinks"
+    "category": "Drinks",
+    "dept": "Fruit Juice"
   },
   {
     "product_id": "9225250",
     "name": "ASDA 4 Southern Fried Chicken Breast Fillet Burgers 460g",
     "usual_qty": 1,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Chicken & Meat"
   },
   {
     "product_id": "9208304",
     "name": "ASDA Succulent Southern Fried Chicken Goujons 600g",
     "usual_qty": 1,
-    "category": "Meat, Poultry & Fish"
+    "category": "Meat, Poultry & Fish",
+    "dept": "Meat & Poultry"
   },
   {
     "product_id": "9017707",
     "name": "Asda Super Alkaline Long Life AAA 8 Pack",
     "usual_qty": 1,
-    "category": "Home & Entertainment"
+    "category": "Home & Entertainment",
+    "dept": "Batteries & Light Bulbs"
   },
   {
     "product_id": "9236554",
     "name": "ASDA Sweet Chilli Sauce 300g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Condiments & Cooking Ingredients"
   },
   {
     "product_id": "6543919",
     "name": "Bachelors Super Noodles Curry Flavour Noodle Block 90g",
     "usual_qty": 4,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Noodle Pots & Instant Snacks"
   },
   {
     "product_id": "11120",
     "name": "BAKE by ASDA Bake by Plain Flour 1.5kg",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Home Baking"
   },
   {
     "product_id": "9055099",
     "name": "BAKE by ASDA Bake Cocoa Powder 250g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Home Baking"
   },
   {
     "product_id": "11118",
     "name": "BAKE by ASDA Bake Self Raising Flour 1.5kg",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Home Baking"
   },
   {
     "product_id": "4107450",
     "name": "Batiste Dry Shampoo Blush Flirty Floral 200ml",
     "usual_qty": 2,
-    "category": "Toiletries & Beauty"
+    "category": "Toiletries & Beauty",
+    "dept": "Hair Care, Dye & Styling"
   },
   {
     "product_id": "9093405",
     "name": "Batiste Dry Shampoo Blush Flirty Floral 350ml",
     "usual_qty": 1,
-    "category": "Toiletries & Beauty"
+    "category": "Toiletries & Beauty",
+    "dept": "Hair Care, Dye & Styling"
   },
   {
     "product_id": "4823440",
     "name": "Battered Onion Rings 750g",
     "usual_qty": 1,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Party Food & Snacking"
   },
   {
     "product_id": "5171040",
     "name": "BEAR Brilliant Blackcurrant Yoyos 4 x 20g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "4897992",
     "name": "BEAR Little Paws Strawberry and Apple 2+ years 5x20g",
     "usual_qty": 1,
-    "category": "Baby, Toddler & Kids"
+    "category": "Baby, Toddler & Kids",
+    "dept": "Baby, Toddler & Kids Snacks"
   },
   {
     "product_id": "5171046",
     "name": "BEAR Marvellous Mango Yoyos 4 x 20g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "9103872",
     "name": "BEAR Scrumptious Strawberry Yoyos 4 x 20g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "7602441",
     "name": "Belvita Soft Bakes Golden Oats Cereal Snack Bars Multipack 250g (5 x 50g)",
     "usual_qty": 2,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Cereals & Cereal Bars"
   },
   {
     "product_id": "5752237",
     "name": "Blue Dragon Chow Mein Stir Fry Sauce 120g",
     "usual_qty": 2,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Cooking Sauces, Meal Kits & Sides"
   },
   {
     "product_id": "5625678",
     "name": "Bostik Blu Tack White",
     "usual_qty": 1,
-    "category": "Home & Entertainment"
+    "category": "Home & Entertainment",
+    "dept": "Stationery, Magazines & Stamps"
   },
   {
     "product_id": "6808380",
     "name": "Breaded Dry Cured Ham 5 Slices 120g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Cooked Meat"
   },
   {
     "product_id": "9227823",
     "name": "British 4 Caramelised Red Onion Beef Steak Burgers 454g",
     "usual_qty": 1,
-    "category": "Meat, Poultry & Fish"
+    "category": "Meat, Poultry & Fish",
+    "dept": "Meat & Poultry"
   },
   {
     "product_id": "6793870",
     "name": "British Mild Cheddar 400g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Cheese"
   },
   {
     "product_id": "2027109",
     "name": "Broccoli Florets 1kg",
     "usual_qty": 1,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Vegetables, Fruit & Herbs"
   },
   {
     "product_id": "5005344",
     "name": "Butter Beans in Water 400g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Tinned Food"
   },
   {
     "product_id": "6364412",
     "name": "Butterkist Sweet & Salty Popcorn 6 Pack",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "9144111",
     "name": "Cadbury Brunch Oats Raisin Chocolate Cereal Bars, 4 Pack Multipack 112g (4 x 28g)",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Cereals & Cereal Bars"
   },
   {
     "product_id": "9324901",
     "name": "Cadbury Mini Eggs Chocolate Easter Egg 95 g",
     "usual_qty": 1,
-    "category": "Meat, Poultry & Fish"
+    "category": "Meat, Poultry & Fish",
+    "dept": "Meat & Poultry"
   },
   {
     "product_id": "6715237",
     "name": "Cadbury White Oreo Chocolate Bar 120 g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Chocolates & Sweets"
   },
   {
     "product_id": "3982401",
     "name": "Cheesy Balls 150g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "9292612",
     "name": "Chilli Beef Noodles 400g",
     "usual_qty": 2,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Ready Meals"
   },
   {
     "product_id": "9304139",
     "name": "Chocolate Mousses 6 x 55g (330g)",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Yogurts & Desserts"
   },
   {
     "product_id": "4721963",
     "name": "Chocolate Sponge Mix 400g",
     "usual_qty": 2,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Home Baking"
   },
   {
     "product_id": "5611428",
     "name": "Chopped Tomatoes 400g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Tinned Food"
   },
   {
     "product_id": "3915892",
     "name": "Chow Mein Stir-Fry Sauce 120g",
     "usual_qty": 2,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Cooking Sauces, Meal Kits & Sides"
   },
   {
     "product_id": "9164861",
     "name": "Chrg Raspberry Flavour Isotonic Sports Drink 4 x 500ml",
     "usual_qty": 1,
-    "category": "Drinks"
+    "category": "Drinks",
+    "dept": "Sports, Energy & Health Drinks"
   },
   {
     "product_id": "6394366",
     "name": "Citrus Dishwasher Rinse Aid 480ml",
     "usual_qty": 1,
-    "category": "Laundry & Household"
+    "category": "Laundry & Household",
+    "dept": "Cleaning"
   },
   {
     "product_id": "9058734",
     "name": "Classic BBQ Sauce 460g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Condiments & Cooking Ingredients"
   },
   {
     "product_id": "9355606",
     "name": "Colgate Kids 3+ Years Bluey Mint-Flavoured Fluoride Toothpaste 75ml",
     "usual_qty": 1,
-    "category": "Toiletries & Beauty"
+    "category": "Toiletries & Beauty",
+    "dept": "Dental Care"
   },
   {
     "product_id": "5387666",
     "name": "COOK by ASDA Cook Sliced Mixed Peppers 600g",
     "usual_qty": 1,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Vegetables, Fruit & Herbs"
   },
   {
     "product_id": "5891543",
     "name": "Cookies & Cream Biscuits 154g",
     "usual_qty": 2,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Biscuits"
   },
   {
     "product_id": "7410166",
     "name": "Cottage Pie 400g",
     "usual_qty": 1,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Ready Meals"
   },
   {
     "product_id": "4735071",
     "name": "Crème Caramel 6 x 100 (600g)",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Yogurts & Desserts"
   },
   {
     "product_id": "5648289",
     "name": "Crisp & Juicy Apples",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Fruit"
   },
   {
     "product_id": "9225746",
     "name": "Crispy Chicken Breast Strips 400g",
     "usual_qty": 1,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Chicken & Meat"
   },
   {
     "product_id": "6303267",
     "name": "Crispy French Fries 1.5kg",
     "usual_qty": 1,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Chips, Potatoes & Sides"
   },
   {
     "product_id": "9223803",
     "name": "Crispy Shredded Chicken 450g",
     "usual_qty": 1,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Chicken & Meat"
   },
   {
     "product_id": "9122401",
     "name": "Cushelle Quilted Toilet Roll 12 Rolls 50% More Sheets",
     "usual_qty": 1,
-    "category": "Laundry & Household"
+    "category": "Laundry & Household",
+    "dept": "Toilet Roll"
   },
   {
     "product_id": "7397280",
     "name": "Cushelle Quilted Tubeless Toilet Roll 6 Rolls 50% More Sheets",
     "usual_qty": 2,
-    "category": "Laundry & Household"
+    "category": "Laundry & Household",
+    "dept": "Toilet Roll"
   },
   {
     "product_id": "4052124",
     "name": "Delicious Unsmoked Gammon Joint 750g",
     "usual_qty": 1,
-    "category": "Meat, Poultry & Fish"
+    "category": "Meat, Poultry & Fish",
+    "dept": "Meat & Poultry"
   },
   {
     "product_id": "9133315",
     "name": "Dolmio Bolognese Smooth Tomato Pasta Sauce 675g",
     "usual_qty": 2,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Cooking Sauces, Meal Kits & Sides"
   },
   {
     "product_id": "9332225",
     "name": "Easter Mini Chicks 8Pk",
     "usual_qty": 1,
-    "category": "Home & Entertainment"
+    "category": "Home & Entertainment",
+    "dept": "Partyware & Gifting"
   },
   {
     "product_id": "9337473",
     "name": "Easter Stickers",
     "usual_qty": 1,
-    "category": "Home & Entertainment"
+    "category": "Home & Entertainment",
+    "dept": "Partyware & Gifting"
   },
   {
     "product_id": "9132441",
     "name": "Easy Cook Long Grain White Rice",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Rice, Pasta & Noodles"
   },
   {
     "product_id": "5025199",
     "name": "Ella's Kitchen the Orange One Squished Smoothie Fruits 5 x 90g (450g)",
     "usual_qty": 1,
-    "category": "Baby, Toddler & Kids"
+    "category": "Baby, Toddler & Kids",
+    "dept": "Baby & Toddler Food"
   },
   {
     "product_id": "4560245",
     "name": "Ella's Kitchen the Purple One Squished Smoothie Fruits 5 x 90g (450g)",
     "usual_qty": 1,
-    "category": "Baby, Toddler & Kids"
+    "category": "Baby, Toddler & Kids",
+    "dept": "Baby & Toddler Food"
   },
   {
     "product_id": "4560241",
     "name": "Ella's Kitchen the Red One Squished Smoothie Fruits 5 x 90g (450g)",
     "usual_qty": 1,
-    "category": "Baby, Toddler & Kids"
+    "category": "Baby, Toddler & Kids",
+    "dept": "Baby & Toddler Food"
   },
   {
     "product_id": "4560243",
     "name": "Ella's Kitchen the Yellow One Squished Smoothie Fruits 5 x 90g (450g)",
     "usual_qty": 1,
-    "category": "Baby, Toddler & Kids"
+    "category": "Baby, Toddler & Kids",
+    "dept": "Baby & Toddler Food"
   },
   {
     "product_id": "7610593",
     "name": "Fairy Original Washing Up Liquid Green with LiftAction 1015ML",
     "usual_qty": 1,
-    "category": "Laundry & Household"
+    "category": "Laundry & Household",
+    "dept": "Cleaning"
   },
   {
     "product_id": "9228655",
     "name": "Fairy Skip The Soak Power Spray Fresh 500ml, Dish & Kitchen Spray, Pre-Treatment",
     "usual_qty": 1,
-    "category": "Laundry & Household"
+    "category": "Laundry & Household",
+    "dept": "Cleaning"
   },
   {
     "product_id": "3111489",
     "name": "Fanta Fruit Twist 8 x 330ml",
     "usual_qty": 1,
-    "category": "Drinks"
+    "category": "Drinks",
+    "dept": "Fizzy Drinks"
   },
   {
     "product_id": "3198116",
     "name": "Finely Sliced Cured Pastrami 110g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Cooked Meat"
   },
   {
     "product_id": "9226962",
     "name": "Finish Quantum All In One Dishwasher Tablets  Lemon - 100 Tabs",
     "usual_qty": 1,
-    "category": "Laundry & Household"
+    "category": "Laundry & Household",
+    "dept": "Cleaning"
   },
   {
     "product_id": "7598456",
     "name": "Flavoursome 24 Smoked Back Bacon Rashers 2 x 350g (700g)",
     "usual_qty": 1,
-    "category": "Meat, Poultry & Fish"
+    "category": "Meat, Poultry & Fish",
+    "dept": "Meat & Poultry"
   },
   {
     "product_id": "9072496",
     "name": "Flora Original Butter Alternative With Natural Ingredients 450g",
     "usual_qty": 2,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Milk, Butter, Cream & Eggs"
   },
   {
     "product_id": "9100617",
     "name": "Fluffy & Golden Baking Potatoes 2kg",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Potatoes"
   },
   {
     "product_id": "7413240",
     "name": "Fox's Party Rings Choc Minis 5 x 21g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Biscuits"
   },
   {
     "product_id": "7725259",
     "name": "Fox's Party Rings Minis 10 x 21g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Biscuits"
   },
   {
     "product_id": "9060787",
     "name": "Free From by ASDA Easter Patch the Bunny 100g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Chocolates & Sweets"
   },
   {
     "product_id": "3537492",
     "name": "Free From Choc Buttons 25g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Chocolates & Sweets"
   },
   {
     "product_id": "9238247",
     "name": "Free From Free From by  Choc Coated Raisins 120g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Chocolates & Sweets"
   },
   {
     "product_id": "9202987",
     "name": "Free From Free From by  Easter Mini Eggs 90g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Chocolates & Sweets"
   },
   {
     "product_id": "5374748",
     "name": "Free From Free From by  Salad Cream 295g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Condiments & Cooking Ingredients"
   },
   {
     "product_id": "6327921",
     "name": "Free From Free From by  White Choc Buttons 25g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Chocolates & Sweets"
   },
   {
     "product_id": "9351050",
     "name": "Fruit Medley in Tropical Flavour Jelly 480g (4 x 120g)",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Jams, Spreads & Desserts"
   },
   {
     "product_id": "6887612",
     "name": "Full-Flavoured 24 Beef Meatballs 672g",
     "usual_qty": 1,
-    "category": "Meat, Poultry & Fish"
+    "category": "Meat, Poultry & Fish",
+    "dept": "Meat & Poultry"
   },
   {
     "product_id": "977756",
     "name": "Fusilli 3kg",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Rice, Pasta & Noodles"
   },
   {
     "product_id": "7618829",
     "name": "Galaxy Dairy Free & Vegan Classic Chocolate Bar 100g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Chocolates & Sweets"
   },
   {
     "product_id": "7618833",
     "name": "Galaxy Dairy Free Salted Caramel 100g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Chocolates & Sweets"
   },
   {
     "product_id": "6462988",
     "name": "Garden Gang Super Easy Peelers 500g",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Fruit"
   },
   {
     "product_id": "7105140",
     "name": "Garlic Flavoured Crackers 185g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Biscuits"
   },
   {
     "product_id": "9051840",
     "name": "George Home 2 Pack 100% Cotton White Face Cloths",
     "usual_qty": 2,
-    "category": "Home & Entertainment"
+    "category": "Home & Entertainment",
+    "dept": "Bed, Bath & Home"
   },
   {
     "product_id": "5269217",
     "name": "Golden Syrup 750g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Jams, Spreads & Desserts"
   },
   {
     "product_id": "5498621",
     "name": "Golden Vegetable Micro Rice 250g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Rice, Pasta & Noodles"
   },
   {
     "product_id": "7245921",
     "name": "Haribo Eggs Galore Fruit Flavour Jelly & Foam Sweets 30 x 16g Fun Size Bags Multipack 480g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Chocolates & Sweets"
   },
   {
     "product_id": "645546",
     "name": "Harpic Active Fresh Mountain Pine 750ml",
     "usual_qty": 1,
-    "category": "Laundry & Household"
+    "category": "Laundry & Household",
+    "dept": "Cleaning"
   },
   {
     "product_id": "4520651",
     "name": "Harpic Active Fresh Serene Sunset 750ml",
     "usual_qty": 1,
-    "category": "Laundry & Household"
+    "category": "Laundry & Household",
+    "dept": "Cleaning"
   },
   {
     "product_id": "9217963",
     "name": "Hartley's Orange Flavour Jelly 4 x 125g (500g)",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Jams, Spreads & Desserts"
   },
   {
     "product_id": "886185",
     "name": "Hazelnut Chocolate Spread 750g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Jams, Spreads & Desserts"
   },
   {
     "product_id": "5059722",
     "name": "Heinz Salad Cream Original 425g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Condiments & Cooking Ingredients"
   },
   {
     "product_id": "14530",
     "name": "Heinz Tomato Ketchup 700g",
     "usual_qty": 2,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Condiments & Cooking Ingredients"
   },
   {
     "product_id": "7131889",
     "name": "Hovis Jacob's  Extra Wheatgerm Crackers 150g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Biscuits"
   },
   {
     "product_id": "5717789",
     "name": "Hula Hoops Variety Multipack Crisps 6 Pack",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "7389143",
     "name": "Imperial Leather Cotton Flower & Vanilla Hand Wash 500ml",
     "usual_qty": 1,
-    "category": "Toiletries & Beauty"
+    "category": "Toiletries & Beauty",
+    "dept": "Bath, Shower & Soap"
   },
   {
     "product_id": "9261091",
     "name": "Jammie Dodgers Raspberry Flavour Minis 10 x 20g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Biscuits"
   },
   {
     "product_id": "1678627",
     "name": "Jelly Orange Flavour 115g",
     "usual_qty": 4,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Jams, Spreads & Desserts"
   },
   {
     "product_id": "5792191",
     "name": "JUST ESSENTIALS by ASDA Cherry Tomatoes 250g",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Salad & Stir Fry"
   },
   {
     "product_id": "4450493",
     "name": "JUST ESSENTIALS by ASDA Grated Cheddar 500g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Cheese"
   },
   {
     "product_id": "5878976",
     "name": "JUST ESSENTIALS by ASDA Just Essentials 3 Strawberry Cheesecakes 3 x 90g (270g)",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Yogurts & Desserts"
   },
   {
     "product_id": "7366627",
     "name": "JUST ESSENTIALS by ASDA Soft Spread 500g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Milk, Butter, Cream & Eggs"
   },
   {
     "product_id": "9142323",
     "name": "Just Essentials Strawberry Flavour Swiss Roll 365g",
     "usual_qty": 1,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Cakes"
   },
   {
     "product_id": "7731624",
     "name": "Kettle Sweet Chilli & Sour Cream Potato Chips 130g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "9012199",
     "name": "Kiddylicious Banana & Pumpkin Melty Buttons 9+ Months 6g",
     "usual_qty": 1,
-    "category": "Baby, Toddler & Kids"
+    "category": "Baby, Toddler & Kids",
+    "dept": "Baby, Toddler & Kids Snacks"
   },
   {
     "product_id": "4183047",
     "name": "Kiddylicious Banana, Mango & Passion fruit Smoothie Melts 12+ Months 6g",
     "usual_qty": 1,
-    "category": "Baby, Toddler & Kids"
+    "category": "Baby, Toddler & Kids",
+    "dept": "Baby, Toddler & Kids Snacks"
   },
   {
     "product_id": "5876645",
     "name": "Kiddylicious Cheesy Flavour Veggie Straws 9+ Months 4 x 12g (48g)",
     "usual_qty": 1,
-    "category": "Baby, Toddler & Kids"
+    "category": "Baby, Toddler & Kids",
+    "dept": "Baby, Toddler & Kids Snacks"
   },
   {
     "product_id": "7376764",
     "name": "Kiddylicious Raspberry & Beetroot Melty Buttons 9+ Months 6g",
     "usual_qty": 1,
-    "category": "Baby, Toddler & Kids"
+    "category": "Baby, Toddler & Kids",
+    "dept": "Baby, Toddler & Kids Snacks"
   },
   {
     "product_id": "6630643",
     "name": "Kiddylicious Raspbery & Beetroot Melty Buttons  9+ Months 5 x 6g (30g)",
     "usual_qty": 1,
-    "category": "Baby, Toddler & Kids"
+    "category": "Baby, Toddler & Kids",
+    "dept": "Baby, Toddler & Kids Snacks"
   },
   {
     "product_id": "6796306",
     "name": "Kiddylicious Strawberry & Banana Smoothie Melts 12+ Months 4 x 6g (24g)",
     "usual_qty": 1,
-    "category": "Baby, Toddler & Kids"
+    "category": "Baby, Toddler & Kids",
+    "dept": "Baby & Toddler Food"
   },
   {
     "product_id": "4019845",
     "name": "Kiddylicious Strawberry & Banana Smoothie Melts 12+ Months 6g",
     "usual_qty": 2,
-    "category": "Baby, Toddler & Kids"
+    "category": "Baby, Toddler & Kids",
+    "dept": "Baby, Toddler & Kids Snacks"
   },
   {
     "product_id": "5876643",
     "name": "Kiddylicious Veggie Straws 9+ Months 4 x 12g (48g)",
     "usual_qty": 1,
-    "category": "Baby, Toddler & Kids"
+    "category": "Baby, Toddler & Kids",
+    "dept": "Baby & Toddler Food"
   },
   {
     "product_id": "2160171",
     "name": "Kingsmill 50/50 Bread Medium Sliced Loaf 800g",
     "usual_qty": 1,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Bread & Rolls"
   },
   {
     "product_id": "9224459",
     "name": "Kinnerton Bluey Easter Egg 50g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Chocolates & Sweets"
   },
   {
     "product_id": "9246061",
     "name": "KitKat 2 Finger White Biscuit Bar 8 Pack Multipack 165.6g",
     "usual_qty": 1,
-    "category": "Sweets, Treats & Snacks"
+    "category": "Sweets, Treats & Snacks",
+    "dept": "Biscuits & Crackers"
   },
   {
     "product_id": "6345327",
     "name": "Light Brown Sugar 500g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Home Baking"
   },
   {
     "product_id": "5886522",
     "name": "Lightly Salted Tortilla Chips 180g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "6903463",
     "name": "Lotus Biscoff Smooth 720g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Jams, Spreads & Desserts"
   },
   {
     "product_id": "4318925",
     "name": "Malted Milk Biscuits 200g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Biscuits"
   },
   {
     "product_id": "3139551",
     "name": "McCain Microwave Quick Chips Straight Cut 4 x 100g",
     "usual_qty": 1,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Chips, Potatoes & Sides"
   },
   {
     "product_id": "560690",
     "name": "Midweek Meals Chilli Con Carne Meal Maker 50g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Cooking Sauces, Meal Kits & Sides"
   },
   {
     "product_id": "1198988",
     "name": "Mild & Tender Casserole Vegetables 600g",
     "usual_qty": 2,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Vegetables"
   },
   {
     "product_id": "9112832",
     "name": "Milk Chocolate 200g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Chocolates & Sweets"
   },
   {
     "product_id": "519751",
     "name": "Milk Chocolate Digestives 300g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Biscuits"
   },
   {
     "product_id": "6633417",
     "name": "Milk Chocolate Sitting Bunny 100g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Chocolates & Sweets"
   },
   {
     "product_id": "498538",
     "name": "Mini Corn on the Cob 900g",
     "usual_qty": 1,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Vegetables, Fruit & Herbs"
   },
   {
     "product_id": "6454540",
     "name": "Mini Raisin Snack Boxes 10 x 14g (140g)",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "2027525",
     "name": "Mixed Vegetables 1kg",
     "usual_qty": 1,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Vegetables, Fruit & Herbs"
   },
   {
     "product_id": "5721979",
     "name": "Mr Kipling Angel Cake Slices 8 Pack",
     "usual_qty": 1,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Cake Bars, Slices & Tarts"
   },
   {
     "product_id": "217019",
     "name": "Mr Kipling Bakewell Cake Slices 6 Pack",
     "usual_qty": 1,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Cake Bars, Slices & Tarts"
   },
   {
     "product_id": "7010840",
     "name": "Mr Sheen Multi-Surface Magnolia & Cherry Blossom Polish Spray",
     "usual_qty": 1,
-    "category": "Laundry & Household"
+    "category": "Laundry & Household",
+    "dept": "Cleaning"
   },
   {
     "product_id": "6719885",
     "name": "Mrs Crimble 6 Vegan Gluten Free Choc Macaroons",
     "usual_qty": 1,
-    "category": "Dietary & Lifestyle"
+    "category": "Dietary & Lifestyle",
+    "dept": "Vegan"
   },
   {
     "product_id": "9103647",
     "name": "Multi Surface Cleaning Spray 750ml",
     "usual_qty": 1,
-    "category": "Laundry & Household"
+    "category": "Laundry & Household",
+    "dept": "Cleaning"
   },
   {
     "product_id": "4681981",
     "name": "Nature Valley Crunchy Oats & Dark Chocolate Cereal Bars 5 x 42g (210g)",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Cereals & Cereal Bars"
   },
   {
     "product_id": "7674733",
     "name": "New York Bakery Co Cinnamon & Raisin NYC Bagels",
     "usual_qty": 1,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Wraps, Bagels, Pittas & Naans"
   },
   {
     "product_id": "9037333",
     "name": "Nice Biscuits 200g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Biscuits"
   },
   {
     "product_id": "6711913",
     "name": "Nik Naks Rib 'N' Saucy Multipack Crisps 6 Pack",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "9096648",
     "name": "NOMO Choc Lollies 3 x 12g (36g)",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Chocolates & Sweets"
   },
   {
     "product_id": "5891881",
     "name": "Oatie Crumbles 300g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Biscuits"
   },
   {
     "product_id": "6198507",
     "name": "Oatly The Original Oat Drink Whole 1L",
     "usual_qty": 2,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Milk, Butter, Cream & Eggs"
   },
   {
     "product_id": "7235612",
     "name": "OMV! Deliciously Vegan Plant Based OMV! Choc Flavour Spread 350g",
     "usual_qty": 1,
-    "category": "Dietary & Lifestyle"
+    "category": "Dietary & Lifestyle",
+    "dept": "Vegan"
   },
   {
     "product_id": "6548364",
     "name": "Organix Gruffalo Biscuits Toddler Snacks Multipack 5x20g 12 months+",
     "usual_qty": 1,
-    "category": "Baby, Toddler & Kids"
+    "category": "Baby, Toddler & Kids",
+    "dept": "Baby, Toddler & Kids Snacks"
   },
   {
     "product_id": "9014200",
     "name": "Organix Mini Oaty Bites Toddler Snacks Multipack 110g 12 months+",
     "usual_qty": 1,
-    "category": "Baby, Toddler & Kids"
+    "category": "Baby, Toddler & Kids",
+    "dept": "Baby, Toddler & Kids Snacks"
   },
   {
     "product_id": "6360222",
     "name": "Original Thick Bleach 750ml",
     "usual_qty": 2,
-    "category": "Laundry & Household"
+    "category": "Laundry & Household",
+    "dept": "Cleaning"
   },
   {
     "product_id": "2567932",
     "name": "Penne 500g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Rice, Pasta & Noodles"
   },
   {
     "product_id": "5878100",
     "name": "Pink Wafers 185g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Biscuits"
   },
   {
     "product_id": "6063502",
     "name": "Potato Salad 500g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Party Food, Pies, Salads & Dips"
   },
   {
     "product_id": "5864117",
     "name": "Prawn Crackers 70g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Cooking Sauces, Meal Kits & Sides"
   },
   {
     "product_id": "5705090",
     "name": "Propercorn Sweet & Salty Popcorn 6 x 14g (84g)",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "3279082",
     "name": "Ready Salted Crisps 6 x 25g (150g)",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "5893669",
     "name": "Real Mayonnaise 500ml",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Condiments & Cooking Ingredients"
   },
   {
     "product_id": "5648295",
     "name": "Royal Gala Apples",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Fruit"
   },
   {
     "product_id": "3950077",
     "name": "Rymer Farm Twelve Large Free Range Eggs",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Milk, Butter, Cream & Eggs"
   },
   {
     "product_id": "7105132",
     "name": "Salt & Pepper Crackers 185g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Biscuits"
   },
   {
     "product_id": "3982405",
     "name": "Salt & Vinegar Flavour Sticks 150g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "7105134",
     "name": "SEA SALT CRACKERS by ASDA 185g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Biscuits"
   },
   {
     "product_id": "9142269",
     "name": "Seabrook Tomato Ketchup Flavour 6 x 25g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "5907474",
     "name": "Seasoned Sweet Potato Fries 500g",
     "usual_qty": 1,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Chips, Potatoes & Sides"
   },
   {
     "product_id": "9037336",
     "name": "Shortcake Biscuits 200g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Biscuits"
   },
   {
     "product_id": "9296068",
     "name": "Sip it Swirler Active Cup 18+ months",
     "usual_qty": 1,
-    "category": "Baby, Toddler & Kids"
+    "category": "Baby, Toddler & Kids",
+    "dept": "Baby Accessories"
   },
   {
     "product_id": "5717777",
     "name": "Skips Prawn Cocktail Multipack Crisps",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "5717769",
     "name": "Skips Prawn Cocktail Multipack Crisps 6 Pack",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "5542183",
     "name": "Sliced Carrots 1kg",
     "usual_qty": 1,
-    "category": "Frozen Food"
+    "category": "Frozen Food",
+    "dept": "Frozen Vegetables, Fruit & Herbs"
   },
   {
     "product_id": "6808400",
     "name": "Sliced Cured Ham on the Bone 120g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Cooked Meat"
   },
   {
     "product_id": "6651482",
     "name": "Slow Cooked Smoky BBQ Pulled Pork 500g",
     "usual_qty": 1,
-    "category": "Meat, Poultry & Fish"
+    "category": "Meat, Poultry & Fish",
+    "dept": "Meat & Poultry"
   },
   {
     "product_id": "6120016",
     "name": "Spirali 500g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Rice, Pasta & Noodles"
   },
   {
     "product_id": "2979590",
     "name": "Sunbites Sun Ripened Sweet Chilli Multipack Snacks Crisps 6x25g",
     "usual_qty": 1,
-    "category": "Sweets, Treats & Snacks"
+    "category": "Sweets, Treats & Snacks",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "9137874",
     "name": "Superseeded Sliced Loaf 800g",
     "usual_qty": 1,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Bread & Rolls"
   },
   {
     "product_id": "4419168",
     "name": "Sweet & Earthy Parsnips 500g",
     "usual_qty": 2,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Vegetables"
   },
   {
     "product_id": "9041479",
     "name": "Sweet & Fruity Baby Plum Tomatoes 300g",
     "usual_qty": 1,
-    "category": "Fresh Fruit, Vegetables & Flowers"
+    "category": "Fresh Fruit, Vegetables & Flowers",
+    "dept": "Fresh Salad & Stir Fry"
   },
   {
     "product_id": "4633166",
     "name": "Sweet & Salted Popcorn 100g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "7697257",
     "name": "Tender Beef Stir-Fry Strips",
     "usual_qty": 1,
-    "category": "Meat, Poultry & Fish"
+    "category": "Meat, Poultry & Fish",
+    "dept": "Meat & Poultry"
   },
   {
     "product_id": "4778498",
     "name": "Tender Chicken Breast Fillets 1kg",
     "usual_qty": 1,
-    "category": "Meat, Poultry & Fish"
+    "category": "Meat, Poultry & Fish",
+    "dept": "Meat & Poultry"
   },
   {
     "product_id": "9256594",
     "name": "Tender Chicken Breast Fillets 650g",
     "usual_qty": 1,
-    "category": "Meat, Poultry & Fish"
+    "category": "Meat, Poultry & Fish",
+    "dept": "Meat & Poultry"
   },
   {
     "product_id": "9065413",
     "name": "TGI Fridays BBQ Pork Ribs 450g",
     "usual_qty": 2,
-    "category": "Meat, Poultry & Fish"
+    "category": "Meat, Poultry & Fish",
+    "dept": "Meat & Poultry"
   },
   {
     "product_id": "9253984",
     "name": "The Bakery at  4 White Baps",
     "usual_qty": 1,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Bread & Rolls"
   },
   {
     "product_id": "7459876",
     "name": "TidyZ 50 Doggy Bags Tie Handles",
     "usual_qty": 1,
-    "category": "Pet Food & Accessories"
+    "category": "Pet Food & Accessories",
+    "dept": "Dog Food & Accessories"
   },
   {
     "product_id": "7679957",
     "name": "Tomato & Basil Sauce for Meatballs 500g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Cooking Sauces, Meal Kits & Sides"
   },
   {
     "product_id": "9093870",
     "name": "Torchon Ham 200g",
     "usual_qty": 1,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Cooked Meat"
   },
   {
     "product_id": "9268133",
     "name": "TRESemmé Hairspray Firm Hold 300 ml",
     "usual_qty": 1,
-    "category": "Toiletries & Beauty"
+    "category": "Toiletries & Beauty",
+    "dept": "Hair Care, Dye & Styling"
   },
   {
     "product_id": "652230",
     "name": "Tuc TUC Original Snack Crackers 150g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Biscuits"
   },
   {
     "product_id": "6104910",
     "name": "Tuna Chunks in Spring Water 4 x 145g (580g)",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Tinned Food"
   },
   {
     "product_id": "9169585",
     "name": "Unsalted Block Butter Alternative 200g",
     "usual_qty": 2,
-    "category": "Chilled Food"
+    "category": "Chilled Food",
+    "dept": "Milk, Butter, Cream & Eggs"
   },
   {
     "product_id": "4721965",
     "name": "Vanilla Flavour Sponge Mix 400g",
     "usual_qty": 2,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Home Baking"
   },
   {
     "product_id": "9247193",
     "name": "Vanish ' Oxi Action Fabric Stain Remover Pre-Wash Spray 250ml",
     "usual_qty": 1,
-    "category": "Laundry & Household"
+    "category": "Laundry & Household",
+    "dept": "Laundry"
   },
   {
     "product_id": "464474",
     "name": "Vegetable Oil 1 Litre",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Condiments & Cooking Ingredients"
   },
   {
     "product_id": "7312640",
     "name": "Vimto 8 x 330ml",
     "usual_qty": 1,
-    "category": "Drinks"
+    "category": "Drinks",
+    "dept": "Tonic Water & Mixers"
   },
   {
     "product_id": "6308063",
     "name": "VO5 Invisible Firm Hold Hairspray 289g",
     "usual_qty": 1,
-    "category": "Toiletries & Beauty"
+    "category": "Toiletries & Beauty",
+    "dept": "Hair Care, Dye & Styling"
   },
   {
     "product_id": "5463791",
     "name": "Walkers Bugles Southern Style BBQ Sharing Snacks Crisps 110g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "7619259",
     "name": "Walkers Classic Variety Multipack Crisps Box 20x25g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "7619261",
     "name": "Walkers Meaty Variety Multipack Crisps Box 20 x 25g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "6332306",
     "name": "Warburtons 5 Cinnamon & Raisin Bagels",
     "usual_qty": 1,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Wraps, Bagels, Pittas & Naans"
   },
   {
     "product_id": "487742",
     "name": "Warburtons Farmhouse 800g",
     "usual_qty": 1,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Bread & Rolls"
   },
   {
     "product_id": "6506219",
     "name": "Wheat Crunchies Bacon Multipack Crisps 6 pack",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Crisps, Nuts & Popcorn"
   },
   {
     "product_id": "7601587",
     "name": "Zero 24 x 330ml",
     "usual_qty": 1,
-    "category": "Drinks"
+    "category": "Drinks",
+    "dept": "Fizzy Drinks"
   },
   {
     "product_id": "6722863",
     "name": "Fruity Seedless Strawberry Jam 454g",
     "usual_qty": 1,
-    "category": "Food Cupboard"
+    "category": "Food Cupboard",
+    "dept": "Jams, Spreads & Desserts"
   },
   {
     "product_id": "7310758",
     "name": "Sparkling Mango Soft Drink Can Multipack 24x330ml",
     "usual_qty": 1,
-    "category": "Drinks"
+    "category": "Drinks",
+    "dept": "Fizzy Drinks"
   },
   {
     "product_id": "7344133",
     "name": "The Bakery 6 Sultana Scones",
     "usual_qty": 1,
-    "category": "Bakery"
+    "category": "Bakery",
+    "dept": "Scones, Teacakes & Fruit Loaves"
   }
 ]

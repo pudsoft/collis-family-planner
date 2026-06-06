@@ -4,7 +4,7 @@ const path  = require('path');
 
 const REGULARS_FILE = path.join(__dirname, 'data', 'asda_regulars.json');
 const regulars = JSON.parse(fs.readFileSync(REGULARS_FILE, 'utf8'));
-const missing  = regulars.filter(r => !r.category).map(r => r.product_id);
+const missing  = regulars.filter(r => !r.dept).map(r => r.product_id); // fill missing dept
 console.log(`${regulars.length} items total, ${missing.length} missing category`);
 
 function post(body) {
@@ -46,15 +46,23 @@ function post(body) {
     });
     for (const hit of (result.results?.[0]?.hits || [])) {
       if (!hit.CIN) continue;
-      const cat = hit.PRIMARY_TAXONOMY?.CAT_NAME;
-      if (cat) byId[String(hit.CIN)] = typeof cat === 'object' ? cat.value : cat;
+      const cat  = hit.PRIMARY_TAXONOMY?.CAT_NAME;
+      const dept = hit.PRIMARY_TAXONOMY?.DEPT_NAME;
+      if (cat) byId[String(hit.CIN)] = {
+        category: typeof cat  === 'object' ? cat.value  : cat,
+        dept:     typeof dept === 'object' ? dept.value : (dept || null),
+      };
     }
     process.stdout.write(`  Batch ${Math.floor(i / BATCH) + 1}/${Math.ceil(missing.length / BATCH)} done\r`);
   }
 
   let filled = 0;
   for (const r of regulars) {
-    if (!r.category && byId[r.product_id]) { r.category = byId[r.product_id]; filled++; }
+    if (byId[r.product_id]) {
+      r.category = byId[r.product_id].category || r.category;
+      r.dept     = byId[r.product_id].dept     || null;
+      filled++;
+    }
   }
   fs.writeFileSync(REGULARS_FILE, JSON.stringify(regulars, null, 2));
   console.log(`\nDone — ${filled} categories filled, ${missing.length - filled} still unknown (discontinued/unlisted)`);
