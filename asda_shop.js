@@ -104,18 +104,16 @@ async function addViaEdge(basketPayload) {
   });
 
   await page.goto(`${BASE_URL}/groceries`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(5000);
 
-  // If not logged in yet, wait for user to do so
   if (!jwt || !basketId) {
-    console.log('\n  👉 Log in to ASDA in the Edge window, then press Enter here…');
-    await new Promise(resolve => process.stdin.once('data', resolve));
-    // Navigate again to trigger background SFCC calls now that session is active
-    await page.goto(`${BASE_URL}/groceries`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForTimeout(5000);
+    await context.close();
+    throw new Error(
+      'Not logged in to ASDA.\n\n' +
+      'Close this terminal, open Edge normally and log in to asda.com,\n' +
+      'then close Edge and run the script again.'
+    );
   }
-
-  if (!jwt || !basketId) throw new Error('Could not capture session — please make sure you are logged in to ASDA in Edge.');
   console.log(`  Basket: ${basketId} — adding ${basketPayload.length} items…`);
 
   // Make the basket POST through the browser (real browser fingerprint, passes Cloudflare)
