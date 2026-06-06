@@ -4,40 +4,6 @@
 {% block content %}
 <div class="page">
 
-  <!-- ── Admin: ASDA tools ────────────────────────────────────────────────────── -->
-  {% if is_admin %}
-  <div class="card">
-    <div class="card-title">🛠️ ASDA Tools</div>
-    <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:10px">
-      Run these in a terminal on your PC to update the favourites list from your order history.
-    </div>
-
-    <div style="margin-bottom:8px">
-      <div style="font-size:.75rem;font-weight:600;color:var(--text-muted);margin-bottom:4px">1. Extract session cookies from Edge</div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <code style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:.78rem;overflow-x:auto;white-space:nowrap">cd "C:\Collis Family Planner" &amp;&amp; node extract_edge_cookies.js</code>
-        <button class="btn btn-secondary btn-sm" onclick="copyCmd(this, 'cd &quot;C:\\Collis Family Planner&quot; && node extract_edge_cookies.js')">Copy</button>
-      </div>
-    </div>
-
-    <div style="margin-bottom:8px">
-      <div style="font-size:.75rem;font-weight:600;color:var(--text-muted);margin-bottom:4px">2. Fetch order history &amp; expand favourites list (close Edge first)</div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <code style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:.78rem;overflow-x:auto;white-space:nowrap">Stop-Process -Name msedge -Force -ErrorAction SilentlyContinue; node asda_enrich_regulars.js</code>
-        <button class="btn btn-secondary btn-sm" onclick="copyCmd(this, 'Stop-Process -Name msedge -Force -ErrorAction SilentlyContinue; node asda_enrich_regulars.js')">Copy</button>
-      </div>
-    </div>
-
-    <div>
-      <div style="font-size:.75rem;font-weight:600;color:var(--text-muted);margin-bottom:4px">3. Deploy updated list to server</div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <code style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:.78rem;overflow-x:auto;white-space:nowrap">git add data/asda_regulars.json &amp;&amp; git commit -m "Update ASDA regulars" &amp;&amp; git push &amp;&amp; cfp_ssh.ps1 deploy</code>
-        <button class="btn btn-secondary btn-sm" onclick="copyCmd(this, 'git add data/asda_regulars.json && git commit -m &quot;Update ASDA regulars&quot; && git push && cfp_ssh.ps1 deploy')">Copy</button>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
   <!-- ── Search regulars ──────────────────────────────────────────────────────── -->
   <div class="card">
     <div class="card-title">🛒 Add from favourites</div>
@@ -95,6 +61,40 @@
     {% endif %}
     </div>
   </div>
+
+  <!-- ── Admin: ASDA tools ────────────────────────────────────────────────────── -->
+  {% if is_admin %}
+  <div class="card">
+    <div class="card-title">🛠️ ASDA Tools</div>
+    <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:10px">
+      Run these in a terminal on your PC to update the favourites list from your order history.
+    </div>
+
+    <div style="margin-bottom:8px">
+      <div style="font-size:.75rem;font-weight:600;color:var(--text-muted);margin-bottom:4px">1. Extract session cookies from Edge</div>
+      <div style="display:flex;gap:6px;align-items:flex-start">
+        <code style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:.78rem;white-space:pre-wrap;word-break:break-all">cd "C:\Collis Family Planner" &amp;&amp; node extract_edge_cookies.js</code>
+        <button class="btn btn-secondary btn-sm" style="flex-shrink:0" onclick="copyCmd(this, 'cd &quot;C:\\Collis Family Planner&quot; && node extract_edge_cookies.js')">Copy</button>
+      </div>
+    </div>
+
+    <div style="margin-bottom:8px">
+      <div style="font-size:.75rem;font-weight:600;color:var(--text-muted);margin-bottom:4px">2. Fetch order history &amp; expand favourites (close Edge first)</div>
+      <div style="display:flex;gap:6px;align-items:flex-start">
+        <code style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:.78rem;white-space:pre-wrap;word-break:break-all">Stop-Process -Name msedge -Force -ErrorAction SilentlyContinue; node asda_enrich_regulars.js</code>
+        <button class="btn btn-secondary btn-sm" style="flex-shrink:0" onclick="copyCmd(this, 'Stop-Process -Name msedge -Force -ErrorAction SilentlyContinue; node asda_enrich_regulars.js')">Copy</button>
+      </div>
+    </div>
+
+    <div>
+      <div style="font-size:.75rem;font-weight:600;color:var(--text-muted);margin-bottom:4px">3. Deploy updated list to server</div>
+      <div style="display:flex;gap:6px;align-items:flex-start">
+        <code style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:.78rem;white-space:pre-wrap;word-break:break-all">git add data/asda_regulars.json &amp;&amp; git commit -m "Update ASDA regulars" &amp;&amp; git push &amp;&amp; cfp_ssh.ps1 deploy</code>
+        <button class="btn btn-secondary btn-sm" style="flex-shrink:0" onclick="copyCmd(this, 'git add data/asda_regulars.json && git commit -m &quot;Update ASDA regulars&quot; && git push && cfp_ssh.ps1 deploy')">Copy</button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
 </div>
 {% endblock %}
