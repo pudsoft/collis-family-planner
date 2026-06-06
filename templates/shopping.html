@@ -242,13 +242,19 @@ function copyCmd(btn, text) {
 }
 
 function exportList() {
+  // Build a name→product_id lookup from regulars for fallback
+  const regularsByName = {};
+  for (const r of REGULARS) regularsByName[r.name.toLowerCase()] = r.product_id;
+
   const items = [];
   document.querySelectorAll('#shopping-list .shopping-item').forEach(el => {
-    const name = el.querySelector('.shopping-item-name')?.textContent;
+    const name = el.querySelector('.shopping-item-name')?.textContent?.trim();
     const qty  = el.querySelector('.list-qty-val')?.textContent;
     const manual = el.dataset.manual === '1';
-    const product_id = el.dataset.asdaPid || null;
-    if (name) items.push({ name, qty: qty ? parseInt(qty) : 1, product_id, manual });
+    let product_id = el.dataset.asdaPid || null;
+    // Fallback: match by name against regulars if DB didn't store the product ID
+    if (!product_id && name) product_id = regularsByName[name.toLowerCase()] || null;
+    if (name) items.push({ name, qty: qty ? parseInt(qty) : 1, product_id, manual: manual && !product_id });
   });
   const blob = new Blob([JSON.stringify(items, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
