@@ -70,10 +70,11 @@ def get_shopping_list(db_conn) -> list[dict]:
 
 def add_shopping_item(db_conn, item: str, quantity: str = None,
                       category: str = "Other", source: str = "manual",
-                      asda_product_id: str = None, is_manual: int = 0) -> int:
+                      asda_product_id: str = None, is_manual: int = 0,
+                      added_by: str = None, added_at: str = None) -> int:
     db_conn.execute(
-        "INSERT INTO shopping_items (item, quantity, category, source, asda_product_id, is_manual) VALUES (?,?,?,?,?,?)",
-        (item, quantity, category, source, asda_product_id, is_manual),
+        "INSERT INTO shopping_items (item, quantity, category, source, asda_product_id, is_manual, added_by, added_at) VALUES (?,?,?,?,?,?,?,?)",
+        (item, quantity, category, source, asda_product_id, is_manual, added_by, added_at),
     )
     db_conn.commit()
     return db_conn.execute("SELECT last_insert_rowid()").fetchone()[0]

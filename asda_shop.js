@@ -164,6 +164,11 @@ async function addViaEdge(basketPayload) {
       console.log('\n⚠️  These items are out of stock or no longer available on ASDA:');
       unavailable.forEach(i => console.log(`   • ${i.name}`));
       console.log('   They will NOT be added to your basket.\n');
+      const unavailFile = path.join(os.homedir(), 'Downloads', 'asda-unavailable.json');
+      fs.writeFileSync(unavailFile, JSON.stringify(
+        unavailable.map(i => ({ name: i.name, product_id: i.product_id })), null, 2
+      ));
+      console.log(`   Saved to: ${unavailFile}\n`);
     }
 
     if (!available.length) {

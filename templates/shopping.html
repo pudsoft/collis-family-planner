@@ -38,12 +38,24 @@
 
     <div id="shopping-list">
     {% if shopping %}
+      {% set by_cat = {} %}
       {% for item in shopping %}
+        {% set cat = item.category or 'Other' %}
+        {% if cat not in by_cat %}{% set _ = by_cat.update({cat: []}) %}{% endif %}
+        {% set _ = by_cat[cat].append(item) %}
+      {% endfor %}
+      {% for cat in by_cat.keys() | sort %}
+      <div class="shopping-category-header" style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);padding:10px 2px 4px;border-top:1px solid var(--border);margin-top:4px">{{ cat }}</div>
+      {% for item in by_cat[cat] | sort(attribute='item') %}
       <div class="shopping-item {% if item.checked %}checked{% endif %}" data-item-id="{{ item.id }}" data-asda-pid="{{ item.asda_product_id or '' }}" data-manual="{{ '1' if item.is_manual else '0' }}" id="sitem-{{ item.id }}">
         <input type="checkbox" class="shopping-checkbox" data-item-id="{{ item.id }}"
                {% if item.checked %}checked{% endif %}>
         <span class="shopping-item-name">{{ item.item }}</span>
         {% if item.is_manual %}<span class="manual-flag" title="Manual — needs checking when ordering">✏️</span>{% endif %}
+        {% if item.added_by or item.added_at %}
+        <span title="Added by {{ item.added_by or '?' }}{% if item.added_at %} at {{ item.added_at }}{% endif %}"
+              style="font-size:.7rem;color:var(--text-muted);cursor:default;flex-shrink:0">ℹ️</span>
+        {% endif %}
         <div class="list-qty-ctrl" style="display:flex;align-items:center;gap:3px;margin-left:auto;flex-shrink:0">
           <button class="list-qty-dec" data-item-id="{{ item.id }}"
                   style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;font-size:.9rem;line-height:1">−</button>
@@ -53,6 +65,7 @@
         </div>
         <button class="shopping-delete-btn" data-item-id="{{ item.id }}" style="color:var(--text-muted);font-size:1rem;margin-left:6px">✕</button>
       </div>
+      {% endfor %}
       {% endfor %}
     {% else %}
       <div class="empty-state" style="padding:16px 0" id="empty-state">
@@ -161,16 +174,18 @@ document.getElementById('reg-results').addEventListener('click', e => {
 
 async function addRegular(productId, name, qty) {
   if (onList.has(productId)) { showToast('Already on the list', 'error'); return; }
+  const regular  = REGULARS.find(r => r.product_id === productId);
+  const category = regular?.category || 'Other';
   const fd = new FormData();
   fd.append('item', name);
   fd.append('quantity', qty);
-  fd.append('category', 'ASDA');
+  fd.append('category', category);
   fd.append('asda_product_id', productId);
   const data = await postAction('/shopping/add', fd, null);
   if (data) {
     onList.add(productId);
     showToast('Added: ' + name);
-    appendToList({ id: data.id, item: name, quantity: qty, checked: 0, is_manual: 0, asda_product_id: productId });
+    appendToList({ id: data.id, item: name, quantity: qty, checked: 0, is_manual: 0, asda_product_id: productId, category });
     filterRegulars(document.getElementById('reg-search').value);
   }
 }
@@ -193,8 +208,24 @@ async function addManual() {
 }
 
 function appendToList(item) {
-  const empty = document.getElementById('empty-state');
-  if (empty) empty.remove();
+  document.getElementById('empty-state')?.remove();
+  const list = document.getElementById('shopping-list');
+  const cat  = item.category || 'Other';
+
+  // Find or create the category header group
+  let header = [...list.querySelectorAll('.shopping-category-header')]
+    .find(h => h.textContent === cat.toUpperCase());
+  if (!header) {
+    // Insert in alphabetical order among existing headers
+    header = document.createElement('div');
+    header.className = 'shopping-category-header';
+    header.textContent = cat.toUpperCase();
+    header.style.cssText = 'font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);padding:10px 2px 4px;border-top:1px solid var(--border);margin-top:4px';
+    const headers = [...list.querySelectorAll('.shopping-category-header')];
+    const after = headers.find(h => h.textContent > cat.toUpperCase());
+    list.insertBefore(header, after || null);
+  }
+
   const el = document.createElement('div');
   el.className = 'shopping-item';
   el.id = 'sitem-' + item.id;
@@ -210,7 +241,14 @@ function appendToList(item) {
     </div>
     <button class="shopping-delete-btn" data-item-id="${item.id}" style="color:var(--text-muted);font-size:1rem;margin-left:6px">✕</button>
   `;
-  document.getElementById('shopping-list').appendChild(el);
+  // Insert after the header (and any existing items in that category, alphabetically)
+  let insertBefore = header.nextSibling;
+  while (insertBefore && insertBefore.classList?.contains('shopping-item')) {
+    const existingName = insertBefore.querySelector('.shopping-item-name')?.textContent || '';
+    if (existingName.toLowerCase() > item.item.toLowerCase()) break;
+    insertBefore = insertBefore.nextSibling;
+  }
+  list.insertBefore(el, insertBefore);
 }
 
 document.getElementById('shopping-list').addEventListener('click', async e => {
@@ -242,7 +280,7 @@ function copyCmd(btn, text) {
   });
 }
 
-function exportList() {
+async function exportList() {
   // Build a name→product_id lookup from regulars for fallback
   const regularsByName = {};
   for (const r of REGULARS) regularsByName[r.name.toLowerCase()] = r.product_id;
@@ -253,15 +291,24 @@ function exportList() {
     const qty  = el.querySelector('.list-qty-val')?.textContent;
     const manual = el.dataset.manual === '1';
     let product_id = el.dataset.asdaPid || null;
-    // Fallback: match by name against regulars if DB didn't store the product ID
     if (!product_id && name) product_id = regularsByName[name.toLowerCase()] || null;
     if (name) items.push({ name, qty: qty ? parseInt(qty) : 1, product_id, manual: manual && !product_id });
   });
+
   const blob = new Blob([JSON.stringify(items, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'asda-shopping-list.json';
   a.click();
+
+  // Clear the list after export
+  await postAction('/shopping/clear_all', new FormData(), null);
+  document.getElementById('shopping-list').innerHTML = `
+    <div class="empty-state" style="padding:16px 0" id="empty-state">
+      <div class="empty-state-icon">🛒</div>
+      <div class="empty-state-text">List exported — add items for next week</div>
+    </div>`;
+  onList.clear();
 }
 </script>
 {% endblock %}

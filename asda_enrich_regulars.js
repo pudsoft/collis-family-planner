@@ -152,12 +152,15 @@ async function fetchOrders() {
       }, { orderId, ocpKey: OCP_KEY });
 
       for (const dept of (detail.items || [])) {
+        const category = dept.departmentName && dept.departmentName !== 'Substitutes & unavailable'
+          ? dept.departmentName : null;
         for (const item of (dept.items || [])) {
           if (!item.productId || item.unavailable) continue;
           const pid = String(item.productId);
-          if (!allItems[pid]) allItems[pid] = { name: cleanName(item.name), totalQty: 0, orderCount: 0 };
+          if (!allItems[pid]) allItems[pid] = { name: cleanName(item.name), totalQty: 0, orderCount: 0, category: null };
           allItems[pid].totalQty   += (item.quantity || 1);
           allItems[pid].orderCount += 1;
+          if (category && !allItems[pid].category) allItems[pid].category = category;
         }
       }
     } catch (e) {
@@ -173,34 +176,36 @@ async function fetchOrders() {
 
 // ── Phase 3: Resolve any names still missing via Algolia ──────────────────────
 
-async function resolveNamesAlgolia(productIds) {
+async function algoliaLookup(productIds, label) {
   if (!productIds.length) return {};
-  console.log(`\n[3/4] Resolving ${productIds.length} product names via Algolia…`);
-
-  const now   = Math.floor(Date.now() / 1000);
-  const filter = productIds.map(id => `CIN:${id}`).join(' OR ');
-  const result = await httpsPost(
-    `${ALGOLIA_APP.toLowerCase()}-dsn.algolia.net`,
-    '/1/indexes/*/queries',
-    { 'x-algolia-application-id': ALGOLIA_APP, 'x-algolia-api-key': ALGOLIA_KEY },
-    {
-      requests: [{
-        indexName: ALGOLIA_INDEX,
-        query: '',
-        params: [
-          `hitsPerPage=${productIds.length}`,
-          `attributesToRetrieve=["CIN","NAME","PACK_SIZE"]`,
-          `filters=(${filter}) AND (STATUS:A OR STATUS:I) AND STOCK.${STORE_ID}>0`,
-        ].join('&'),
-      }],
-    }
-  );
-
+  console.log(`\n[3/4] Algolia lookup for ${productIds.length} items (${label})…`);
+  const BATCH = 500;
   const byId = {};
-  for (const hit of (result.results?.[0]?.hits || [])) {
-    if (hit.CIN) byId[String(hit.CIN)] = hit.NAME || null;
+  for (let i = 0; i < productIds.length; i += BATCH) {
+    const batch  = productIds.slice(i, i + BATCH);
+    const filter = batch.map(id => `CIN:${id}`).join(' OR ');
+    const result = await httpsPost(
+      `${ALGOLIA_APP.toLowerCase()}-dsn.algolia.net`,
+      '/1/indexes/*/queries',
+      { 'x-algolia-application-id': ALGOLIA_APP, 'x-algolia-api-key': ALGOLIA_KEY },
+      { requests: [{ indexName: ALGOLIA_INDEX, query: '',
+          params: [
+            `hitsPerPage=${batch.length}`,
+            `attributesToRetrieve=["CIN","NAME","PRIMARY_TAXONOMY"]`,
+            `filters=(${filter}) AND (STATUS:A OR STATUS:I)`,
+          ].join('&') }] }
+    );
+    for (const hit of (result.results?.[0]?.hits || [])) {
+      if (!hit.CIN) continue;
+      const pid  = String(hit.CIN);
+      const aisle = hit.PRIMARY_TAXONOMY?.AISLE_NAME;
+      byId[pid] = {
+        name:     hit.NAME || null,
+        category: (typeof aisle === 'object' ? aisle?.value : aisle) || null,
+      };
+    }
   }
-  console.log(`      Resolved ${Object.keys(byId).length}/${productIds.length} names`);
+  console.log(`      Got data for ${Object.keys(byId).length}/${productIds.length} items`);
   return byId;
 }
 
@@ -242,24 +247,31 @@ function merge(orderItems) {
 
     const newIds = Object.keys(orderItems).filter(pid => !existingIds.has(pid));
 
-    // Resolve names for new items that didn't come with a name
-    const needsAlgolia = newIds.filter(pid => !orderItems[pid].name);
-    let algoliaNames = {};
-    if (needsAlgolia.length) {
-      algoliaNames = await resolveNamesAlgolia(needsAlgolia);
+    // Algolia lookup: new items needing names, plus ALL items needing categories
+    const needsName     = newIds.filter(pid => !orderItems[pid].name);
+    const needsCategory = [...existing.map(r => r.product_id), ...newIds]
+      .filter(pid => !(orderItems[pid]?.category) && !(existing.find(r => r.product_id === pid)?.category));
+    const algoliaIds = [...new Set([...needsName, ...needsCategory])];
+
+    let algoliaData = {};
+    if (algoliaIds.length) {
+      algoliaData = await algoliaLookup(algoliaIds, 'names + categories');
     } else {
-      console.log('\n[3/4] All new item names resolved from order data — skipping Algolia');
+      console.log('\n[3/4] All data resolved from order history — skipping Algolia');
     }
 
     console.log('\n[4/4] Merging into asda_regulars.json…');
 
-    // Update usual_qty on existing regulars from order history
+    // Update usual_qty and category on existing regulars
     let updated = 0;
     for (const reg of existing) {
       const hist = orderItems[reg.product_id];
       if (hist) {
         const avgQty = Math.round(hist.totalQty / hist.orderCount);
         if (avgQty > reg.usual_qty) { reg.usual_qty = avgQty; updated++; }
+        if (!reg.category) reg.category = hist.category || algoliaData[reg.product_id]?.category || null;
+      } else if (!reg.category) {
+        reg.category = algoliaData[reg.product_id]?.category || null;
       }
     }
 
@@ -267,10 +279,11 @@ function merge(orderItems) {
     let added = 0;
     let skipped = 0;
     for (const pid of newIds) {
-      const name = orderItems[pid].name || algoliaNames[pid];
+      const name = orderItems[pid].name || algoliaData[pid]?.name;
       if (!name) { skipped++; continue; }
-      const avgQty = Math.round(orderItems[pid].totalQty / orderItems[pid].orderCount) || 1;
-      existing.push({ product_id: pid, name, usual_qty: avgQty });
+      const avgQty  = Math.round(orderItems[pid].totalQty / orderItems[pid].orderCount) || 1;
+      const category = orderItems[pid].category || algoliaData[pid]?.category || null;
+      existing.push({ product_id: pid, name, usual_qty: avgQty, category });
       added++;
     }
 

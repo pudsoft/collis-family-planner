@@ -310,6 +310,8 @@ def _init_db_mysql(db):
         ("medicines",        "frequency_type", "VARCHAR(20) DEFAULT 'daily'"),
         ("shopping_items",   "asda_product_id", "TEXT"),
         ("shopping_items",   "is_manual",       "INTEGER DEFAULT 0"),
+        ("shopping_items",   "added_by",        "TEXT"),
+        ("shopping_items",   "added_at",        "TEXT"),
     ]:
         if not _col_exists_mysql(db, table, col):
             db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {defn}")
@@ -990,12 +992,15 @@ def shopping_view():
 
 @app.route("/shopping/add", methods=["POST"])
 def shopping_add():
+    from datetime import datetime
     d = request.form
     item_id = meals.add_shopping_item(
         get_db(), d["item"], d.get("quantity"), d.get("category", "Other"),
         source="asda" if d.get("asda_product_id") else "manual",
         asda_product_id=d.get("asda_product_id") or None,
         is_manual=1 if not d.get("asda_product_id") else 0,
+        added_by=current_person(),
+        added_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
     )
     return jsonify({"ok": True, "id": item_id})
 
@@ -1024,6 +1029,13 @@ def shopping_delete(item_id: int):
 @app.route("/shopping/clear_checked", methods=["POST"])
 def shopping_clear_checked():
     meals.clear_checked_items(get_db())
+    return jsonify({"ok": True})
+
+
+@app.route("/shopping/clear_all", methods=["POST"])
+def shopping_clear_all():
+    get_db().execute("DELETE FROM shopping_items")
+    get_db().commit()
     return jsonify({"ok": True})
 
 
