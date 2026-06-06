@@ -198,10 +198,10 @@ async function algoliaLookup(productIds, label) {
     for (const hit of (result.results?.[0]?.hits || [])) {
       if (!hit.CIN) continue;
       const pid  = String(hit.CIN);
-      const aisle = hit.PRIMARY_TAXONOMY?.AISLE_NAME;
+      const cat = hit.PRIMARY_TAXONOMY?.CAT_NAME;
       byId[pid] = {
         name:     hit.NAME || null,
-        category: (typeof aisle === 'object' ? aisle?.value : aisle) || null,
+        category: (typeof cat === 'object' ? cat?.value : cat) || null,
       };
     }
   }

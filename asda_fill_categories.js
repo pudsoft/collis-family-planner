@@ -46,8 +46,8 @@ function post(body) {
     });
     for (const hit of (result.results?.[0]?.hits || [])) {
       if (!hit.CIN) continue;
-      const aisle = hit.PRIMARY_TAXONOMY?.AISLE_NAME;
-      if (aisle) byId[String(hit.CIN)] = typeof aisle === 'object' ? aisle.value : aisle;
+      const cat = hit.PRIMARY_TAXONOMY?.CAT_NAME;
+      if (cat) byId[String(hit.CIN)] = typeof cat === 'object' ? cat.value : cat;
     }
     process.stdout.write(`  Batch ${Math.floor(i / BATCH) + 1}/${Math.ceil(missing.length / BATCH)} done\r`);
   }
