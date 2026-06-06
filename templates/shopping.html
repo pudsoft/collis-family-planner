@@ -4,6 +4,40 @@
 {% block content %}
 <div class="page">
 
+  <!-- ── Admin: ASDA tools ────────────────────────────────────────────────────── -->
+  {% if is_admin %}
+  <div class="card">
+    <div class="card-title">🛠️ ASDA Tools</div>
+    <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:10px">
+      Run these in a terminal on your PC to update the favourites list from your order history.
+    </div>
+
+    <div style="margin-bottom:8px">
+      <div style="font-size:.75rem;font-weight:600;color:var(--text-muted);margin-bottom:4px">1. Extract session cookies from Edge</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <code style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:.78rem;overflow-x:auto;white-space:nowrap">cd "C:\Collis Family Planner" &amp;&amp; node extract_edge_cookies.js</code>
+        <button class="btn btn-secondary btn-sm" onclick="copyCmd(this, 'cd &quot;C:\\Collis Family Planner&quot; && node extract_edge_cookies.js')">Copy</button>
+      </div>
+    </div>
+
+    <div style="margin-bottom:8px">
+      <div style="font-size:.75rem;font-weight:600;color:var(--text-muted);margin-bottom:4px">2. Fetch order history &amp; expand favourites list (close Edge first)</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <code style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:.78rem;overflow-x:auto;white-space:nowrap">Stop-Process -Name msedge -Force -ErrorAction SilentlyContinue; node asda_enrich_regulars.js</code>
+        <button class="btn btn-secondary btn-sm" onclick="copyCmd(this, 'Stop-Process -Name msedge -Force -ErrorAction SilentlyContinue; node asda_enrich_regulars.js')">Copy</button>
+      </div>
+    </div>
+
+    <div>
+      <div style="font-size:.75rem;font-weight:600;color:var(--text-muted);margin-bottom:4px">3. Deploy updated list to server</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <code style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:.78rem;overflow-x:auto;white-space:nowrap">git add data/asda_regulars.json &amp;&amp; git commit -m "Update ASDA regulars" &amp;&amp; git push &amp;&amp; cfp_ssh.ps1 deploy</code>
+        <button class="btn btn-secondary btn-sm" onclick="copyCmd(this, 'git add data/asda_regulars.json && git commit -m &quot;Update ASDA regulars&quot; && git push && cfp_ssh.ps1 deploy')">Copy</button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- ── Search regulars ──────────────────────────────────────────────────────── -->
   <div class="card">
     <div class="card-title">🛒 Add from favourites</div>
@@ -38,7 +72,7 @@
     <div id="shopping-list">
     {% if shopping %}
       {% for item in shopping %}
-      <div class="shopping-item {% if item.checked %}checked{% endif %}" data-item-id="{{ item.id }}" id="sitem-{{ item.id }}">
+      <div class="shopping-item {% if item.checked %}checked{% endif %}" data-item-id="{{ item.id }}" data-asda-pid="{{ item.asda_product_id or '' }}" data-manual="{{ '1' if item.is_manual else '0' }}" id="sitem-{{ item.id }}">
         <input type="checkbox" class="shopping-checkbox" data-item-id="{{ item.id }}"
                {% if item.checked %}checked{% endif %}>
         <span class="shopping-item-name">{{ item.item }}</span>
@@ -202,13 +236,22 @@ async function clearChecked() {
   if (data) document.querySelectorAll('.shopping-item.checked').forEach(el => el.remove());
 }
 
+function copyCmd(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = orig, 1500);
+  });
+}
+
 function exportList() {
   const items = [];
   document.querySelectorAll('#shopping-list .shopping-item').forEach(el => {
     const name = el.querySelector('.shopping-item-name')?.textContent;
-    const qty  = el.querySelector('.shopping-item-qty')?.textContent?.replace('× ','');
-    const manual = !!el.querySelector('.manual-flag');
-    if (name) items.push({ name, qty: qty || null, manual });
+    const qty  = el.querySelector('.list-qty-val')?.textContent;
+    const manual = el.dataset.manual === '1';
+    const product_id = el.dataset.asdaPid || null;
+    if (name) items.push({ name, qty: qty ? parseInt(qty) : 1, product_id, manual });
   });
   const blob = new Blob([JSON.stringify(items, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
