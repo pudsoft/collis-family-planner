@@ -11,6 +11,7 @@
  * Prereq: Close Edge before running.
  */
 
+const { chromium } = require('playwright');
 const https  = require('https');
 const fs     = require('fs');
 const path   = require('path');
@@ -19,7 +20,7 @@ const crypto = require('crypto');
 const REGULARS_FILE = path.join(__dirname, 'data', 'asda_regulars.json');
 const SESSION_FILE  = path.join(__dirname, 'data', 'asda_session.json');
 const OCP_KEY       = 'bc042eff107c4bca87dccb19ae707d16';
-const ORDER_LIMIT   = 20;   // older orders to fetch (recent + this many)
+const ORDER_LIMIT   = 6;    // max older orders the API accepts
 
 const ALGOLIA_APP   = '8I6WSKCCNV';
 const ALGOLIA_KEY   = '03e4272048dd17f771da37b57ff8a75e';
@@ -61,7 +62,11 @@ function httpsPost(hostname, path, headers, body) {
 }
 
 function cookieHeader(cookies) {
-  return cookies.map(c => `${c.name}=${c.value}`).join('; ');
+  return cookies
+    .filter(c => c.name && c.value)
+    .filter(c => !/[\x00-\x1F\x7F,;]/.test(c.name + '=' + c.value))
+    .map(c => `${c.name}=${c.value}`)
+    .join('; ');
 }
 
 function cleanName(name) {
@@ -91,42 +96,50 @@ function loadSession() {
   return session;
 }
 
-// ── Phase 2: Fetch order list + all order details via direct HTTP ─────────────
+// ── Phase 2: Navigate to past orders page and intercept API responses ─────────
 
-async function fetchOrders(cookies, sessionId) {
-  console.log('\n[2/4] Fetching order history…');
+async function fetchOrders() {
+  console.log('\n[2/4] Opening Edge to scrape order history…');
+  console.log('      (Browser will close automatically)\n');
 
-  const baseHeaders = {
-    'ocp-apim-subscription-key': OCP_KEY,
-    'cookie': cookieHeader(cookies),
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36 Edg/148.0.0.0',
-    'x-correlation-id': uuid(),
-    ...(sessionId ? { 'x-apisession-id': sessionId } : {}),
-  };
+  const context = await chromium.launchPersistentContext(
+    'C:/Users/Rythm/AppData/Local/Microsoft/Edge/User Data',
+    { headless: false, channel: 'msedge', args: ['--profile-directory=Default'] }
+  );
+  const page = await context.newPage();
 
-  const listUrl = `https://api2.asda.com/external/ghs/order/v1/list?olderOrderLimit=${ORDER_LIMIT}`;
-  const listData = await httpsGet(listUrl, baseHeaders);
+  let orderList = null;
+  const orderDetails = {};
 
-  const recent = listData.recentOrders?.orders || [];
-  const older  = listData.olderOrders?.orders  || [];
-  const allOrders = [...recent, ...older];
-  console.log(`      Found ${allOrders.length} orders`);
-
-  const allItems = {}; // productId → { name, totalQty, orderCount }
-
-  for (const [i, order] of allOrders.entries()) {
-    const orderId = order.orderNumber;
-    process.stdout.write(`      Fetching order ${i + 1}/${allOrders.length} (${orderId})…\r`);
-
-    const detailUrl = `https://api2.asda.com/external/ghs/order/v1/detail/${orderId}?sellingChannel=ASDA_GROCERIES&orgId=ASDA`;
-    let detail;
+  // Intercept order list and detail responses
+  page.on('response', async res => {
+    const url = res.url();
     try {
-      detail = await httpsGet(detailUrl, { ...baseHeaders, 'x-correlation-id': uuid() });
-    } catch (e) {
-      console.log(`\n      [WARN] Could not fetch order ${orderId}: ${e.message}`);
-      continue;
-    }
+      if (url.includes('order/v1/list')) {
+        orderList = await res.json();
+      } else if (url.includes('order/v1/detail/')) {
+        const orderId = url.split('/detail/')[1].split('?')[0];
+        orderDetails[orderId] = await res.json();
+      }
+    } catch {}
+  });
 
+  // Navigate to past orders — triggers the list call automatically
+  await page.goto('https://www.asda.com/groceries/my-account/past-orders', {
+    waitUntil: 'domcontentloaded', timeout: 30000,
+  });
+
+  console.log('      Past orders page loaded.');
+  console.log('      Click each order to open it (loads the detail data), then come back.');
+  console.log('      Press Enter here when you have opened all the orders you want.\n');
+
+  await new Promise(resolve => process.stdin.once('data', resolve));
+
+  await context.close();
+
+  // Parse all captured data
+  const allItems = {};
+  for (const detail of Object.values(orderDetails)) {
     for (const dept of (detail.items || [])) {
       for (const item of (dept.items || [])) {
         if (!item.productId || item.unavailable) continue;
@@ -134,16 +147,13 @@ async function fetchOrders(cookies, sessionId) {
         if (!allItems[pid]) {
           allItems[pid] = { name: cleanName(item.name), totalQty: 0, orderCount: 0 };
         }
-        allItems[pid].totalQty  += (item.quantity || 1);
+        allItems[pid].totalQty   += (item.quantity || 1);
         allItems[pid].orderCount += 1;
       }
     }
-
-    // Polite delay between requests
-    await new Promise(r => setTimeout(r, 300));
   }
 
-  console.log(`\n      Extracted ${Object.keys(allItems).length} unique products from order history`);
+  console.log(`      Captured ${Object.keys(orderDetails).length} order details, ${Object.keys(allItems).length} unique products`);
   return allItems;
 }
 
@@ -211,8 +221,8 @@ function merge(orderItems) {
 
 (async () => {
   try {
-    const { cookies, sessionId } = loadSession();
-    const orderItems = await fetchOrders(cookies, sessionId);
+    loadSession(); // validates session file exists, warns if stale
+    const orderItems = await fetchOrders();
     const existing   = JSON.parse(fs.readFileSync(REGULARS_FILE, 'utf8'));
     const existingIds = new Set(existing.map(r => r.product_id));
 
