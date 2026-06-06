@@ -1010,14 +1010,18 @@ def shopping_view():
 def shopping_add():
     from datetime import datetime
     d = request.form
-    item_id = meals.add_shopping_item(
-        get_db(), d["item"], d.get("quantity"), d.get("category", "Other"),
-        source="asda" if d.get("asda_product_id") else "manual",
-        asda_product_id=d.get("asda_product_id") or None,
-        is_manual=1 if not d.get("asda_product_id") else 0,
-        added_by=current_person(),
-        added_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
-    )
+    try:
+        item_id = meals.add_shopping_item(
+            get_db(), d["item"], d.get("quantity"), d.get("category", "Other"),
+            source="asda" if d.get("asda_product_id") else "manual",
+            asda_product_id=d.get("asda_product_id") or None,
+            is_manual=1 if not d.get("asda_product_id") else 0,
+            added_by=current_person(),
+            added_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
+        )
+    except Exception as e:
+        log.exception("shopping_add failed")
+        return jsonify({"ok": False, "error": str(e)}), 500
     return jsonify({"ok": True, "id": item_id})
 
 
