@@ -153,14 +153,28 @@ async function addViaEdge(basketPayload) {
       return;
     }
 
-    // Look up current prices from Algolia
+    // Look up current prices from Algolia (also confirms item is in stock)
     console.log('\nLooking up current prices…');
     const prices = await lookupPrices(asdaItems.map(i => i.product_id));
 
-    const basketPayload = asdaItems.map(i => ({
+    const unavailable = asdaItems.filter(i => prices[i.product_id] == null);
+    const available   = asdaItems.filter(i => prices[i.product_id] != null);
+
+    if (unavailable.length) {
+      console.log('\n⚠️  These items are out of stock or no longer available on ASDA:');
+      unavailable.forEach(i => console.log(`   • ${i.name}`));
+      console.log('   They will NOT be added to your basket.\n');
+    }
+
+    if (!available.length) {
+      console.log('\nNo available ASDA items to add.');
+      return;
+    }
+
+    const basketPayload = available.map(i => ({
       productId: i.product_id,
       quantity:  parseInt(i.qty) || 1,
-      price:     prices[i.product_id] ?? 0,
+      price:     prices[i.product_id],
     }));
 
     // Add everything via Edge browser (bypasses Cloudflare TLS fingerprinting)
@@ -171,7 +185,8 @@ async function addViaEdge(basketPayload) {
     }
 
     const addedCount = result.productItems?.length ?? basketPayload.length;
-    console.log(`\n✅ Done! ${addedCount} item(s) added to your ASDA basket.`);
+    const skipped = asdaItems.length - available.length;
+    console.log(`\n✅ Done! ${addedCount} item(s) added to your ASDA basket${skipped ? ` (${skipped} skipped — out of stock)` : ''}.`);
     console.log('   Open https://www.asda.com/groceries to review and checkout.\n');
 
     if (manualItems.length) {
