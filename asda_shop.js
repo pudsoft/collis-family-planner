@@ -75,64 +75,50 @@ async function lookupPrices(productIds) {
   return prices;
 }
 
-// ── Browser session: grab JWT + basket ID ─────────────────────────────────────
+// ── Browser session: add items via Edge's own fetch (bypasses Cloudflare) ─────
 
-async function grabSession() {
-  console.log('\nOpening Edge to authenticate (will close automatically)…');
+async function addViaEdge(basketPayload) {
+  console.log('\nOpening Edge to add items (will close automatically)…');
   const context = await chromium.launchPersistentContext(
     'C:/Users/Rythm/AppData/Local/Microsoft/Edge/User Data',
     { headless: false, channel: 'msedge', args: ['--profile-directory=Default'] }
   );
   const page = await context.newPage();
 
-  let jwt = null, basketId = null, customerId = null;
-
+  // Intercept JWT and basket ID from background SFCC calls
+  let jwt = null, basketId = null;
   page.on('request', req => {
     const auth = req.headers()['authorization'];
     if (auth?.startsWith('Bearer ') && !jwt) jwt = auth.slice(7);
   });
-
   page.on('response', async res => {
-    if (res.url().includes('/customers/') && res.url().includes('/baskets')) {
+    if (!basketId && res.url().includes('/customers/') && res.url().includes('/baskets')) {
       try {
-        const data = await res.json();
-        if (data.baskets?.[0]?.basketId) {
-          basketId   = data.baskets[0].basketId;
-          customerId = data.baskets[0].customerInfo?.customerId;
-        }
+        const d = await res.json();
+        if (d.baskets?.[0]?.basketId) basketId = d.baskets[0].basketId;
       } catch {}
     }
   });
 
   await page.goto(`${BASE_URL}/groceries`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  // Wait for background SFCC calls to fire
   await page.waitForTimeout(5000);
+
+  if (!jwt || !basketId) throw new Error('Could not capture session — are you logged in to ASDA in Edge?');
+  console.log(`  Basket: ${basketId} — adding ${basketPayload.length} items…`);
+
+  // Make the basket POST through the browser (real browser fingerprint, passes Cloudflare)
+  const result = await page.evaluate(async ({ BASE_URL, ORG_ID, SITE_ID, jwt, basketId, items }) => {
+    const url = `${BASE_URL}/mobify/proxy/ghs-api/checkout/shopper-baskets/v1/organizations/${ORG_ID}/baskets/${basketId}/items?siteId=${SITE_ID}`;
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
+      body: JSON.stringify(items),
+    });
+    return r.json();
+  }, { BASE_URL, ORG_ID, SITE_ID, jwt, basketId, items: basketPayload });
+
   await context.close();
-
-  if (!jwt)      throw new Error('Could not capture Bearer token — are you logged in to ASDA in Edge?');
-  if (!basketId) throw new Error('Could not find basket ID');
-  console.log(`  Authenticated. Basket: ${basketId}`);
-  return { jwt, basketId };
-}
-
-// ── Add items to basket ───────────────────────────────────────────────────────
-
-async function addToBasket(jwt, basketId, items) {
-  const url = new URL(
-    `${BASE_URL}/mobify/proxy/ghs-api/checkout/shopper-baskets/v1/organizations/${ORG_ID}/baskets/${basketId}/items?siteId=${SITE_ID}`
-  );
-  const payload = JSON.stringify(items);
-  return new Promise((resolve, reject) => {
-    const req = https.request(
-      { hostname: url.hostname, path: url.pathname + url.search, method: 'POST',
-        headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json',
-                   'content-length': Buffer.byteLength(payload) } },
-      res => { let d = ''; res.on('data', c => d += c); res.on('end', () => { try { resolve(JSON.parse(d)); } catch { reject(new Error(d.slice(0,300))); } }); }
-    );
-    req.on('error', reject);
-    req.write(payload);
-    req.end();
-  });
+  return result;
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -167,12 +153,8 @@ async function addToBasket(jwt, basketId, items) {
       price:     prices[i.product_id] ?? 0,
     }));
 
-    // Authenticate via Edge
-    const { jwt, basketId } = await grabSession();
-
-    // Add everything in one request
-    console.log(`\nAdding ${basketPayload.length} items to basket…`);
-    const result = await addToBasket(jwt, basketId, basketPayload);
+    // Add everything via Edge browser (bypasses Cloudflare TLS fingerprinting)
+    const result = await addViaEdge(basketPayload);
 
     if (result.fault || result.error) {
       throw new Error(JSON.stringify(result.fault || result.error));
