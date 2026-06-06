@@ -979,13 +979,12 @@ def shopping_view():
     regulars = json.loads(regulars_path.read_text()) if regulars_path.exists() else []
     shopping = meals.get_shopping_list(db)
 
-    # Back-fill categories for items that have a generic placeholder category
+    # Always sync category from regulars for ASDA items (keeps in step with regulars file)
     cat_by_pid = {r["product_id"]: r.get("category") for r in regulars if r.get("category")}
-    needs_fill = {"Other", "ASDA", "", None}
     for item in shopping:
-        if item.get("category") in needs_fill and item.get("asda_product_id"):
+        if item.get("asda_product_id"):
             cat = cat_by_pid.get(item["asda_product_id"])
-            if cat:
+            if cat and cat != item.get("category"):
                 db.execute("UPDATE shopping_items SET category=? WHERE id=?", (cat, item["id"]))
                 item["category"] = cat
     db.commit()
