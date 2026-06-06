@@ -978,6 +978,17 @@ def shopping_view():
     regulars_path = Path(__file__).parent / "data" / "asda_regulars.json"
     regulars = json.loads(regulars_path.read_text()) if regulars_path.exists() else []
     shopping = meals.get_shopping_list(db)
+
+    # Back-fill categories for existing items that predate the category column
+    cat_by_pid = {r["product_id"]: r.get("category") for r in regulars if r.get("category")}
+    for item in shopping:
+        if not item.get("category") and item.get("asda_product_id"):
+            cat = cat_by_pid.get(item["asda_product_id"])
+            if cat:
+                db.execute("UPDATE shopping_items SET category=? WHERE id=?", (cat, item["id"]))
+                item["category"] = cat
+    db.commit()
+
     return render_template(
         "shopping.html",
         regulars=regulars,
