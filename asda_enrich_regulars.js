@@ -99,8 +99,7 @@ function loadSession() {
 // ── Phase 2: Navigate to past orders page and intercept API responses ─────────
 
 async function fetchOrders() {
-  console.log('\n[2/4] Opening Edge to scrape order history…');
-  console.log('      (Browser will close automatically)\n');
+  console.log('\n[2/4] Opening Edge to scrape order history (fully automatic)…\n');
 
   const context = await chromium.launchPersistentContext(
     'C:/Users/Rythm/AppData/Local/Microsoft/Edge/User Data',
@@ -108,52 +107,64 @@ async function fetchOrders() {
   );
   const page = await context.newPage();
 
-  let orderList = null;
-  const orderDetails = {};
-
-  // Intercept order list and detail responses
+  // Intercept the order list response to get order IDs
+  let orderListResolve;
+  const orderListPromise = new Promise(r => { orderListResolve = r; });
   page.on('response', async res => {
-    const url = res.url();
-    try {
-      if (url.includes('order/v1/list')) {
-        orderList = await res.json();
-      } else if (url.includes('order/v1/detail/')) {
-        const orderId = url.split('/detail/')[1].split('?')[0];
-        orderDetails[orderId] = await res.json();
-      }
-    } catch {}
+    if (res.url().includes('order/v1/list')) {
+      try { orderListResolve(await res.json()); } catch { orderListResolve(null); }
+    }
   });
 
-  // Navigate to past orders — triggers the list call automatically
   await page.goto('https://www.asda.com/groceries/my-account/past-orders', {
     waitUntil: 'domcontentloaded', timeout: 30000,
   });
 
-  console.log('      Past orders page loaded.');
-  console.log('      Click each order to open it (loads the detail data), then come back.');
-  console.log('      Press Enter here when you have opened all the orders you want.\n');
+  // Wait for the list API response (max 15s)
+  const orderList = await Promise.race([
+    orderListPromise,
+    new Promise(r => setTimeout(() => r(null), 15000)),
+  ]);
 
-  await new Promise(resolve => process.stdin.once('data', resolve));
+  if (!orderList) throw new Error('Order list did not load — are you logged in to ASDA in Edge?');
 
-  await context.close();
+  const allOrders = [
+    ...(orderList.recentOrders?.orders || []),
+    ...(orderList.olderOrders?.orders  || []),
+  ];
+  console.log(`      Found ${allOrders.length} orders — fetching details via browser…`);
 
-  // Parse all captured data
+  // Fetch each order detail using the browser's own session (bypasses Cloudflare auth)
   const allItems = {};
-  for (const detail of Object.values(orderDetails)) {
-    for (const dept of (detail.items || [])) {
-      for (const item of (dept.items || [])) {
-        if (!item.productId || item.unavailable) continue;
-        const pid = String(item.productId);
-        if (!allItems[pid]) {
-          allItems[pid] = { name: cleanName(item.name), totalQty: 0, orderCount: 0 };
+  for (const [i, order] of allOrders.entries()) {
+    const orderId = order.orderNumber;
+    process.stdout.write(`      Order ${i + 1}/${allOrders.length} (${orderId})…\r`);
+    try {
+      const detail = await page.evaluate(async ({ orderId, ocpKey }) => {
+        const r = await fetch(
+          `https://api2.asda.com/external/ghs/order/v1/detail/${orderId}?sellingChannel=ASDA_GROCERIES&orgId=ASDA`,
+          { headers: { 'ocp-apim-subscription-key': ocpKey }, credentials: 'include' }
+        );
+        return r.json();
+      }, { orderId, ocpKey: OCP_KEY });
+
+      for (const dept of (detail.items || [])) {
+        for (const item of (dept.items || [])) {
+          if (!item.productId || item.unavailable) continue;
+          const pid = String(item.productId);
+          if (!allItems[pid]) allItems[pid] = { name: cleanName(item.name), totalQty: 0, orderCount: 0 };
+          allItems[pid].totalQty   += (item.quantity || 1);
+          allItems[pid].orderCount += 1;
         }
-        allItems[pid].totalQty   += (item.quantity || 1);
-        allItems[pid].orderCount += 1;
       }
+    } catch (e) {
+      console.log(`\n      [WARN] Skipping ${orderId}: ${e.message}`);
     }
+    await page.waitForTimeout(400);
   }
 
-  console.log(`      Captured ${Object.keys(orderDetails).length} order details, ${Object.keys(allItems).length} unique products`);
+  await context.close();
+  console.log(`\n      Done — ${Object.keys(allItems).length} unique products extracted`);
   return allItems;
 }
 
