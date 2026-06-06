@@ -260,11 +260,30 @@ function merge(orderItems) {
       added++;
     }
 
-    // Sort: existing order history frequency descending, then alphabetical
+    // De-dupe by name (case-insensitive) — keep the entry with the higher order frequency,
+    // so if ASDA changes a product ID the newer one wins
     const freq = pid => orderItems[pid]?.orderCount || 0;
-    existing.sort((a, b) => freq(b.product_id) - freq(a.product_id) || a.name.localeCompare(b.name));
+    const seenNames = new Map(); // normalised name → index in deduped array
+    const deduped = [];
+    for (const item of existing) {
+      const key = item.name.toLowerCase().trim();
+      if (seenNames.has(key)) {
+        const existingIdx = seenNames.get(key);
+        if (freq(item.product_id) > freq(deduped[existingIdx].product_id)) {
+          deduped[existingIdx] = item; // replace with higher-frequency entry
+        }
+      } else {
+        seenNames.set(key, deduped.length);
+        deduped.push(item);
+      }
+    }
+    if (deduped.length < existing.length) {
+      console.log(`      Removed ${existing.length - deduped.length} name duplicate(s)`);
+    }
 
-    fs.writeFileSync(REGULARS_FILE, JSON.stringify(existing, null, 2));
+    deduped.sort((a, b) => freq(b.product_id) - freq(a.product_id) || a.name.localeCompare(b.name));
+
+    fs.writeFileSync(REGULARS_FILE, JSON.stringify(deduped, null, 2));
 
     console.log(`\n✅ Done!`);
     console.log(`   ${added} new items added`);
