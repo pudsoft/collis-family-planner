@@ -119,6 +119,7 @@
 <script>
 const REGULARS = {{ regulars | tojson }};
 const onList   = new Set({{ shopping | selectattr('asda_product_id') | map(attribute='asda_product_id') | list | tojson }});
+let _algoliaCache = []; // stores raw Algolia hits so click handler can read them by index
 
 function filterRegulars(q) {
   const box = document.getElementById('reg-results');
@@ -175,10 +176,19 @@ document.getElementById('reg-results').addEventListener('click', e => {
     return;
   }
   if (e.target.classList.contains('reg-add')) {
-    const qty  = row.querySelector('.qty-val').textContent;
-    const cat  = row.dataset.cat  || null;
-    const dept = row.dataset.dept || null;
-    addRegular(row.dataset.pid, row.dataset.name, qty, cat, dept);
+    const qty = row.querySelector('.qty-val').textContent;
+    const idx = row.dataset.algoliaIdx;
+    if (idx !== undefined) {
+      // Algolia catalogue result — look up from cache
+      const h = _algoliaCache[parseInt(idx)];
+      if (!h) return;
+      addRegular(String(h.CIN), h.NAME, qty, h.PRIMARY_TAXONOMY?.CAT_NAME || null, h.PRIMARY_TAXONOMY?.DEPT_NAME || null);
+    } else {
+      // Regulars result — use data attributes
+      const cat  = row.dataset.cat  || null;
+      const dept = row.dataset.dept || null;
+      addRegular(row.dataset.pid, row.dataset.name, qty, cat, dept);
+    }
   }
 });
 
@@ -335,15 +345,14 @@ async function searchAlgolia(q) {
     const data = await r.json();
     const hits = data.hits || [];
     if (!hits.length) { box.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">Nothing found on ASDA.</div>'; return; }
+    _algoliaCache = hits;
     box.innerHTML = '<div style="font-size:.72rem;color:var(--text-muted);padding:4px 0 6px">ASDA catalogue results:</div>' +
-      hits.map(h => {
+      hits.map((h, i) => {
         const pid     = String(h.CIN);
         const name    = h.NAME || '';
         const already = onList.has(pid);
-        const cat     = h.PRIMARY_TAXONOMY?.CAT_NAME || 'Other';
-        const dept    = h.PRIMARY_TAXONOMY?.DEPT_NAME || '';
         if (already) return `<div class="shopping-item reg-result"><span class="shopping-item-name">${escHtml(name)}</span><span class="shopping-item-qty" style="margin-left:auto;color:var(--text-muted)">✓ on list</span></div>`;
-        return `<div class="shopping-item reg-result" data-pid="${escAttr(pid)}" data-name="${escAttr(name)}" data-cat="${escAttr(cat)}" data-dept="${escAttr(dept)}">
+        return `<div class="shopping-item reg-result" data-algolia-idx="${i}">
           <span class="shopping-item-name">${escHtml(name)}</span>
           <div style="display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0">
             <button class="qty-dec" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1rem;cursor:pointer;line-height:1">−</button>
