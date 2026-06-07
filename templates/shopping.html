@@ -12,6 +12,17 @@
     <div id="reg-results" style="margin-top:10px;max-height:320px;overflow-y:auto"></div>
   </div>
 
+  <!-- ── Barcode scanner ─────────────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">📷 Scan barcode</div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-primary" id="scan-btn" onclick="startScan()">Open camera</button>
+      <span id="scan-status" style="font-size:.8rem;color:var(--text-muted)"></span>
+    </div>
+    <div id="scan-reader" style="display:none;margin-top:12px;border-radius:8px;overflow:hidden;max-width:400px"></div>
+    <div id="scan-results" style="margin-top:10px;max-height:320px;overflow-y:auto"></div>
+  </div>
+
   <!-- ── Manual add ───────────────────────────────────────────────────────────── -->
   <div class="card">
     <div class="card-title">✏️ Add item manually</div>
@@ -364,6 +375,161 @@ async function searchAlgolia(q) {
       }).join('');
   } catch(e) { box.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">Search failed — check connection.</div>'; }
 }
+
+// ── Barcode scanner ───────────────────────────────────────────────────────────
+
+let _html5QrCode = null;
+let _scanCache   = [];
+let _scanActive  = false;
+
+async function startScan() {
+  if (_scanActive) return;
+  const btn      = document.getElementById('scan-btn');
+  const readerEl = document.getElementById('scan-reader');
+  const statusEl = document.getElementById('scan-status');
+
+  if (!window.Html5Qrcode) {
+    statusEl.textContent = 'Loading scanner…';
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    }).catch(() => {
+      statusEl.textContent = 'Failed to load scanner library.';
+      return;
+    });
+    if (!window.Html5Qrcode) return;
+  }
+
+  readerEl.style.display = 'block';
+  btn.textContent = 'Stop camera';
+  btn.onclick = stopScan;
+  statusEl.textContent = 'Point camera at a barcode…';
+  document.getElementById('scan-results').innerHTML = '';
+
+  _html5QrCode = new Html5Qrcode('scan-reader');
+  _scanActive  = true;
+  try {
+    await _html5QrCode.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 250, height: 120 } },
+      onBarcodeScanned,
+      () => {}
+    );
+  } catch {
+    statusEl.textContent = 'Camera not available — check browser permissions.';
+    readerEl.style.display = 'none';
+    btn.textContent = 'Open camera';
+    btn.onclick = startScan;
+    _scanActive = false;
+  }
+}
+
+async function stopScan() {
+  _scanActive = false;
+  if (_html5QrCode) {
+    try { await _html5QrCode.stop(); } catch {}
+    _html5QrCode = null;
+  }
+  document.getElementById('scan-reader').style.display = 'none';
+  const btn = document.getElementById('scan-btn');
+  btn.textContent = 'Open camera';
+  btn.onclick = startScan;
+}
+
+async function onBarcodeScanned(ean) {
+  await stopScan();
+  const statusEl = document.getElementById('scan-status');
+  const box      = document.getElementById('scan-results');
+  statusEl.textContent = `Barcode: ${ean} — searching ASDA…`;
+  box.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">Searching…</div>';
+
+  const fd = new FormData();
+  fd.append('ean', ean);
+  let resp, data;
+  try {
+    resp = await fetch('/shopping/barcode', { method: 'POST', body: fd });
+    data = await resp.json();
+  } catch {
+    box.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">Network error — try again.</div>';
+    statusEl.textContent = '';
+    return;
+  }
+
+  if (data.error) {
+    box.innerHTML = `<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">
+      ${escHtml(data.error)}
+      <button class="btn btn-secondary btn-sm" style="margin-left:8px" onclick="startScan()">Scan again</button>
+    </div>`;
+    statusEl.textContent = '';
+    return;
+  }
+
+  statusEl.textContent = `"${data.off_name}"`;
+  _scanCache = data.candidates;
+
+  if (!_scanCache.length) {
+    box.innerHTML = `<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">
+      Not found on ASDA.
+      <button class="btn btn-secondary btn-sm" style="margin-left:8px" onclick="startScan()">Scan again</button>
+    </div>`;
+    return;
+  }
+
+  box.innerHTML = '<div style="font-size:.72rem;color:var(--text-muted);padding:4px 0 6px">ASDA matches:</div>' +
+    _scanCache.map((c, i) => {
+      if (onList.has(c.cin)) {
+        return `<div class="shopping-item reg-result">
+          <span class="shopping-item-name">${escHtml(c.name)}</span>
+          <span style="margin-left:auto;color:var(--text-muted)">✓ on list</span>
+        </div>`;
+      }
+      const priceStr = c.price != null ? `£${Number(c.price).toFixed(2)}` : '';
+      const meta     = [priceStr, c.pack_size].filter(Boolean).join(' · ');
+      return `<div class="shopping-item reg-result" data-scan-idx="${i}">
+        <div style="min-width:0;flex:1">
+          <div class="shopping-item-name">${escHtml(c.name)}</div>
+          ${meta ? `<div style="font-size:.72rem;color:var(--text-muted)">${escHtml(meta)}</div>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+          <button class="scan-qty-dec" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1rem;cursor:pointer;line-height:1">−</button>
+          <span class="qty-val" style="min-width:20px;text-align:center;font-weight:600">1</span>
+          <button class="scan-qty-inc" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1rem;cursor:pointer;line-height:1">+</button>
+          <button class="scan-add btn btn-primary btn-sm" style="margin-left:4px">Add</button>
+        </div>
+      </div>`;
+    }).join('') +
+    `<div style="margin-top:8px">
+      <button class="btn btn-secondary btn-sm" onclick="clearScanResults();startScan()">Scan another</button>
+    </div>`;
+}
+
+function clearScanResults() {
+  document.getElementById('scan-results').innerHTML = '';
+  document.getElementById('scan-status').textContent = '';
+}
+
+document.getElementById('scan-results').addEventListener('click', e => {
+  const row = e.target.closest('[data-scan-idx]');
+  if (!row) return;
+  const span = row.querySelector('.qty-val');
+  if (e.target.classList.contains('scan-qty-dec')) {
+    const v = parseInt(span.textContent);
+    if (v > 1) span.textContent = v - 1;
+    return;
+  }
+  if (e.target.classList.contains('scan-qty-inc')) {
+    span.textContent = parseInt(span.textContent) + 1;
+    return;
+  }
+  if (e.target.classList.contains('scan-add')) {
+    const c = _scanCache[parseInt(row.dataset.scanIdx)];
+    if (!c) return;
+    addRegular(c.cin, c.name, span.textContent, c.category, c.dept);
+    clearScanResults();
+  }
+});
 
 async function exportList() {
   // Build a name→product_id lookup from regulars for fallback

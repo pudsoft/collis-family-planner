@@ -1006,6 +1006,78 @@ def shopping_view():
     )
 
 
+@app.route("/shopping/barcode", methods=["POST"])
+def shopping_barcode():
+    import urllib.request, json as _json, time as _time
+    ean = request.form.get("ean", "").strip()
+    if not ean:
+        return jsonify({"error": "No barcode provided"}), 400
+
+    off_req = urllib.request.Request(
+        f"https://world.openfoodfacts.org/api/v0/product/{ean}.json",
+        headers={"User-Agent": "CollisFamilyPlanner/1.0"},
+    )
+    try:
+        with urllib.request.urlopen(off_req, timeout=6) as resp:
+            off_data = _json.loads(resp.read())
+    except Exception as e:
+        return jsonify({"error": f"Barcode lookup failed: {e}"}), 502
+
+    if off_data.get("status") != 1:
+        return jsonify({"error": "Product not found for this barcode"}), 404
+
+    product = off_data.get("product", {})
+    name  = (product.get("product_name_en") or product.get("product_name") or "").strip()
+    brand = (product.get("brands") or "").split(",")[0].strip()
+    if not name:
+        return jsonify({"error": "No product name found for this barcode"}), 404
+
+    ALGOLIA_APP = "8I6WSKCCNV"
+    ALGOLIA_KEY = "03e4272048dd17f771da37b57ff8a75e"
+    STORE_ID    = "4383"
+    now         = int(_time.time())
+    query       = f"{brand} {name}".strip() if brand else name
+    alg_filter  = (
+        f"(STATUS:A OR STATUS:I) AND NOT DISPLAY_ONLINE:false "
+        f"AND NOT UNTRAITED_STORES:{STORE_ID} AND STOCK.{STORE_ID}>0 AND END_DATE>{now}"
+    )
+    alg_payload = _json.dumps({
+        "query": query, "hitsPerPage": 5, "filters": alg_filter,
+        "attributesToRetrieve": ["CIN", "NAME", "PRICES", "PACK_SIZE", "PRIMARY_TAXONOMY"],
+    }).encode()
+    alg_req = urllib.request.Request(
+        f"https://{ALGOLIA_APP.lower()}-dsn.algolia.net/1/indexes/ASDA_PRODUCTS/query",
+        data=alg_payload,
+        headers={
+            "x-algolia-application-id": ALGOLIA_APP,
+            "x-algolia-api-key": ALGOLIA_KEY,
+            "content-type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(alg_req, timeout=6) as resp:
+            alg_data = _json.loads(resp.read())
+    except Exception as e:
+        return jsonify({"error": f"ASDA search failed: {e}"}), 502
+
+    candidates = []
+    for h in alg_data.get("hits", []):
+        prices   = h.get("PRICES", {})
+        price_en = prices.get("EN", {}) if isinstance(prices, dict) else {}
+        price    = price_en.get("PRICE") if isinstance(price_en, dict) else None
+        taxonomy = h.get("PRIMARY_TAXONOMY", {}) or {}
+        candidates.append({
+            "cin":      str(h.get("CIN", "")),
+            "name":     h.get("NAME", ""),
+            "price":    price,
+            "pack_size": h.get("PACK_SIZE", ""),
+            "category": taxonomy.get("CAT_NAME"),
+            "dept":     taxonomy.get("DEPT_NAME"),
+        })
+
+    return jsonify({"ean": ean, "off_name": name, "off_brand": brand, "candidates": candidates})
+
+
 @app.route("/shopping/add", methods=["POST"])
 def shopping_add():
     from datetime import datetime
