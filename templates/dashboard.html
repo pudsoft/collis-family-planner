@@ -52,7 +52,7 @@
     <div class="alert-icon">📅</div>
     <div class="alert-body">
       <div class="alert-title">Google Calendar disconnected</div>
-      <div class="alert-desc">Calendar sync has stopped — <a href="{{ url_for('settings_view') }}" style="color:inherit;font-weight:600">reconnect in Settings</a></div>
+      <div class="alert-desc">Calendar sync has stopped — <a href="{{ url_for('settings.settings_view') }}" style="color:inherit;font-weight:600">reconnect in Settings</a></div>
     </div>
   </div>
   {% endif %}
@@ -92,7 +92,7 @@
   <div class="card">
     <div class="card-header">
       <span class="card-title" style="margin-bottom:0">📅 Today</span>
-      <a href="{{ url_for('calendar_view') }}?person={{ person }}" class="btn btn-secondary btn-sm">See all</a>
+      <a href="{{ url_for('calendar.calendar_view') }}?person={{ person }}" class="btn btn-secondary btn-sm">See all</a>
     </div>
     {% if today_events or work_meetings %}
     <div class="event-list">
@@ -134,7 +134,7 @@
   <div class="card">
     <div class="card-header">
       <span class="card-title" style="margin-bottom:0">✅ Tasks</span>
-      <a href="{{ url_for('tasks_view') }}?person={{ person }}" class="btn btn-secondary btn-sm">See all</a>
+      <a href="{{ url_for('tasks.tasks_view') }}?person={{ person }}" class="btn btn-secondary btn-sm">See all</a>
     </div>
     {% set active_tasks = today_tasks | selectattr('completed_at', 'none') | list %}
     {% if active_tasks %}
@@ -149,7 +149,7 @@
       </div>
       {% endfor %}
       {% if active_tasks | length > 5 %}
-      <a href="{{ url_for('tasks_view') }}?person={{ person }}" class="completed-count" style="display:block">
+      <a href="{{ url_for('tasks.tasks_view') }}?person={{ person }}" class="completed-count" style="display:block">
         +{{ active_tasks | length - 5 }} more tasks
       </a>
       {% endif %}
@@ -168,7 +168,7 @@
   <div class="card">
     <div class="card-header">
       <span class="card-title" style="margin-bottom:0">💊 Medicines</span>
-      <a href="{{ url_for('medicines_view') }}?person={{ person }}" class="btn btn-secondary btn-sm">See all</a>
+      <a href="{{ url_for('medicines.medicines_view') }}?person={{ person }}" class="btn btn-secondary btn-sm">See all</a>
     </div>
     <div class="med-list">
       {% for med in pending_meds %}

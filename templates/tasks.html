@@ -96,7 +96,7 @@
   <div class="modal-sheet">
     <span class="modal-close">✕</span>
     <div class="modal-title">Add task</div>
-    <form method="POST" action="{{ url_for('task_create') }}">
+    <form method="POST" action="{{ url_for('tasks.task_create') }}">
       <div class="form-group">
         <label class="form-label">Task</label>
         <input class="form-input" name="title" required placeholder="What needs doing?" autocomplete="off">
