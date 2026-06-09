@@ -138,6 +138,18 @@
     </div>
   </div>
 
+  <!-- ── Email / App accounts ────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">✉️ Email accounts</div>
+    <div id="email-accounts-list" style="margin-bottom:12px">
+      <div style="font-size:.85rem;color:var(--text-muted)">Loading…</div>
+    </div>
+    <button class="btn btn-secondary btn-sm"
+            onclick="document.getElementById('add-email-modal').classList.add('open')">
+      + Add account
+    </button>
+  </div>
+
   {% if is_admin %}
   <!-- ── Admin shortcut ───────────────────────────────────────────────────── -->
   <div class="card">
@@ -166,6 +178,30 @@
   </div>
 
   {% endif %}
+
+  <!-- ── Add email account modal ──────────────────────────────────────────── -->
+  <div class="modal-backdrop" id="add-email-modal">
+  <div class="modal-sheet">
+    <span class="modal-close" onclick="document.getElementById('add-email-modal').classList.remove('open')">✕</span>
+    <div class="modal-title">Add email account</div>
+    <div class="form-group">
+      <label class="form-label">Label</label>
+      <input class="form-input" id="ae-label" type="text" placeholder="e.g. Gmail Personal" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email address</label>
+      <input class="form-input" id="ae-email" type="email" placeholder="you@gmail.com" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label class="form-label">App Password</label>
+      <input class="form-input" id="ae-password" type="password" placeholder="xxxx xxxx xxxx xxxx" autocomplete="new-password">
+      <div style="font-size:.78rem;color:var(--text-muted);margin-top:4px">
+        Generate at myaccount.google.com/apppasswords
+      </div>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="addEmailAccount()">Save</button>
+  </div>
+  </div>
 
   <!-- ── Change PIN modal ─────────────────────────────────────────────────── -->
   <div class="modal-backdrop" id="change-pin-modal">
@@ -380,6 +416,61 @@ window.addEventListener('pwa-installed',   () => {
   const card = document.getElementById('pwa-install-card');
   if (card) card.style.display = 'none';
 });
+
+// ── Email accounts ─────────────────────────────────────────────────────────
+
+async function loadEmailAccounts() {
+  const container = document.getElementById("email-accounts-list");
+  const r = await fetch("/settings/email_accounts");
+  const accounts = await r.json();
+  if (!accounts.length) {
+    container.innerHTML = '<div style="font-size:.85rem;color:var(--text-muted)">No accounts saved yet.</div>';
+    return;
+  }
+  container.innerHTML = accounts.map(a => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-size:.9rem;font-weight:500">${escHtml(a.label)}</div>
+        <div style="font-size:.78rem;color:var(--text-muted)">${escHtml(a.email)}</div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="removeEmailAccount(${a.id}, this)">Remove</button>
+    </div>
+  `).join("");
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+async function addEmailAccount() {
+  const label    = document.getElementById("ae-label").value.trim();
+  const email    = document.getElementById("ae-email").value.trim();
+  const password = document.getElementById("ae-password").value.trim();
+  if (!label || !email || !password) { showToast("All fields are required", "error"); return; }
+  const fd = new FormData();
+  fd.append("label", label); fd.append("email", email); fd.append("app_password", password);
+  const r = await fetch("/settings/email_accounts/add", { method: "POST", body: fd });
+  const j = await r.json().catch(() => ({}));
+  if (r.ok) {
+    showToast("Account saved");
+    document.getElementById("add-email-modal").classList.remove("open");
+    document.getElementById("ae-label").value = "";
+    document.getElementById("ae-email").value = "";
+    document.getElementById("ae-password").value = "";
+    loadEmailAccounts();
+  } else {
+    showToast(j.error || "Failed to save", "error");
+  }
+}
+
+async function removeEmailAccount(id, btn) {
+  btn.disabled = true;
+  const r = await fetch(`/settings/email_accounts/remove/${id}`, { method: "POST" });
+  if (r.ok) { showToast("Account removed"); loadEmailAccounts(); }
+  else { btn.disabled = false; showToast("Failed to remove", "error"); }
+}
+
+loadEmailAccounts();
 
 // ── PIN change ─────────────────────────────────────────────────────────────
 
