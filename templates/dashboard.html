@@ -31,6 +31,23 @@
   </div>
   {% endif %}
 
+  <!-- ── Grass pollen forecast (Paul / family only) ───────────────────────── -->
+  {% if pollen_forecast %}
+  {% set day_labels = ['Today', 'Tomorrow', 'In 2 days', 'In 3 days', 'In 4 days'] %}
+  <div class="card" style="padding:10px 14px">
+    <div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:8px">🌿 Grass pollen</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      {% for day in pollen_forecast %}
+      <div style="flex:1;min-width:54px;text-align:center;padding:6px 4px;border-radius:8px;background:var(--bg)">
+        <div style="font-size:.68rem;color:var(--text-muted);margin-bottom:3px">{{ day_labels[loop.index0] if loop.index0 < day_labels|length else day.date[5:] }}</div>
+        <div style="font-size:.75rem;font-weight:700;color:{{ day.colour }}">{{ day.label }}</div>
+        <div style="font-size:.65rem;color:var(--text-muted);margin-top:1px">{{ day.peak }} g/m³</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <!-- ── Childcare warning ──────────────────────────────────────────────────── -->
   {% if childcare_alert %}
   <div class="alert-card alert-danger">

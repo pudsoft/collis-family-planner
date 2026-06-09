@@ -202,3 +202,94 @@ if _disk:
              time.strftime("%H:%M", time.localtime(_disk.get("fetched_at", 0))))
 
 threading.Thread(target=_refresh_loop, daemon=True, name="weather-refresh").start()
+
+
+# ── Grass pollen forecast (Open-Meteo Air Quality API) ───────────────────────
+
+_POLLEN_CACHE_FILE = Path(__file__).parent.parent / "data" / "pollen_cache.json"
+_pollen_cache:     list = []
+_pollen_lock = threading.Lock()
+
+_POLLEN_LEVELS = [
+    (0,   "Very Low",  "#4caf50"),
+    (10,  "Low",       "#8bc34a"),
+    (30,  "Moderate",  "#ffc107"),
+    (50,  "High",      "#ff9800"),
+    (100, "Very High", "#f44336"),
+]
+
+def _pollen_level(grains: float) -> tuple[str, str]:
+    label, colour = "Very Low", "#4caf50"
+    for threshold, lbl, col in _POLLEN_LEVELS:
+        if grains >= threshold:
+            label, colour = lbl, col
+    return label, colour
+
+
+def _fetch_pollen() -> list | None:
+    url = (
+        f"https://air-quality-api.open-meteo.com/v1/air-quality"
+        f"?latitude={WEATHER_LAT}&longitude={WEATHER_LON}"
+        f"&hourly=grass_pollen&forecast_days=5&timezone=Europe%2FLondon"
+    )
+    try:
+        resp = requests.get(url, timeout=15, headers={"User-Agent": "CollisFamilyPlanner/1.0"})
+        resp.raise_for_status()
+        data = resp.json()
+        times  = data["hourly"]["time"]          # "2026-06-09T00:00" …
+        values = data["hourly"]["grass_pollen"]  # grains/m³ or null
+
+        # Group by date, take daily max
+        by_date: dict[str, list] = {}
+        for t, v in zip(times, values):
+            d = t[:10]
+            if v is not None:
+                by_date.setdefault(d, []).append(v)
+
+        days = sorted(by_date)[:5]
+        result = []
+        for d in days:
+            peak = max(by_date[d])
+            label, colour = _pollen_level(peak)
+            result.append({"date": d, "peak": round(peak, 1), "label": label, "colour": colour})
+
+        log.info("pollen: fetched OK (%d days)", len(result))
+        return result
+    except Exception as exc:
+        log.warning("pollen: fetch failed: %s", exc)
+        return None
+
+
+def _pollen_refresh_loop():
+    # Stagger start so it doesn't hit at the same time as weather
+    time.sleep(15)
+    while True:
+        result = _fetch_pollen()
+        if result:
+            with _pollen_lock:
+                global _pollen_cache
+                _pollen_cache = result
+            try:
+                _POLLEN_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+                _POLLEN_CACHE_FILE.write_text(json.dumps(result))
+            except Exception:
+                pass
+            time.sleep(_REFRESH_INTERVAL)
+        else:
+            time.sleep(_FAIL_RETRY)
+
+
+def get_pollen_forecast() -> list:
+    """Return cached 5-day grass pollen forecast. Never blocks."""
+    with _pollen_lock:
+        return list(_pollen_cache)
+
+
+# Load pollen disk cache on startup
+try:
+    if _POLLEN_CACHE_FILE.exists():
+        _pollen_cache = json.loads(_POLLEN_CACHE_FILE.read_text())
+except Exception:
+    pass
+
+threading.Thread(target=_pollen_refresh_loop, daemon=True, name="pollen-refresh").start()

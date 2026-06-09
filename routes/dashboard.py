@@ -33,6 +33,7 @@ def dashboard():
     today_tasks        = tasks.get_tasks_for_person(db, person)
     today_meds         = medicines.get_today_doses(db, person)
     wx                 = weather.get_weather()
+    pollen_forecast    = weather.get_pollen_forecast() if person in ("paul", "family") else []
     childcare_alert    = calendar_sync.childcare_warning(db)
     kids_first_events  = calendar_sync.first_events_today(db, ["joshua", "violet"]) if person in ("paul", "family") else {}
     weather_days       = int(prefs.get("weather_days") or 3)
@@ -54,6 +55,7 @@ def dashboard():
         today_tasks=today_tasks,
         today_meds=today_meds,
         weather=wx,
+        pollen_forecast=pollen_forecast,
         childcare_alert=childcare_alert,
         kids_first_events=kids_first_events,
         weather_days=weather_days,
