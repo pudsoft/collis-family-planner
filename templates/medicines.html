@@ -79,11 +79,11 @@
 
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <a href="{{ url_for('medicines_view') }}?person={{ person }}&date={{ prev_date }}"
+      <a href="{{ url_for('medicines.medicines_view') }}?person={{ person }}&date={{ prev_date }}"
          class="btn btn-secondary btn-sm" style="font-size:1.1rem;padding:.4rem .75rem">‹</a>
       <span style="font-weight:700;font-size:1rem">💊 {{ view_date_label }}</span>
       {% if next_date %}
-      <a href="{{ url_for('medicines_view') }}?person={{ person }}&date={{ next_date }}"
+      <a href="{{ url_for('medicines.medicines_view') }}?person={{ person }}&date={{ next_date }}"
          class="btn btn-secondary btn-sm" style="font-size:1.1rem;padding:.4rem .75rem">›</a>
       {% else %}
       <span style="width:44px"></span>
@@ -190,7 +190,7 @@
       <div class="empty-state-icon">💊</div>
       <div class="empty-state-text">
         No medicines set up yet.
-        {% if is_admin %}<a href="{{ url_for('admin_view') }}" style="color:var(--person-colour,var(--family));font-weight:600">Add in Admin</a>{% endif %}
+        {% if is_admin %}<a href="{{ url_for('admin.admin_view') }}" style="color:var(--person-colour,var(--family));font-weight:600">Add in Admin</a>{% endif %}
       </div>
     </div>
     {% endif %}

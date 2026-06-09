@@ -1,0 +1,65 @@
+"""Dashboard blueprint — / and /dashboard."""
+from __future__ import annotations
+
+import logging
+from datetime import date
+
+from flask import Blueprint, render_template, request, session
+
+import config
+from modules import calendar_sync, medicines, tasks, weather
+from routes.utils import auth_person, current_person, get_db, get_prefs
+
+log = logging.getLogger(__name__)
+
+bp = Blueprint("dashboard", __name__)
+
+
+@bp.route("/")
+@bp.route("/dashboard")
+def dashboard():
+    person = current_person()
+    # Override person from URL param (NTFY deep-link)
+    if "person" in request.args and request.args["person"] in config.PEOPLE + ["family"]:
+        person = request.args["person"]
+        session["person"] = person
+
+    db   = get_db()
+    prefs = get_prefs(db, person)
+
+    today_events       = calendar_sync.get_today_events(db, person)
+    work_meetings      = calendar_sync.get_work_meetings() if person in ("paul", "family") else []
+    leave_checklist    = calendar_sync.before_you_leave(db, person)
+    today_tasks        = tasks.get_tasks_for_person(db, person)
+    today_meds         = medicines.get_today_doses(db, person)
+    wx                 = weather.get_weather()
+    childcare_alert    = calendar_sync.childcare_warning(db)
+    kids_first_events  = calendar_sync.first_events_today(db, ["joshua", "violet"]) if person in ("paul", "family") else {}
+    weather_days       = int(prefs.get("weather_days") or 3)
+
+    # Non-admins only see their own medicines (same rule as /medicines page)
+    viewer = auth_person()
+    if viewer not in config.ADMINS:
+        today_meds = [m for m in today_meds if m["person"] == viewer]
+
+    today_meds.sort(key=lambda m: m.get("scheduled_time") or "99:99")
+
+    return render_template(
+        "dashboard.html",
+        person=person,
+        prefs=prefs,
+        today_events=today_events,
+        work_meetings=work_meetings,
+        leave_checklist=leave_checklist,
+        today_tasks=today_tasks,
+        today_meds=today_meds,
+        weather=wx,
+        childcare_alert=childcare_alert,
+        kids_first_events=kids_first_events,
+        weather_days=weather_days,
+        people=config.PEOPLE,
+        person_display=config.PERSON_DISPLAY,
+        today=date.today().isoformat(),
+        is_admin=person in config.ADMINS,
+        calendar_error=calendar_sync.get_sync_error() if person in config.ADMINS else None,
+    )

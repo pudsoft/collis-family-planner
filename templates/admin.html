@@ -154,7 +154,7 @@
         Refresh calendar
       </button>
       {% if not google_connected %}
-      <a href="{{ url_for('calendar_auth') }}" class="btn btn-primary">Connect Google Calendar</a>
+      <a href="{{ url_for('calendar.calendar_auth') }}" class="btn btn-primary">Connect Google Calendar</a>
       {% endif %}
     </div>
   </div>

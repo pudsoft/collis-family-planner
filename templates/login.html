@@ -78,7 +78,7 @@
     <!-- Google sign-in (shown only for Google persons) -->
     {% if google_enabled %}
     <div id="google-option" style="display:none">
-      <a href="{{ url_for('login_google') }}" class="btn-google">
+      <a href="{{ url_for('auth.login_google') }}" class="btn-google">
         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="">
         Sign in with Google
       </a>
@@ -86,7 +86,7 @@
     {% endif %}
 
     <div id="pin-form-wrapper">
-    <form method="post" action="{{ url_for('login_pin') }}" id="pin-form">
+    <form method="post" action="{{ url_for('auth.login_pin') }}" id="pin-form">
       <input type="hidden" name="person" id="pin-person-input">
       <input type="hidden" name="pin"    id="pin-value-input">
       <input type="hidden" name="next"   value="{{ next }}">
