@@ -67,21 +67,53 @@ def settings_change_pin():
     return jsonify({"ok": True})
 
 
+def _ensure_email_accounts_table(db):
+    try:
+        import config as _cfg
+        if _cfg.DB_DRIVER == "mysql":
+            db.execute("""CREATE TABLE IF NOT EXISTS email_accounts (
+                id            INT AUTO_INCREMENT PRIMARY KEY,
+                person        VARCHAR(50) NOT NULL,
+                label         VARCHAR(100) NOT NULL,
+                email_address VARCHAR(255) NOT NULL,
+                app_password  TEXT NOT NULL
+            )""")
+        else:
+            db.execute("""CREATE TABLE IF NOT EXISTS email_accounts (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                person        TEXT NOT NULL,
+                label         TEXT NOT NULL,
+                email_address TEXT NOT NULL,
+                app_password  TEXT NOT NULL
+            )""")
+        db.commit()
+    except Exception:
+        pass
+
+
 @bp.route("/settings/email_accounts")
 def email_accounts_list():
     person = auth_person()
-    return jsonify(email_accounts_mod.list_accounts(get_db(), person))
+    db = get_db()
+    _ensure_email_accounts_table(db)
+    return jsonify(email_accounts_mod.list_accounts(db, person))
 
 
 @bp.route("/settings/email_accounts/add", methods=["POST"])
 def email_accounts_add():
     person = auth_person()
-    label    = request.form.get("label", "").strip()
+    label      = request.form.get("label", "").strip()
     email_addr = request.form.get("email", "").strip()
-    password = request.form.get("app_password", "").strip()
+    password   = request.form.get("app_password", "").strip()
     if not label or not email_addr or not password:
         return jsonify({"error": "All fields are required"}), 400
-    email_accounts_mod.add_account(get_db(), person, label, email_addr, password)
+    db = get_db()
+    _ensure_email_accounts_table(db)
+    try:
+        email_accounts_mod.add_account(db, person, label, email_addr, password)
+    except Exception as e:
+        log.exception("email_accounts_add failed")
+        return jsonify({"error": str(e)}), 500
     return jsonify({"ok": True})
 
 

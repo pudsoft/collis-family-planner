@@ -199,7 +199,7 @@
         Generate at myaccount.google.com/apppasswords
       </div>
     </div>
-    <button class="btn btn-primary btn-full" onclick="addEmailAccount()">Save</button>
+    <button type="button" class="btn btn-primary btn-full" onclick="addEmailAccount()">Save</button>
   </div>
   </div>
 
@@ -421,21 +421,26 @@ window.addEventListener('pwa-installed',   () => {
 
 async function loadEmailAccounts() {
   const container = document.getElementById("email-accounts-list");
-  const r = await fetch("/settings/email_accounts");
-  const accounts = await r.json();
-  if (!accounts.length) {
-    container.innerHTML = '<div style="font-size:.85rem;color:var(--text-muted)">No accounts saved yet.</div>';
-    return;
-  }
-  container.innerHTML = accounts.map(a => `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
-      <div>
-        <div style="font-size:.9rem;font-weight:500">${escHtml(a.label)}</div>
-        <div style="font-size:.78rem;color:var(--text-muted)">${escHtml(a.email)}</div>
+  try {
+    const r = await fetch("/settings/email_accounts");
+    if (!r.ok) { container.innerHTML = '<div style="font-size:.85rem;color:var(--text-muted)">Could not load accounts.</div>'; return; }
+    const accounts = await r.json();
+    if (!accounts.length) {
+      container.innerHTML = '<div style="font-size:.85rem;color:var(--text-muted)">No accounts saved yet.</div>';
+      return;
+    }
+    container.innerHTML = accounts.map(a => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:.9rem;font-weight:500">${escHtml(a.label)}</div>
+          <div style="font-size:.78rem;color:var(--text-muted)">${escHtml(a.email)}</div>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="removeEmailAccount(${a.id}, this)">Remove</button>
       </div>
-      <button class="btn btn-secondary btn-sm" onclick="removeEmailAccount(${a.id}, this)">Remove</button>
-    </div>
-  `).join("");
+    `).join("");
+  } catch(e) {
+    container.innerHTML = '<div style="font-size:.85rem;color:var(--text-muted)">Could not load accounts.</div>';
+  }
 }
 
 function escHtml(s) {
@@ -447,27 +452,35 @@ async function addEmailAccount() {
   const email    = document.getElementById("ae-email").value.trim();
   const password = document.getElementById("ae-password").value.trim();
   if (!label || !email || !password) { showToast("All fields are required", "error"); return; }
-  const fd = new FormData();
-  fd.append("label", label); fd.append("email", email); fd.append("app_password", password);
-  const r = await fetch("/settings/email_accounts/add", { method: "POST", body: fd });
-  const j = await r.json().catch(() => ({}));
-  if (r.ok) {
-    showToast("Account saved");
-    document.getElementById("add-email-modal").classList.remove("open");
-    document.getElementById("ae-label").value = "";
-    document.getElementById("ae-email").value = "";
-    document.getElementById("ae-password").value = "";
-    loadEmailAccounts();
-  } else {
-    showToast(j.error || "Failed to save", "error");
+  try {
+    const fd = new FormData();
+    fd.append("label", label); fd.append("email", email); fd.append("app_password", password);
+    const r = await fetch("/settings/email_accounts/add", { method: "POST", body: fd });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) {
+      showToast("Account saved");
+      document.getElementById("add-email-modal").classList.remove("open");
+      document.getElementById("ae-label").value = "";
+      document.getElementById("ae-email").value = "";
+      document.getElementById("ae-password").value = "";
+      loadEmailAccounts();
+    } else {
+      showToast(j.error || `Server error (${r.status})`, "error");
+    }
+  } catch(e) {
+    showToast("Request failed: " + e.message, "error");
   }
 }
 
 async function removeEmailAccount(id, btn) {
-  btn.disabled = true;
-  const r = await fetch(`/settings/email_accounts/remove/${id}`, { method: "POST" });
-  if (r.ok) { showToast("Account removed"); loadEmailAccounts(); }
-  else { btn.disabled = false; showToast("Failed to remove", "error"); }
+  try {
+    btn.disabled = true;
+    const r = await fetch(`/settings/email_accounts/remove/${id}`, { method: "POST" });
+    if (r.ok) { showToast("Account removed"); loadEmailAccounts(); }
+    else { btn.disabled = false; showToast("Failed to remove", "error"); }
+  } catch(e) {
+    btn.disabled = false; showToast("Request failed: " + e.message, "error");
+  }
 }
 
 loadEmailAccounts();
