@@ -4,23 +4,24 @@
 {% block content %}
 <div class="page">
 
+  <!-- ── Barcode scanner ─────────────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">📷 Scan barcodes</div>
+    <button class="btn btn-primary" id="scan-btn" onclick="startScan()"
+            style="width:100%;padding:14px 0;font-size:1.05rem;font-weight:600">
+      Open camera
+    </button>
+    <div id="scan-status" style="font-size:.8rem;color:var(--text-muted);margin-top:6px;min-height:1.1em"></div>
+    <div id="scan-reader" style="display:none;margin-top:12px;border-radius:8px;overflow:hidden;max-width:400px"></div>
+    <div id="scan-basket"></div>
+  </div>
+
   <!-- ── Search regulars ──────────────────────────────────────────────────────── -->
   <div class="card">
     <div class="card-title">🛒 Add from favourites</div>
     <input class="form-input" id="reg-search" placeholder="Search your ASDA favourites…"
            autocomplete="off" oninput="filterRegulars(this.value)">
     <div id="reg-results" style="margin-top:10px;max-height:320px;overflow-y:auto"></div>
-  </div>
-
-  <!-- ── Barcode scanner ─────────────────────────────────────────────────────── -->
-  <div class="card">
-    <div class="card-title">📷 Scan barcode</div>
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <button class="btn btn-primary" id="scan-btn" onclick="startScan()">Open camera</button>
-      <span id="scan-status" style="font-size:.8rem;color:var(--text-muted)"></span>
-    </div>
-    <div id="scan-reader" style="display:none;margin-top:12px;border-radius:8px;overflow:hidden;max-width:400px"></div>
-    <div id="scan-results" style="margin-top:10px;max-height:320px;overflow-y:auto"></div>
   </div>
 
   <!-- ── Manual add ───────────────────────────────────────────────────────────── -->
@@ -378,9 +379,11 @@ async function searchAlgolia(q) {
 
 // ── Barcode scanner ───────────────────────────────────────────────────────────
 
-let _html5QrCode = null;
-let _scanCache   = [];
-let _scanActive  = false;
+let _html5QrCode  = null;
+let _scanActive   = false;
+let _scanBasket   = [];       // [{cin, name, qty, category, dept, price, pack_size}]
+let _scanCooldown = new Set(); // EANs paused after recent decode to prevent double-reads
+let _scanPaused   = false;    // true while async server lookup is in flight
 
 async function startScan() {
   if (_scanActive) return;
@@ -395,10 +398,7 @@ async function startScan() {
       s.src = 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
       s.onload = res; s.onerror = rej;
       document.head.appendChild(s);
-    }).catch(() => {
-      statusEl.textContent = 'Failed to load scanner library.';
-      return;
-    });
+    }).catch(() => { statusEl.textContent = 'Failed to load scanner library.'; });
     if (!window.Html5Qrcode) return;
   }
 
@@ -406,7 +406,6 @@ async function startScan() {
   btn.textContent = 'Stop camera';
   btn.onclick = stopScan;
   statusEl.textContent = 'Point camera at a barcode…';
-  document.getElementById('scan-results').innerHTML = '';
 
   _html5QrCode = new Html5Qrcode('scan-reader');
   _scanActive  = true;
@@ -428,6 +427,7 @@ async function startScan() {
 
 async function stopScan() {
   _scanActive = false;
+  _scanCooldown.clear();
   if (_html5QrCode) {
     try { await _html5QrCode.stop(); } catch {}
     _html5QrCode = null;
@@ -436,100 +436,139 @@ async function stopScan() {
   const btn = document.getElementById('scan-btn');
   btn.textContent = 'Open camera';
   btn.onclick = startScan;
+  const statusEl = document.getElementById('scan-status');
+  statusEl.textContent = _scanBasket.length ? 'Camera stopped — add your items below.' : '';
 }
 
 async function onBarcodeScanned(ean) {
-  await stopScan();
+  if (_scanCooldown.has(ean) || _scanPaused) return;
+  _scanPaused = true;
+  _scanCooldown.add(ean);
+  setTimeout(() => _scanCooldown.delete(ean), 5000);
+
   const statusEl = document.getElementById('scan-status');
-  const box      = document.getElementById('scan-results');
-  statusEl.textContent = `Barcode: ${ean} — searching ASDA…`;
-  box.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">Searching…</div>';
+  statusEl.textContent = `Barcode: ${ean} — searching…`;
 
   const fd = new FormData();
   fd.append('ean', ean);
-  let resp, data;
+  let data;
   try {
-    resp = await fetch('/shopping/barcode', { method: 'POST', body: fd });
+    const resp = await fetch('/shopping/barcode', { method: 'POST', body: fd });
     data = await resp.json();
   } catch {
-    box.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">Network error — try again.</div>';
-    statusEl.textContent = '';
+    statusEl.textContent = 'Network error — try again.';
+    _scanPaused = false;
     return;
   }
 
   if (data.error) {
-    box.innerHTML = `<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">
-      ${escHtml(data.error)}
-      <button class="btn btn-secondary btn-sm" style="margin-left:8px" onclick="startScan()">Scan again</button>
-    </div>`;
-    statusEl.textContent = '';
+    statusEl.textContent = data.error;
+    _scanPaused = false;
     return;
   }
 
-  statusEl.textContent = `"${data.off_name}"`;
-  _scanCache = data.candidates;
-
-  if (!_scanCache.length) {
-    box.innerHTML = `<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">
-      Not found on ASDA.
-      <button class="btn btn-secondary btn-sm" style="margin-left:8px" onclick="startScan()">Scan again</button>
-    </div>`;
+  const c = data.candidates?.[0];
+  if (!c) {
+    statusEl.textContent = `"${data.off_name}" — not found on ASDA`;
+    _scanPaused = false;
     return;
   }
 
-  box.innerHTML = '<div style="font-size:.72rem;color:var(--text-muted);padding:4px 0 6px">ASDA matches:</div>' +
-    _scanCache.map((c, i) => {
-      if (onList.has(c.cin)) {
-        return `<div class="shopping-item reg-result">
-          <span class="shopping-item-name">${escHtml(c.name)}</span>
-          <span style="margin-left:auto;color:var(--text-muted)">✓ on list</span>
-        </div>`;
-      }
-      const priceStr = c.price != null ? `£${Number(c.price).toFixed(2)}` : '';
-      const meta     = [priceStr, c.pack_size].filter(Boolean).join(' · ');
-      return `<div class="shopping-item reg-result" data-scan-idx="${i}">
+  if (onList.has(c.cin)) {
+    statusEl.textContent = `"${c.name}" — already on list`;
+    _scanPaused = false;
+    return;
+  }
+
+  const existing = _scanBasket.find(b => b.cin === c.cin);
+  if (existing) {
+    existing.qty++;
+    statusEl.textContent = `"${c.name}" — qty now ${existing.qty}`;
+  } else {
+    _scanBasket.push({ cin: c.cin, name: c.name, qty: 1,
+      category: c.category, dept: c.dept, price: c.price, pack_size: c.pack_size });
+    statusEl.textContent = `Added: "${c.name}"`;
+  }
+  renderBasket();
+  _scanPaused = false;
+}
+
+function renderBasket() {
+  const box = document.getElementById('scan-basket');
+  if (!_scanBasket.length) { box.innerHTML = ''; return; }
+  const btnStyle = 'width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1rem;cursor:pointer;line-height:1';
+  box.innerHTML =
+    `<div style="font-size:.72rem;color:var(--text-muted);padding:8px 0 4px">
+      Scanned — ${_scanBasket.length} item${_scanBasket.length !== 1 ? 's' : ''}:
+    </div>` +
+    _scanBasket.map((item, i) => `
+      <div class="shopping-item reg-result" data-basket-idx="${i}">
         <div style="min-width:0;flex:1">
-          <div class="shopping-item-name">${escHtml(c.name)}</div>
-          ${meta ? `<div style="font-size:.72rem;color:var(--text-muted)">${escHtml(meta)}</div>` : ''}
+          <div class="shopping-item-name">${escHtml(item.name)}</div>
+          ${item.price != null
+            ? `<div style="font-size:.72rem;color:var(--text-muted)">£${Number(item.price).toFixed(2)}${item.pack_size ? ' · ' + escHtml(item.pack_size) : ''}</div>`
+            : ''}
         </div>
         <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
-          <button class="scan-qty-dec" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1rem;cursor:pointer;line-height:1">−</button>
-          <span class="qty-val" style="min-width:20px;text-align:center;font-weight:600">1</span>
-          <button class="scan-qty-inc" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1rem;cursor:pointer;line-height:1">+</button>
-          <button class="scan-add btn btn-primary btn-sm" style="margin-left:4px">Add</button>
+          <button class="bsk-dec" style="${btnStyle}">−</button>
+          <span class="bsk-qty" style="min-width:20px;text-align:center;font-weight:600">${item.qty}</span>
+          <button class="bsk-inc" style="${btnStyle}">+</button>
+          <button class="bsk-remove" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1rem;padding:0 4px" title="Remove">✕</button>
         </div>
-      </div>`;
-    }).join('') +
-    `<div style="margin-top:8px">
-      <button class="btn btn-secondary btn-sm" onclick="clearScanResults();startScan()">Scan another</button>
-    </div>`;
+      </div>`
+    ).join('') +
+    `<button class="btn btn-primary" style="width:100%;margin-top:10px;padding:12px;font-size:1rem;font-weight:600"
+             onclick="addAllScanned()">
+      Add ${_scanBasket.length} item${_scanBasket.length !== 1 ? 's' : ''} to list
+    </button>`;
 }
 
-function clearScanResults() {
-  document.getElementById('scan-results').innerHTML = '';
-  document.getElementById('scan-status').textContent = '';
-}
-
-document.getElementById('scan-results').addEventListener('click', e => {
-  const row = e.target.closest('[data-scan-idx]');
+document.getElementById('scan-basket').addEventListener('click', e => {
+  const row = e.target.closest('[data-basket-idx]');
   if (!row) return;
-  const span = row.querySelector('.qty-val');
-  if (e.target.classList.contains('scan-qty-dec')) {
+  const idx  = parseInt(row.dataset.basketIdx);
+  const span = row.querySelector('.bsk-qty');
+  if (e.target.classList.contains('bsk-dec')) {
     const v = parseInt(span.textContent);
-    if (v > 1) span.textContent = v - 1;
+    if (v > 1) { _scanBasket[idx].qty = v - 1; renderBasket(); }
     return;
   }
-  if (e.target.classList.contains('scan-qty-inc')) {
-    span.textContent = parseInt(span.textContent) + 1;
+  if (e.target.classList.contains('bsk-inc')) {
+    _scanBasket[idx].qty = parseInt(span.textContent) + 1;
+    renderBasket();
     return;
   }
-  if (e.target.classList.contains('scan-add')) {
-    const c = _scanCache[parseInt(row.dataset.scanIdx)];
-    if (!c) return;
-    addRegular(c.cin, c.name, span.textContent, c.category, c.dept);
-    clearScanResults();
+  if (e.target.classList.contains('bsk-remove')) {
+    _scanBasket.splice(idx, 1);
+    renderBasket();
   }
 });
+
+async function addAllScanned() {
+  if (!_scanBasket.length) return;
+  const basket = [..._scanBasket];
+  _scanBasket = [];
+  renderBasket();
+
+  let added = 0;
+  for (const item of basket) {
+    const fd = new FormData();
+    fd.append('item', item.name);
+    fd.append('quantity', item.qty);
+    fd.append('category', item.category || 'Other');
+    if (item.cin) fd.append('asda_product_id', item.cin);
+    const data = await postAction('/shopping/add', fd, null);
+    if (data) {
+      onList.add(item.cin);
+      appendToList({ id: data.id, item: item.name, quantity: item.qty,
+        checked: 0, is_manual: 0, asda_product_id: item.cin,
+        category: item.category || 'Other', dept: item.dept || '' });
+      added++;
+    }
+  }
+  if (added) showToast(`Added ${added} item${added !== 1 ? 's' : ''} to list`);
+  if (_scanActive) document.getElementById('scan-status').textContent = 'Point camera at a barcode…';
+}
 
 async function exportList() {
   // Build a name→product_id lookup from regulars for fallback
