@@ -229,6 +229,38 @@
 
 {% block extra_js %}
 <script>
+// Surface any unhandled JS error into the email-accounts card for remote diagnosis
+window.onerror = function(msg, _src, line) {
+  const el = document.getElementById('email-accounts-list');
+  if (el) el.innerHTML = '<div style="font-size:.8rem;color:var(--danger,#f44336)">JS error line ' + line + ': ' + msg + '</div>';
+};
+
+// Load email accounts immediately — before any other setup code that might throw
+(async function _earlyLoadEmailAccounts() {
+  const container = document.getElementById("email-accounts-list");
+  if (!container) return;
+  try {
+    const r = await fetch("/settings/email_accounts");
+    if (!r.ok) { container.innerHTML = '<div style="font-size:.85rem;color:var(--text-muted)">Could not load accounts.</div>'; return; }
+    const accounts = await r.json();
+    if (!accounts.length) {
+      container.innerHTML = '<div style="font-size:.85rem;color:var(--text-muted)">No accounts saved yet.</div>';
+      return;
+    }
+    container.innerHTML = accounts.map(a => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:.9rem;font-weight:500">${String(a.label).replace(/&/g,"&amp;").replace(/</g,"&lt;")}</div>
+          <div style="font-size:.78rem;color:var(--text-muted)">${String(a.email).replace(/&/g,"&amp;").replace(/</g,"&lt;")}</div>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="removeEmailAccount(${a.id}, this)">Remove</button>
+      </div>
+    `).join("");
+  } catch(e) {
+    container.innerHTML = '<div style="font-size:.85rem;color:var(--text-muted)">Could not load accounts.</div>';
+  }
+})();
+
 const VAPID_PUBLIC_KEY = "{{ vapid_public_key }}";
 
 function updateNotifUI() {
@@ -238,7 +270,7 @@ function updateNotifUI() {
   document.getElementById("ntfy-test-btn").style.display = method === "ntfy"  ? "" : "none";
   document.getElementById("push-test-btn").style.display = method === "push"  ? "" : "none";
 }
-updateNotifUI();
+try { updateNotifUI(); } catch(e) { console.warn('updateNotifUI:', e); }
 
 // On load: check if this device already has a live subscription and update button state
 (async () => {
@@ -410,7 +442,7 @@ async function installPWA() {
 }
 
 // Run on load; also react if the prompt fires after page load
-_updatePwaCard();
+try { _updatePwaCard(); } catch(e) { console.warn('_updatePwaCard:', e); }
 window.addEventListener('pwa-installable', _updatePwaCard);
 window.addEventListener('pwa-installed',   () => {
   const card = document.getElementById('pwa-install-card');
