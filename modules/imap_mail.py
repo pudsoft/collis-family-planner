@@ -103,26 +103,30 @@ def list_messages(email_address: str, password: str,
 
 def delete_messages(email_address: str, password: str,
                     uids: list[str], mailbox: str = "INBOX") -> int:
-    """Move messages to Gmail Trash. Returns number moved."""
+    """Mark messages as deleted and expunge. Gmail moves them to Trash.
+    Returns number marked."""
     if not uids:
         return 0
     conn = _connect(email_address, password)
-    moved = 0
+    marked = 0
     try:
-        conn.select(f'"{mailbox}"')
+        status, _ = conn.select(f'"{mailbox}"')
+        if status != "OK":
+            raise RuntimeError(f"Cannot select mailbox '{mailbox}' for delete")
         for uid in uids:
             uid_b = uid.encode() if isinstance(uid, str) else uid
-            ok, _ = conn.uid("COPY", uid_b, '"[Gmail]/Trash"')
-            if ok == "OK":
-                conn.uid("STORE", uid_b, "+FLAGS", "\\Deleted")
-                moved += 1
+            res, data = conn.uid("STORE", uid_b, "+FLAGS", "\\Deleted")
+            log.debug("STORE uid=%s res=%s data=%s", uid, res, data)
+            if res == "OK":
+                marked += 1
         conn.expunge()
+        log.info("delete_messages: marked %d/%d as deleted", marked, len(uids))
     finally:
         try:
             conn.logout()
         except Exception:
             pass
-    return moved
+    return marked
 
 
 def http_unsubscribe(url: str) -> dict:

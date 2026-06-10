@@ -275,14 +275,16 @@ async function deleteGroup(domain) {
   if (!confirm(`Delete all ${g.emails.length} emails from ${g.displayName}?`)) return;
   const uids = g.emails.map(e => e.uid);
   const r = await doDelete(uids);
-  if (r.ok) {
+  if (r.ok && r.deleted > 0) {
     showToast(`Deleted ${r.deleted} emails from ${g.displayName}`);
     _emails  = _emails.filter(e => !uids.includes(e.uid));
     _groups  = _groups.filter(g2 => g2.domain !== domain);
     _selected.delete(domain);
     renderGroups();
+  } else if (r.ok && r.deleted === 0) {
+    showToast('Nothing deleted — emails may already be gone', 'error');
   } else {
-    showToast('Delete failed: ' + (r.error || 'unknown'), 'error');
+    showToast('Delete failed: ' + (r.error || 'server error'), 'error');
   }
 }
 
@@ -306,7 +308,7 @@ async function bulkDelete() {
 
   const allUids = selGroups.flatMap(g => g.emails.map(e => e.uid));
   const r = await doDelete(allUids);
-  if (r.ok) {
+  if (r.ok && r.deleted > 0) {
     const uidsSet  = new Set(allUids);
     const delDoms  = new Set(selGroups.map(g => g.domain));
     _emails = _emails.filter(e => !uidsSet.has(e.uid));
@@ -314,8 +316,10 @@ async function bulkDelete() {
     _selected.clear();
     showToast(`Deleted ${r.deleted} emails`);
     renderGroups();
+  } else if (r.ok && r.deleted === 0) {
+    showToast('Nothing deleted — emails may already be gone', 'error');
   } else {
-    showToast('Delete failed: ' + (r.error || 'unknown'), 'error');
+    showToast('Delete failed: ' + (r.error || 'server error'), 'error');
   }
 }
 
