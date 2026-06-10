@@ -38,11 +38,15 @@ def email_messages(account_id: int):
     if not creds:
         return jsonify({"error": "Account not found"}), 404
 
-    mailbox = request.args.get("mailbox", "INBOX")
-    limit   = min(int(request.args.get("limit", 200)), 500)
+    mailbox     = request.args.get("mailbox", "INBOX")
+    limit       = min(int(request.args.get("limit", 200)), 500)
+    unread_only = request.args.get("unread_only", "1") == "1"
+    since_days  = int(request.args.get("since_days", 90))
     try:
         msgs = imap_mail.list_messages(creds["email"], creds["password"],
-                                       mailbox=mailbox, limit=limit)
+                                       mailbox=mailbox, limit=limit,
+                                       unread_only=unread_only,
+                                       since_days=since_days)
         return jsonify(msgs)
     except Exception as exc:
         log.exception("IMAP fetch failed for account %s", account_id)

@@ -25,12 +25,17 @@
         <option value="[Gmail]/Spam">Spam</option>
       </select>
     </div>
-    <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
-      <select class="form-select" id="em-limit" style="width:auto">
-        <option value="100">Latest 100</option>
-        <option value="200" selected>Latest 200</option>
-        <option value="500">Latest 500</option>
+    <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap">
+      <select class="form-select" id="em-since" style="width:auto">
+        <option value="30">Last 30 days</option>
+        <option value="90" selected>Last 90 days</option>
+        <option value="365">Last year</option>
+        <option value="0">All time</option>
       </select>
+      <label style="display:flex;align-items:center;gap:5px;font-size:.85rem;cursor:pointer;white-space:nowrap">
+        <input type="checkbox" id="em-unread-only" checked>
+        Unread only
+      </label>
       <button class="btn btn-primary" style="flex:1" id="em-load-btn" onclick="loadEmails()">
         Load emails
       </button>
@@ -98,7 +103,9 @@ async function loadEmails() {
   _selected.clear();
 
   try {
-    const r    = await fetch(`/email/${_accountId}/messages?mailbox=${encodeURIComponent(_mailbox)}&limit=${limit}`);
+    const unreadOnly = document.getElementById('em-unread-only').checked ? '1' : '0';
+  const sinceDays  = document.getElementById('em-since').value;
+  const r    = await fetch(`/email/${_accountId}/messages?mailbox=${encodeURIComponent(_mailbox)}&limit=${limit}&unread_only=${unreadOnly}&since_days=${sinceDays}`);
     const data = await r.json();
     if (!r.ok) {
       showToast(data.error || 'Failed to load', 'error');
@@ -106,7 +113,8 @@ async function loadEmails() {
     } else {
       _emails = data;
       _groups = buildGroups(_emails);
-      status.textContent = `${_emails.length} emails loaded.`;
+      const label = unreadOnly === '1' ? 'unread emails' : 'emails';
+      status.textContent = `${_emails.length} ${label} loaded.`;
       document.getElementById('em-filter-card').style.display = '';
       renderGroups();
     }

@@ -5,6 +5,7 @@ import email as _email_module
 import imaplib
 import logging
 import re
+from datetime import datetime, timedelta
 from email.header import decode_header as _decode_header
 
 import requests
@@ -38,7 +39,8 @@ def _decode_str(raw: str | None) -> str:
 
 
 def list_messages(email_address: str, password: str,
-                  mailbox: str = "INBOX", limit: int = 200) -> list[dict]:
+                  mailbox: str = "INBOX", limit: int = 200,
+                  unread_only: bool = True, since_days: int = 90) -> list[dict]:
     """Fetch email headers only. Never fetches body content."""
     conn = _connect(email_address, password)
     msgs: list[dict] = []
@@ -47,7 +49,14 @@ def list_messages(email_address: str, password: str,
         if status != "OK":
             raise RuntimeError(f"Cannot select mailbox '{mailbox}'")
 
-        _, data = conn.uid("SEARCH", None, "ALL")
+        criteria = []
+        if unread_only:
+            criteria.append("UNSEEN")
+        if since_days:
+            since_str = (datetime.now() - timedelta(days=since_days)).strftime("%d-%b-%Y")
+            criteria.append(f"SINCE {since_str}")
+        criterion = " ".join(criteria) if criteria else "ALL"
+        _, data = conn.uid("SEARCH", None, criterion)
         all_uids = (data[0] or b"").split()
         uids = all_uids[-limit:]
         if not uids:
