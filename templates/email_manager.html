@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+{% block title %}Email Manager{% endblock %}
+
+{% block content %}
+<div class="page">
+
+  <!-- ── Account + load controls ───────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">📧 Email Manager</div>
+    {% if not accounts %}
+    <div style="font-size:.85rem;color:var(--text-muted)">
+      No email accounts configured.
+      <a href="{{ url_for('settings.settings_view') }}" style="color:var(--person-colour,#7B5BA6)">Add one in Settings</a>.
+    </div>
+    {% else %}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <select class="form-select" id="em-account" style="flex:1;min-width:0">
+        {% for a in accounts %}
+        <option value="{{ a.id }}">{{ a.label }} ({{ a.email }})</option>
+        {% endfor %}
+      </select>
+      <select class="form-select" id="em-mailbox" style="width:auto">
+        <option value="INBOX">Inbox</option>
+        <option value="[Gmail]/All Mail">All Mail</option>
+        <option value="[Gmail]/Spam">Spam</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+      <select class="form-select" id="em-limit" style="width:auto">
+        <option value="100">Latest 100</option>
+        <option value="200" selected>Latest 200</option>
+        <option value="500">Latest 500</option>
+      </select>
+      <button class="btn btn-primary" style="flex:1" id="em-load-btn" onclick="loadEmails()">
+        Load emails
+      </button>
+    </div>
+    <div id="em-status" style="font-size:.8rem;color:var(--text-muted);margin-top:6px;min-height:1.2em"></div>
+    {% endif %}
+  </div>
+
+  <!-- ── Filter bar (revealed after load) ──────────────────────────────────── -->
+  <div class="card" id="em-filter-card" style="display:none">
+    <div style="display:flex;gap:8px;align-items:center">
+      <input class="form-input" id="em-search" placeholder="Filter by sender or subject…"
+             autocomplete="off" oninput="renderGroups()" style="flex:1">
+      <label style="display:flex;align-items:center;gap:5px;font-size:.82rem;white-space:nowrap;cursor:pointer">
+        <input type="checkbox" id="em-unsub-only" onchange="renderGroups()">
+        Unsub only
+      </label>
+    </div>
+    <div id="em-summary" style="font-size:.75rem;color:var(--text-muted);margin-top:6px"></div>
+  </div>
+
+  <!-- ── Sender groups ─────────────────────────────────────────────────────── -->
+  <div id="em-groups"></div>
+
+</div>
+
+<!-- ── Sticky bulk-action bar ───────────────────────────────────────────────── -->
+<div id="em-action-bar"
+     style="display:none;position:fixed;bottom:65px;left:0;right:0;
+            background:var(--surface);border-top:2px solid var(--person-colour,#7B5BA6);
+            padding:10px 16px;z-index:150;flex-direction:row;align-items:center;gap:8px">
+  <span id="em-action-label" style="flex:1;font-size:.85rem;font-weight:600"></span>
+  <button class="btn btn-secondary btn-sm" id="em-unsub-btn"
+          onclick="bulkUnsubscribe()" style="display:none">🔕 Unsub</button>
+  <button class="btn btn-secondary btn-sm"
+          onclick="clearSelection()">Clear</button>
+  <button class="btn btn-danger btn-sm" onclick="bulkDelete()">🗑 Delete</button>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let _emails    = [];        // raw messages from server
+let _groups    = [];        // [{domain, displayName, senderEmail, emails[], hasUnsub, unsubHeader}]
+let _selected  = new Set(); // selected domain keys
+let _accountId = null;
+let _mailbox   = "INBOX";
+
+// ── Load ────────────────────────────────────────────────────────────────────
+
+async function loadEmails() {
+  _accountId = document.getElementById('em-account').value;
+  _mailbox   = document.getElementById('em-mailbox').value;
+  const limit = document.getElementById('em-limit').value;
+  const btn    = document.getElementById('em-load-btn');
+  const status = document.getElementById('em-status');
+
+  btn.disabled    = true;
+  btn.textContent = 'Loading…';
+  status.textContent = 'Connecting to Gmail… this may take 10–20 seconds.';
+  document.getElementById('em-groups').innerHTML = '';
+  document.getElementById('em-filter-card').style.display = 'none';
+  document.getElementById('em-action-bar').style.display  = 'none';
+  _selected.clear();
+
+  try {
+    const r    = await fetch(`/email/${_accountId}/messages?mailbox=${encodeURIComponent(_mailbox)}&limit=${limit}`);
+    const data = await r.json();
+    if (!r.ok) {
+      showToast(data.error || 'Failed to load', 'error');
+      status.textContent = '';
+    } else {
+      _emails = data;
+      _groups = buildGroups(_emails);
+      status.textContent = `${_emails.length} emails loaded.`;
+      document.getElementById('em-filter-card').style.display = '';
+      renderGroups();
+    }
+  } catch(e) {
+    showToast('Connection failed: ' + e.message, 'error');
+    status.textContent = '';
+  }
+  btn.disabled    = false;
+  btn.textContent = 'Reload';
+}
+
+// ── Group by sender domain ──────────────────────────────────────────────────
+
+function parseSender(fromHeader) {
+  const match     = fromHeader.match(/<([^>]+)>/);
+  const emailAddr = match ? match[1] : fromHeader.trim();
+  const rawName   = fromHeader.replace(/<[^>]+>/, '').trim().replace(/^["']|["']$/g, '');
+  const domain    = emailAddr.includes('@')
+    ? emailAddr.split('@')[1].toLowerCase()
+    : emailAddr.toLowerCase();
+  return { email: emailAddr, name: rawName || emailAddr, domain };
+}
+
+function buildGroups(msgs) {
+  const map = {};
+  for (const msg of msgs) {
+    const { email: se, name, domain } = parseSender(msg.from);
+    if (!map[domain]) {
+      map[domain] = { domain, displayName: name, senderEmail: se,
+                      emails: [], hasUnsub: false, unsubHeader: '' };
+    }
+    map[domain].emails.push(msg);
+    if (msg.list_unsubscribe && !map[domain].hasUnsub) {
+      map[domain].hasUnsub    = true;
+      map[domain].unsubHeader = msg.list_unsubscribe;
+    }
+  }
+  return Object.values(map).sort((a, b) => b.emails.length - a.emails.length);
+}
+
+// ── Render ──────────────────────────────────────────────────────────────────
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderGroups() {
+  const q         = (document.getElementById('em-search').value || '').trim().toLowerCase();
+  const unsubOnly = document.getElementById('em-unsub-only').checked;
+  const box       = document.getElementById('em-groups');
+
+  const filtered = _groups.filter(g => {
+    if (unsubOnly && !g.hasUnsub) return false;
+    if (q && !g.domain.includes(q) && !g.displayName.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  const totalEmails = filtered.reduce((n, g) => n + g.emails.length, 0);
+  document.getElementById('em-summary').textContent =
+    `${filtered.length} sender${filtered.length !== 1 ? 's' : ''} · ${totalEmails} emails`;
+
+  if (!filtered.length) {
+    box.innerHTML = `<div class="card" style="text-align:center;color:var(--text-muted);font-size:.85rem;padding:20px">
+      No senders match.</div>`;
+    return;
+  }
+
+  box.innerHTML = filtered.map(g => {
+    const sel         = _selected.has(g.domain);
+    const unreadCount = g.emails.filter(e => !e.seen).length;
+    return `<div class="card" style="padding:10px 14px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="checkbox" style="width:20px;height:20px;flex-shrink:0;cursor:pointer;accent-color:var(--person-colour,#7B5BA6)"
+               ${sel ? 'checked' : ''}
+               onchange="toggleGroup('${esc(g.domain)}', this.checked)">
+        <div style="flex:1;min-width:0;cursor:pointer" onclick="toggleGroupByClick('${esc(g.domain)}')">
+          <div style="font-size:.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            ${esc(g.displayName)}
+          </div>
+          <div style="font-size:.72rem;color:var(--text-muted)">
+            ${esc(g.domain)}${unreadCount ? ` · <strong>${unreadCount} unread</strong>` : ''}
+          </div>
+        </div>
+        <div style="display:flex;gap:5px;flex-shrink:0;align-items:center">
+          <span style="font-size:.8rem;font-weight:700;color:var(--text-muted);min-width:22px;text-align:right">${g.emails.length}</span>
+          ${g.hasUnsub
+            ? `<button class="btn btn-secondary btn-sm" style="font-size:.7rem;padding:3px 8px"
+                       onclick="unsubscribeOne('${esc(g.domain)}')">🔕</button>`
+            : ''}
+          <button class="btn btn-secondary btn-sm" style="font-size:.7rem;padding:3px 8px"
+                  onclick="deleteGroup('${esc(g.domain)}')">🗑</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  updateActionBar();
+}
+
+// ── Selection ───────────────────────────────────────────────────────────────
+
+function toggleGroup(domain, checked) {
+  if (checked) _selected.add(domain); else _selected.delete(domain);
+  updateActionBar();
+}
+
+function toggleGroupByClick(domain) {
+  const nowSelected = !_selected.has(domain);
+  if (nowSelected) _selected.add(domain); else _selected.delete(domain);
+  // Update the checkbox in the DOM
+  const cards = document.querySelectorAll('#em-groups .card');
+  for (const card of cards) {
+    const chk = card.querySelector('input[type="checkbox"]');
+    const nameEl = card.querySelector('[style*="font-weight:600"]');
+    // find by rendered domain text — easier to re-render
+  }
+  renderGroups();
+}
+
+function clearSelection() {
+  _selected.clear();
+  renderGroups();
+}
+
+function updateActionBar() {
+  const bar      = document.getElementById('em-action-bar');
+  const label    = document.getElementById('em-action-label');
+  const unsubBtn = document.getElementById('em-unsub-btn');
+  if (!_selected.size) { bar.style.display = 'none'; return; }
+
+  const selGroups  = _groups.filter(g => _selected.has(g.domain));
+  const emailCount = selGroups.reduce((n, g) => n + g.emails.length, 0);
+  const hasUnsub   = selGroups.some(g => g.hasUnsub);
+
+  label.textContent      = `${_selected.size} sender${_selected.size !== 1 ? 's' : ''} · ${emailCount} emails`;
+  unsubBtn.style.display = hasUnsub ? '' : 'none';
+  bar.style.display      = 'flex';
+}
+
+// ── Individual group actions ────────────────────────────────────────────────
+
+async function unsubscribeOne(domain) {
+  const g = _groups.find(g => g.domain === domain);
+  if (!g || !g.hasUnsub) return;
+  const result = await doUnsubscribe(g.unsubHeader);
+  if (result.ok === true) {
+    showToast(`Unsubscribed from ${g.displayName} ✓`);
+  } else if (result.ok === null) {
+    showToast(`Email unsub required: ${result.mailto}`, 'error');
+  } else {
+    showToast(`Unsub failed: ${result.error || ('HTTP ' + result.status)}`, 'error');
+  }
+}
+
+async function deleteGroup(domain) {
+  const g = _groups.find(g => g.domain === domain);
+  if (!g) return;
+  if (!confirm(`Delete all ${g.emails.length} emails from ${g.displayName}?`)) return;
+  const uids = g.emails.map(e => e.uid);
+  const r = await doDelete(uids);
+  if (r.ok) {
+    showToast(`Deleted ${r.deleted} emails from ${g.displayName}`);
+    _emails  = _emails.filter(e => !uids.includes(e.uid));
+    _groups  = _groups.filter(g2 => g2.domain !== domain);
+    _selected.delete(domain);
+    renderGroups();
+  } else {
+    showToast('Delete failed: ' + (r.error || 'unknown'), 'error');
+  }
+}
+
+// ── Bulk actions ────────────────────────────────────────────────────────────
+
+async function bulkUnsubscribe() {
+  const selGroups = _groups.filter(g => _selected.has(g.domain) && g.hasUnsub);
+  if (!selGroups.length) return;
+  let ok = 0, fail = 0;
+  for (const g of selGroups) {
+    const result = await doUnsubscribe(g.unsubHeader);
+    if (result.ok === true) ok++; else fail++;
+  }
+  showToast(`Unsubscribed from ${ok} sender${ok !== 1 ? 's' : ''}${fail ? `, ${fail} failed` : ''}`);
+}
+
+async function bulkDelete() {
+  const selGroups  = _groups.filter(g => _selected.has(g.domain));
+  const totalEmails = selGroups.reduce((n, g) => n + g.emails.length, 0);
+  if (!confirm(`Delete all ${totalEmails} emails from ${selGroups.length} senders?`)) return;
+
+  const allUids = selGroups.flatMap(g => g.emails.map(e => e.uid));
+  const r = await doDelete(allUids);
+  if (r.ok) {
+    const uidsSet  = new Set(allUids);
+    const delDoms  = new Set(selGroups.map(g => g.domain));
+    _emails = _emails.filter(e => !uidsSet.has(e.uid));
+    _groups = _groups.filter(g => !delDoms.has(g.domain));
+    _selected.clear();
+    showToast(`Deleted ${r.deleted} emails`);
+    renderGroups();
+  } else {
+    showToast('Delete failed: ' + (r.error || 'unknown'), 'error');
+  }
+}
+
+// ── API helpers ─────────────────────────────────────────────────────────────
+
+async function doDelete(uids) {
+  try {
+    const r = await fetch(`/email/${_accountId}/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uids, mailbox: _mailbox }),
+    });
+    return await r.json();
+  } catch(e) { return { ok: false, error: e.message }; }
+}
+
+async function doUnsubscribe(header) {
+  try {
+    const r = await fetch(`/email/${_accountId}/unsubscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ list_unsubscribe: header }),
+    });
+    return await r.json();
+  } catch(e) { return { ok: false, error: e.message }; }
+}
+</script>
+{% endblock %}

@@ -144,10 +144,15 @@
     <div id="email-accounts-list" style="margin-bottom:12px">
       <div style="font-size:.85rem;color:var(--text-muted)">Loading…</div>
     </div>
-    <button class="btn btn-secondary btn-sm"
-            onclick="document.getElementById('add-email-modal').classList.add('open')">
-      + Add account
-    </button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-secondary btn-sm"
+              onclick="document.getElementById('add-email-modal').classList.add('open')">
+        + Add account
+      </button>
+      <a href="{{ url_for('email_manager.email_view') }}" class="btn btn-primary btn-sm">
+        Open email manager →
+      </a>
+    </div>
   </div>
 
   {% if is_admin %}
