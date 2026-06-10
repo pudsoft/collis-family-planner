@@ -90,7 +90,7 @@ let _mailbox   = "INBOX";
 async function loadEmails() {
   _accountId = document.getElementById('em-account').value;
   _mailbox   = document.getElementById('em-mailbox').value;
-  const limit = document.getElementById('em-limit').value;
+  const limit = 500;
   const btn    = document.getElementById('em-load-btn');
   const status = document.getElementById('em-status');
 
