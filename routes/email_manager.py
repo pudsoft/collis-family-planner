@@ -6,9 +6,10 @@ import re
 
 from flask import Blueprint, jsonify, render_template, request
 
+import config
 from modules import email_accounts as accounts_mod
 from modules import imap_mail
-from routes.utils import auth_person, get_db
+from routes.utils import auth_person, get_db, get_prefs
 
 log = logging.getLogger(__name__)
 bp = Blueprint("email_manager", __name__)
@@ -17,8 +18,17 @@ bp = Blueprint("email_manager", __name__)
 @bp.route("/email")
 def email_view():
     person   = auth_person()
-    accounts = accounts_mod.list_accounts(get_db(), person)
-    return render_template("email_manager.html", accounts=accounts, person=person)
+    db       = get_db()
+    accounts = accounts_mod.list_accounts(db, person)
+    return render_template(
+        "email_manager.html",
+        accounts=accounts,
+        person=person,
+        prefs=get_prefs(db, person),
+        is_admin=person in config.ADMINS,
+        people=config.PEOPLE,
+        person_display=config.PERSON_DISPLAY,
+    )
 
 
 @bp.route("/email/<int:account_id>/messages")
