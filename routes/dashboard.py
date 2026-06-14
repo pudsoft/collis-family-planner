@@ -24,14 +24,17 @@ def home_grid():
     prefs    = get_prefs(db, person)
     is_admin = viewer in config.ADMINS
 
+    all_tile_ids = {t["id"] for t in config.HOME_TILES}
     visible_raw = prefs.get("visible_pages")
     if visible_raw:
         try:
-            visible_ids = set(json.loads(visible_raw))
+            saved_ids   = set(json.loads(visible_raw))
+            # Any tile not previously in saved prefs is newly added — show it by default
+            visible_ids = saved_ids | (all_tile_ids - saved_ids)
         except Exception:
-            visible_ids = {t["id"] for t in config.HOME_TILES}
+            visible_ids = all_tile_ids
     else:
-        visible_ids = {t["id"] for t in config.HOME_TILES}
+        visible_ids = all_tile_ids
 
     visible_tiles = [
         t for t in config.HOME_TILES
