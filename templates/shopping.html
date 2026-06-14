@@ -508,8 +508,25 @@ async function onBarcodeScanned(ean) {
       category: c.category, dept: c.dept, price: c.price, pack_size: c.pack_size });
     statusEl.textContent = `Added: "${c.name}"`;
   }
+  beep();
   renderBasket();
   _scanPaused = false;
+}
+
+function beep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.value = 1047; // C6 — short, pleasant confirmation tone
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.18);
+  } catch {}
 }
 
 function renderBasket() {
@@ -618,6 +635,12 @@ async function exportList() {
       <div class="empty-state-text">List exported — add items for next week</div>
     </div>`;
   onList.clear();
+}
+
+// Auto-open scanner when arriving from the home grid tile (?scanner=1)
+if (new URLSearchParams(window.location.search).get('scanner') === '1') {
+  document.getElementById('scan-btn').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  startScan();
 }
 </script>
 {% endblock %}
