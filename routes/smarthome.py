@@ -90,8 +90,10 @@ def smarthome_status():
         "SELECT * FROM smart_devices"
     ).fetchall()]
 
-    hive_zones = {z["id"]: z for z in hive.get_climate_data()} \
-        if config.HIVE_EMAIL else {}
+    hive_data  = hive.get_climate_data() if config.HIVE_EMAIL else []
+    hive_zones = {z["id"]: z for z in hive_data}
+    log.info("smarthome_status: %d hive zones, ids=%s", len(hive_zones),
+             list(hive_zones.keys())[:3])
 
     _ha_entity_ids = [
         a["ha_entity_id"] for a in assignments
@@ -123,6 +125,11 @@ def smarthome_status():
         except Exception as exc:
             log.warning("smarthome_status trend query failed: %s", exc)
 
+    log.info("smarthome_status: %d assignments, %d rooms", len(assignments), len(rooms))
+    for a in assignments[:3]:
+        log.info("  device: provider=%s device_id=%s room_id=%s",
+                 a.get("provider"), str(a.get("device_id",""))[:20], a.get("room_id"))
+
     result = []
     for room in rooms:
         room_id   = room["id"]
@@ -132,6 +139,8 @@ def smarthome_status():
         for d in room_devs:
             if d["provider"] == "hive":
                 z = hive_zones.get(d["device_id"])
+                log.info("  room %s: hive device_id=%s match=%s",
+                         room["name"], str(d["device_id"])[:20], z is not None)
                 if z:
                     hive_row = {**z, "trend": trend_map.get(d["name"])}
 
