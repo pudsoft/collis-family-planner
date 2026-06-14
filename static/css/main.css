@@ -519,6 +519,12 @@ input, select, textarea { font: inherit; max-width: 100%; }
   font-size: .75rem; font-weight: 700; text-transform: uppercase;
   letter-spacing: .06em; color: var(--text-muted); margin-bottom: 6px;
 }
+.search-section-label {
+  font-size: .7rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--person-colour, var(--family));
+  padding: 10px 2px 4px; margin-top: 4px;
+}
+.search-section-label:first-child { padding-top: 4px; margin-top: 0; }
 .shopping-item {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 10px; background: var(--surface);

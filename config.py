@@ -142,7 +142,7 @@ HOME_TILES = [
     {"id": "meals",      "label": "Meal Plan",    "emoji": "🍽️",  "url": "/meals",             "admin_only": False},
     {"id": "medicines",  "label": "Medicines",    "emoji": "💊", "url": "/medicines",         "admin_only": False},
     {"id": "wifi",       "label": "WiFi",         "emoji": "📶", "url": "/network",           "admin_only": True},
-    {"id": "temps",      "label": "Temperatures", "emoji": "🌡️",  "url": "/smarthome",         "admin_only": False},
+    # {"id": "temps", ...}  — hidden until Hive API restores temperature data (~Jun 2026)
     {"id": "energy",     "label": "Energy",       "emoji": "⚡", "url": "/energy",            "admin_only": False},
     {"id": "settings",   "label": "Settings",     "emoji": "⚙️",  "url": "/settings",          "admin_only": False},
     {"id": "admin",      "label": "Admin",        "emoji": "🔐", "url": "/admin",             "admin_only": True},

@@ -16,25 +16,18 @@
     <div id="scan-basket"></div>
   </div>
 
-  <!-- ── Search regulars ──────────────────────────────────────────────────────── -->
+  <!-- ── Unified search ─────────────────────────────────────────────────────────── -->
   <div class="card">
-    <div class="card-title">🛒 Add from favourites</div>
-    <input class="form-input" id="reg-search" placeholder="Search your ASDA favourites…"
-           autocomplete="off" oninput="filterRegulars(this.value)">
-    <div id="reg-results" style="margin-top:10px;max-height:320px;overflow-y:auto"></div>
-  </div>
-
-  <!-- ── Manual add ───────────────────────────────────────────────────────────── -->
-  <div class="card">
-    <div class="card-title">✏️ Add item manually</div>
+    <div class="card-title">🔍 Add items</div>
     <div style="display:flex;gap:8px">
-      <input class="form-input" id="manual-name" placeholder="Item name" autocomplete="off" style="flex:1">
-      <input class="form-input" id="manual-qty" placeholder="Qty" style="width:70px">
-      <button class="btn btn-primary" onclick="addManual()">Add</button>
+      <input class="form-input" id="reg-search" placeholder="Search favourites &amp; ASDA catalogue…"
+             autocomplete="off" style="flex:1"
+             oninput="onSearchInput(this.value)"
+             onkeydown="if(event.key==='Enter') addCustomFromSearch()">
+      <button class="btn btn-secondary" id="add-custom-btn" style="display:none;white-space:nowrap"
+              onclick="addCustomFromSearch()">+ Add custom</button>
     </div>
-    <div style="font-size:.75rem;color:var(--text-muted);margin-top:6px">
-      Manually added items will be flagged when ordering from ASDA.
-    </div>
+    <div id="reg-results" style="margin-top:10px;max-height:380px;overflow-y:auto"></div>
   </div>
 
   <!-- ── Current list ─────────────────────────────────────────────────────────── -->
@@ -133,36 +126,49 @@ const REGULARS = {{ regulars | tojson }};
 const onList   = new Set({{ shopping | selectattr('asda_product_id') | map(attribute='asda_product_id') | list | tojson }});
 let _algoliaCache = []; // stores raw Algolia hits so click handler can read them by index
 
-function filterRegulars(q) {
-  const box = document.getElementById('reg-results');
-  q = q.trim().toLowerCase();
-  if (!q) { box.innerHTML = ''; return; }
-  const hits = REGULARS.filter(r => r.name.toLowerCase().includes(q));
-  if (!hits.length) {
-    box.innerHTML = `<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">
-      No favourites match.
-      <button class="btn btn-secondary btn-sm" style="margin-left:8px" onclick="searchAlgolia('${escAttr(q)}')">Search ASDA catalogue</button>
-    </div>`;
-    return;
-  }
-  box.innerHTML = hits.map(r => {
-    const already = onList.has(r.product_id);
-    if (already) {
-      return `<div class="shopping-item reg-result">
+let _searchTimer = null;
+let _lastQuery   = '';
+
+function onSearchInput(raw) {
+  const q = raw.trim();
+  document.getElementById('add-custom-btn').style.display = q ? '' : 'none';
+  _lastQuery = q;
+  clearTimeout(_searchTimer);
+  if (!q) { document.getElementById('reg-results').innerHTML = ''; return; }
+  // Render regulars immediately (local), then fire Algolia after 350ms debounce
+  renderRegulars(q);
+  _searchTimer = setTimeout(() => { if (_lastQuery === q) searchAlgolia(q); }, 350);
+}
+
+function renderRegulars(q) {
+  const box  = document.getElementById('reg-results');
+  const ql   = q.toLowerCase();
+  const hits = REGULARS.filter(r => r.name.toLowerCase().includes(ql));
+
+  let html = '';
+  if (hits.length) {
+    html += `<div class="search-section-label">⭐ Your favourites</div>`;
+    html += hits.map(r => {
+      const already = onList.has(r.product_id);
+      if (already) {
+        return `<div class="shopping-item reg-result">
+          <span class="shopping-item-name">${escHtml(r.name)}</span>
+          <span class="shopping-item-qty" style="margin-left:auto;color:var(--text-muted)">✓ on list</span>
+        </div>`;
+      }
+      return `<div class="shopping-item reg-result" data-pid="${escAttr(r.product_id)}" data-name="${escAttr(r.name)}" data-cat="${escAttr(r.category||'')}" data-dept="${escAttr(r.dept||'')}">
         <span class="shopping-item-name">${escHtml(r.name)}</span>
-        <span class="shopping-item-qty" style="margin-left:auto;color:var(--text-muted)">✓ on list</span>
+        <div style="display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0">
+          <button class="qty-dec" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1rem;cursor:pointer;line-height:1">−</button>
+          <span class="qty-val" style="min-width:20px;text-align:center;font-weight:600">${r.usual_qty}</span>
+          <button class="qty-inc" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1rem;cursor:pointer;line-height:1">+</button>
+          <button class="reg-add btn btn-primary btn-sm" style="margin-left:4px">Add</button>
+        </div>
       </div>`;
-    }
-    return `<div class="shopping-item reg-result" data-pid="${escAttr(r.product_id)}" data-name="${escAttr(r.name)}">
-      <span class="shopping-item-name">${escHtml(r.name)}</span>
-      <div style="display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0">
-        <button class="qty-dec" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1rem;cursor:pointer;line-height:1">−</button>
-        <span class="qty-val" style="min-width:20px;text-align:center;font-weight:600">${r.usual_qty}</span>
-        <button class="qty-inc" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1rem;cursor:pointer;line-height:1">+</button>
-        <button class="reg-add btn btn-primary btn-sm" style="margin-left:4px">Add</button>
-      </div>
-    </div>`;
-  }).join('');
+    }).join('');
+  }
+  html += `<div id="algolia-results"><div class="search-section-label" style="color:var(--text-muted)">🛒 ASDA catalogue — searching…</div></div>`;
+  box.innerHTML = html;
 }
 
 function escHtml(s) {
@@ -223,22 +229,6 @@ async function addRegular(productId, name, qty, overrideCat, overrideDept) {
   }
 }
 
-async function addManual() {
-  const name = document.getElementById('manual-name').value.trim();
-  const qty  = document.getElementById('manual-qty').value.trim();
-  if (!name) { showToast('Enter an item name', 'error'); return; }
-  const fd = new FormData();
-  fd.append('item', name);
-  fd.append('quantity', qty);
-  fd.append('category', 'Other');
-  const data = await postAction('/shopping/add', fd, null);
-  if (data) {
-    showToast('Added: ' + name);
-    appendToList({ id: data.id, item: name, quantity: qty, checked: 0, is_manual: 1, asda_product_id: null });
-    document.getElementById('manual-name').value = '';
-    document.getElementById('manual-qty').value  = '';
-  }
-}
 
 function appendToList(item) {
   document.getElementById('empty-state')?.remove();
@@ -342,29 +332,38 @@ function copyCmd(btn, text) {
 }
 
 async function searchAlgolia(q) {
-  const box = document.getElementById('reg-results');
-  box.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">Searching ASDA catalogue…</div>';
-  const now    = Math.floor(Date.now() / 1000);
+  const slot = document.getElementById('algolia-results');
+  if (!slot) return; // results box was cleared before async completed
+  const now     = Math.floor(Date.now() / 1000);
   const storeId = '4383';
-  const filter = `(STATUS:A OR STATUS:I) AND NOT DISPLAY_ONLINE:false AND NOT UNTRAITED_STORES:${storeId} AND STOCK.${storeId}>0 AND END_DATE>${now}`;
+  const filter  = `(STATUS:A OR STATUS:I) AND NOT DISPLAY_ONLINE:false AND NOT UNTRAITED_STORES:${storeId} AND STOCK.${storeId}>0 AND END_DATE>${now}`;
   try {
     const r = await fetch('https://8i6wskccnv-dsn.algolia.net/1/indexes/ASDA_PRODUCTS/query', {
       method: 'POST',
       headers: { 'x-algolia-application-id': '8I6WSKCCNV', 'x-algolia-api-key': '03e4272048dd17f771da37b57ff8a75e', 'content-type': 'application/json' },
-      body: JSON.stringify({ query: q, hitsPerPage: 15, filters: filter,
+      body: JSON.stringify({ query: q, hitsPerPage: 20, filters: filter,
         attributesToRetrieve: ['CIN','NAME','PRICES.EN','PACK_SIZE','PRIMARY_TAXONOMY'] })
     });
     const data = await r.json();
     const hits = data.hits || [];
-    if (!hits.length) { box.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">Nothing found on ASDA.</div>'; return; }
+
+    // Abort if user has typed something new
+    const slotNow = document.getElementById('algolia-results');
+    if (!slotNow) return;
+
+    if (!hits.length) {
+      slotNow.innerHTML = '<div class="search-section-label" style="color:var(--text-muted)">🛒 No ASDA results</div>';
+      return;
+    }
     _algoliaCache = hits;
-    box.innerHTML = '<div style="font-size:.72rem;color:var(--text-muted);padding:4px 0 6px">ASDA catalogue results:</div>' +
+    slotNow.innerHTML = '<div class="search-section-label">🛒 ASDA catalogue</div>' +
       hits.map((h, i) => {
-        const pid     = String(h.CIN);
-        const name    = h.NAME || '';
+        const pid   = String(h.CIN);
+        const name  = h.NAME || '';
+        const tax   = h.PRIMARY_TAXONOMY || {};
         const already = onList.has(pid);
         if (already) return `<div class="shopping-item reg-result"><span class="shopping-item-name">${escHtml(name)}</span><span class="shopping-item-qty" style="margin-left:auto;color:var(--text-muted)">✓ on list</span></div>`;
-        return `<div class="shopping-item reg-result" data-algolia-idx="${i}">
+        return `<div class="shopping-item reg-result" data-algolia-idx="${i}" data-cat="${escAttr(tax.CAT_NAME||'')}" data-dept="${escAttr(tax.DEPT_NAME||'')}">
           <span class="shopping-item-name">${escHtml(name)}</span>
           <div style="display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0">
             <button class="qty-dec" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1rem;cursor:pointer;line-height:1">−</button>
@@ -374,7 +373,27 @@ async function searchAlgolia(q) {
           </div>
         </div>`;
       }).join('');
-  } catch(e) { box.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">Search failed — check connection.</div>'; }
+  } catch(e) {
+    const slotNow = document.getElementById('algolia-results');
+    if (slotNow) slotNow.innerHTML = '<div style="color:var(--text-muted);font-size:.82rem;padding:4px 0">ASDA search unavailable</div>';
+  }
+}
+
+async function addCustomFromSearch() {
+  const name = document.getElementById('reg-search').value.trim();
+  if (!name) return;
+  const fd = new FormData();
+  fd.append('item', name);
+  fd.append('quantity', '1');
+  fd.append('category', 'Other');
+  const data = await postAction('/shopping/add', fd, null);
+  if (data) {
+    showToast('Added: ' + name);
+    appendToList({ id: data.id, item: name, quantity: '1', checked: 0, is_manual: 1, asda_product_id: null });
+    document.getElementById('reg-search').value = '';
+    document.getElementById('reg-results').innerHTML = '';
+    document.getElementById('add-custom-btn').style.display = 'none';
+  }
 }
 
 // ── Barcode scanner ───────────────────────────────────────────────────────────
