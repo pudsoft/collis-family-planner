@@ -3,10 +3,6 @@
 Authenticates via Cognito SRP (pyhiveapi), then queries the Beekeeper REST API
 directly. We bypass pyhiveapi's startSession() because it crashes when the API
 returns an empty homes list (IndexError not caught by the library).
-
-Note: after a Hive API change on ~11 Jun 2026 temperature data was removed from
-all reachable Beekeeper endpoints. current_temp will be None until Hive restore
-it or document a replacement endpoint.
 """
 from __future__ import annotations
 
@@ -72,7 +68,7 @@ def get_climate_data() -> list[dict]:
         id            – Hive product ID
         name          – zone/TRV name
         type          – "heating" | "trvcontrol"
-        current_temp  – float °C, or None (Hive API removed this ~Jun 2026)
+        current_temp  – float °C, or None if hub is offline
         target_temp   – float °C, or None
         mode          – "SCHEDULE" | "MANUAL" | "OFF" | "BOOST"
         is_heating    – True if boiler is actively firing for this zone
