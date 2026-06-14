@@ -114,7 +114,9 @@ def get_climate_data() -> list[dict]:
 
         _cache_data = zones
         _cache_ts   = now
-        log.info("Hive: fetched %d zones", len(zones))
+        for z in zones:
+            log.info("Hive zone: %s type=%s current_temp=%s target=%s",
+                     z.get("name"), z.get("type"), z.get("current_temp"), z.get("target_temp"))
         return zones
 
     except Exception as exc:
