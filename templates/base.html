@@ -14,18 +14,23 @@
 </head>
 {% set _device_theme = request.cookies.get('device_theme', '') %}
 {% set _effective_theme = _device_theme if _device_theme else (prefs.theme or 'default') %}
-<body class="person-{{ person }} theme-{{ _effective_theme }}" data-completed-style="{{ prefs.completed_style }}" data-device-theme="{{ _device_theme }}" data-person-theme="{{ prefs.theme or 'default' }}">
+<body id="app-body" class="person-{{ person }} theme-{{ _effective_theme }}" data-completed-style="{{ prefs.completed_style }}" data-device-theme="{{ _device_theme }}" data-person-theme="{{ prefs.theme or 'default' }}">
+<script>
+(function(){
+  var b = document.getElementById('app-body');
+  if (b && b.classList.contains('theme-auto')) {
+    var h = new Date().getHours();
+    b.classList.remove('theme-auto');
+    b.classList.add(h < 7 || h >= 19 ? 'theme-dark' : 'theme-default');
+  }
+})();
+</script>
 
-<!-- ── Person / top bar ─────────────────────────────────────────────────────── -->
+<!-- ── Top bar ─────────────────────────────────────────────────────────────── -->
 <nav class="top-bar">
   <div class="top-bar-inner">
-    <span class="top-bar-title">🏠 Family Planner</span>
-    <a href="{{ url_for('dashboard.dashboard') }}?person={{ person }}" class="top-bar-icon {% if request.endpoint == 'dashboard.dashboard' %}active{% endif %}" title="Home">🏠</a>
-    {% if is_admin %}
-    <a href="{{ url_for('admin.admin_view') }}" class="top-bar-icon {% if request.endpoint == 'admin.admin_view' %}active{% endif %}" title="Admin">🔐</a>
-    {% endif %}
-    <a href="{{ url_for('settings.settings_view') }}" class="top-bar-icon {% if request.endpoint == 'settings.settings_view' %}active{% endif %}" title="Settings">⚙️</a>
-    <a href="{{ url_for('auth.logout') }}" class="top-bar-icon" title="Sign out">🚪</a>
+    <button class="burger-btn" onclick="toggleSideMenu(event)" aria-label="Menu">☰</button>
+    <a href="/" class="top-bar-title">🏠 Family Planner</a>
     <select class="person-select" id="person-select"
             onchange="window.location='/set_person/'+this.value">
       {% for p in ['family'] + people %}
@@ -43,71 +48,66 @@
   {% block content %}{% endblock %}
 </main>
 
-<!-- ── Bottom nav ───────────────────────────────────────────────────────────── -->
-{% set _house_active = request.endpoint in ['network.network_view', 'smarthome.smarthome_view', 'energy.energy_view'] %}
-<nav class="bottom-nav">
-  <a href="{{ url_for('calendar.calendar_view') }}?person={{ person }}"
-     class="nav-item {% if request.endpoint == 'calendar.calendar_view' %}active{% endif %}">
-    <span class="nav-icon">📅</span>Calendar
-  </a>
-  <a href="{{ url_for('tasks.tasks_view') }}?person={{ person }}"
-     class="nav-item {% if request.endpoint == 'tasks.tasks_view' %}active{% endif %}">
-    <span class="nav-icon">✅</span>Tasks
-  </a>
-  <a href="{{ url_for('shopping.shopping_view') }}"
-     class="nav-item {% if request.endpoint == 'shopping.shopping_view' %}active{% endif %}">
-    <span class="nav-icon">🛒</span>Shopping
-  </a>
-  <a href="{{ url_for('shopping.meals_view') }}?person={{ person }}"
-     class="nav-item {% if request.endpoint == 'shopping.meals_view' %}active{% endif %}">
-    <span class="nav-icon">🍽️</span>Meals
-  </a>
-  <a href="{{ url_for('medicines.medicines_view') }}?person={{ person }}"
-     class="nav-item {% if request.endpoint == 'medicines.medicines_view' %}active{% endif %}">
-    <span class="nav-icon">💊</span>Meds
-  </a>
-  <button class="nav-item {% if _house_active %}active{% endif %}" id="house-nav-btn"
-          onclick="toggleHouseMenu(event)"
-          style="border:none;background:none;cursor:pointer;padding:0">
-    <span class="nav-icon">🏡</span>House
-  </button>
-</nav>
+<!-- ── Side menu backdrop ─────────────────────────────────────────────────── -->
+<div id="side-backdrop" onclick="closeSideMenu()"></div>
 
-<!-- Backdrop to close menu on tap-away -->
-<div id="house-backdrop" onclick="closeHouseMenu()"
-     style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.25)"></div>
+<!-- ── Side drawer ───────────────────────────────────────────────────────── -->
+<nav id="side-menu" aria-label="Main navigation">
+  <div class="side-menu-header">
+    <span>Menu</span>
+    <span class="side-menu-close" onclick="closeSideMenu()" role="button" tabindex="0">✕</span>
+  </div>
 
-<!-- House menu popup -->
-<div id="house-menu"
-     style="display:none;position:fixed;bottom:72px;left:50%;transform:translateX(-50%);
-            min-width:210px;background:var(--surface);border-radius:14px;
-            box-shadow:0 4px 28px rgba(0,0,0,0.22);z-index:210;overflow:hidden">
-  <div style="padding:9px 16px 7px;font-size:.7rem;font-weight:700;
-              color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;
-              border-bottom:1px solid var(--border)">House</div>
+  <a href="/" class="side-nav-item {% if request.endpoint == 'dashboard.home_grid' %}active{% endif %}">
+    <span class="side-nav-icon">🏠</span>Home
+  </a>
+  <a href="/dashboard?person={{ person }}" class="side-nav-item {% if request.endpoint == 'dashboard.dashboard' %}active{% endif %}">
+    <span class="side-nav-icon">📅</span>Today
+  </a>
+  <a href="/calendar?person={{ person }}" class="side-nav-item {% if request.endpoint == 'calendar.calendar_view' %}active{% endif %}">
+    <span class="side-nav-icon">🗓️</span>Calendar
+  </a>
+  <a href="/tasks?person={{ person }}" class="side-nav-item {% if request.endpoint == 'tasks.tasks_view' %}active{% endif %}">
+    <span class="side-nav-icon">✅</span>To-do
+  </a>
+  <a href="/shopping" class="side-nav-item {% if request.endpoint == 'shopping.shopping_view' %}active{% endif %}">
+    <span class="side-nav-icon">🛒</span>Shopping
+  </a>
+  <a href="/meals?person={{ person }}" class="side-nav-item {% if request.endpoint == 'shopping.meals_view' %}active{% endif %}">
+    <span class="side-nav-icon">🍽️</span>Meal Plan
+  </a>
+  <a href="/medicines?person={{ person }}" class="side-nav-item {% if request.endpoint == 'medicines.medicines_view' %}active{% endif %}">
+    <span class="side-nav-icon">💊</span>Medicines
+  </a>
+
+  <div class="side-nav-section">House</div>
+  <a href="/smarthome" class="side-nav-item {% if request.endpoint == 'smarthome.smarthome_view' %}active{% endif %}">
+    <span class="side-nav-icon">🌡️</span>Temperatures
+  </a>
+  <a href="/energy" class="side-nav-item {% if request.endpoint == 'energy.energy_view' %}active{% endif %}">
+    <span class="side-nav-icon">⚡</span>Energy
+  </a>
   {% if is_admin %}
-  <a href="{{ url_for('network.network_view') }}"
-     style="display:flex;align-items:center;gap:12px;padding:13px 18px;
-            text-decoration:none;color:var(--text);font-size:.92rem;font-weight:500;
-            border-bottom:1px solid var(--border);
-            {% if request.endpoint == 'network.network_view' %}background:var(--bg);color:var(--person-colour,#7B5BA6){% endif %}">
-    <span style="font-size:1.15rem">📶</span>Network
+  <a href="/network" class="side-nav-item {% if request.endpoint == 'network.network_view' %}active{% endif %}">
+    <span class="side-nav-icon">📶</span>WiFi
   </a>
   {% endif %}
-  <a href="{{ url_for('smarthome.smarthome_view') }}"
-     style="display:flex;align-items:center;gap:12px;padding:13px 18px;
-            text-decoration:none;color:var(--text);font-size:.92rem;font-weight:500;
-            border-bottom:1px solid var(--border);
-            {% if request.endpoint == 'smarthome.smarthome_view' %}background:var(--bg);color:var(--person-colour,#7B5BA6){% endif %}">
-    <span style="font-size:1.15rem">🏡</span>Smart Home
+
+  <div class="side-nav-section">Account</div>
+  <a href="/settings" class="side-nav-item {% if request.endpoint == 'settings.settings_view' %}active{% endif %}">
+    <span class="side-nav-icon">⚙️</span>Settings
   </a>
-  <a href="{{ url_for('energy.energy_view') }}"
-     style="display:flex;align-items:center;gap:12px;padding:13px 18px;
-            text-decoration:none;color:var(--text);font-size:.92rem;font-weight:500;
-            {% if request.endpoint == 'energy.energy_view' %}background:var(--bg);color:var(--person-colour,#7B5BA6){% endif %}">
-    <span style="font-size:1.15rem">☀️</span>Energy
+  {% if is_admin %}
+  <a href="/admin" class="side-nav-item {% if request.endpoint == 'admin.admin_view' %}active{% endif %}">
+    <span class="side-nav-icon">🔐</span>Admin
   </a>
-</div>
+  {% endif %}
+
+  <div style="flex:1"></div>
+  <a href="{{ url_for('auth.logout') }}" class="side-nav-item" style="border-top:2px solid var(--border);color:var(--text-muted)">
+    <span class="side-nav-icon">🚪</span>Sign out
+  </a>
+</nav>
 
 <div class="toast-container" id="toast-container"></div>
 
@@ -118,7 +118,6 @@
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
 
-  // ── PWA install prompt capture (must be global, fires early) ──────────────
   window._pwaPrompt = null;
   window.addEventListener('beforeinstallprompt', e => {
     e.preventDefault();
@@ -129,19 +128,20 @@
     window._pwaPrompt = null;
     window.dispatchEvent(new CustomEvent('pwa-installed'));
   });
-  function toggleHouseMenu(e) {
+
+  function toggleSideMenu(e) {
     if (e) e.stopPropagation();
-    const m  = document.getElementById('house-menu');
-    const bd = document.getElementById('house-backdrop');
-    const open = m.style.display !== 'none';
-    m.style.display  = open ? 'none' : '';
-    bd.style.display = open ? 'none' : '';
+    const m  = document.getElementById('side-menu');
+    const bd = document.getElementById('side-backdrop');
+    const open = m.classList.contains('open');
+    m.classList.toggle('open', !open);
+    bd.classList.toggle('open', !open);
   }
-  function closeHouseMenu() {
-    document.getElementById('house-menu').style.display  = 'none';
-    document.getElementById('house-backdrop').style.display = 'none';
+  function closeSideMenu() {
+    document.getElementById('side-menu').classList.remove('open');
+    document.getElementById('side-backdrop').classList.remove('open');
   }
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHouseMenu(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSideMenu(); });
 </script>
 </body>
 </html>

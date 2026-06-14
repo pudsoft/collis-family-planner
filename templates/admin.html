@@ -146,6 +146,38 @@
     <button class="btn btn-primary btn-full" onclick="sendBroadcast()">Send to all</button>
   </div>
 
+  <!-- ── Birthdays ───────────────────────────────────────────────────────────── -->
+  <div class="card admin-section">
+    <div class="card-header">
+      <span class="admin-section-title" style="border:none;margin:0">🎂 Birthdays</span>
+      <button class="btn btn-primary btn-sm" onclick="editBirthday(null)">+ Add</button>
+    </div>
+    {% if birthdays %}
+    {% for b in birthdays %}
+    <div class="device-item">
+      <div style="flex:1">
+        <div class="device-name">{{ b.name }}</div>
+        <div class="device-mac">
+          {% set parts = b.date_mmdd.split('-') %}
+          {% set months = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}
+          {{ months[parts[0]|int] }} {{ parts[1]|int }}
+          · Remind {{ b.remind_days }} day{{ 's' if b.remind_days != 1 else '' }} before
+          {% if b.remind_persons %}
+            · {% set rp = b.remind_persons | fromjson %}{{ rp | join(', ') | title }}
+          {% endif %}
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-sm"
+              onclick="editBirthday({{ b | tojson | e }})">Edit</button>
+      <button class="btn btn-danger btn-sm"
+              onclick="deleteBirthday({{ b.id }})">✕</button>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div style="font-size:.85rem;color:var(--text-muted);padding:8px 0">No birthdays saved yet.</div>
+    {% endif %}
+  </div>
+
   <!-- ── Data refresh ───────────────────────────────────────────────────────── -->
   <div class="card admin-section">
     <div class="admin-section-title">🔄 Data</div>
@@ -338,6 +370,43 @@
       <div style="color:var(--text-muted);text-align:center;padding:20px 0">Loading…</div>
     </div>
     <button class="btn btn-primary btn-full" style="margin-top:14px" onclick="saveProtectedDevices()">Save</button>
+  </div>
+</div>
+
+<!-- ── Birthday modal ──────────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="birthday-modal">
+  <div class="modal-sheet">
+    <span class="modal-close" onclick="document.getElementById('birthday-modal').classList.remove('open')">✕</span>
+    <div class="modal-title">🎂 Birthday</div>
+    <input type="hidden" id="bd-id">
+    <div class="form-group">
+      <label class="form-label">Name</label>
+      <input class="form-input" id="bd-name" type="text" placeholder="e.g. Grandma Joan">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Date (MM-DD)</label>
+      <input class="form-input" id="bd-date" type="text" placeholder="e.g. 06-15" maxlength="5">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Remind days before</label>
+      <input class="form-input" id="bd-days" type="number" min="1" max="30" value="7">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notify</label>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px">
+        {% for p in people %}
+        <label style="display:flex;align-items:center;gap:6px;font-size:.88rem;cursor:pointer">
+          <input type="checkbox" class="bd-person-cb" value="{{ p }}">
+          {{ person_display[p].emoji if p in person_display else '' }} {{ person_display[p].label if p in person_display else p | title }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes (optional)</label>
+      <input class="form-input" id="bd-notes" type="text" placeholder="e.g. Paul's mum">
+    </div>
+    <button class="btn btn-primary btn-full" onclick="saveBirthday()">Save birthday</button>
   </div>
 </div>
 {% endblock %}
@@ -650,6 +719,47 @@ async function clearPin(person) {
   fd.append("clear", "1");
   const r = await adminPost("/admin/set_pin", fd, "PIN cleared");
   if (r) setTimeout(() => location.reload(), 400);
+}
+
+// ── Birthdays ──────────────────────────────────────────────────────────────
+
+function editBirthday(b) {
+  document.getElementById('bd-id').value      = b ? (b.id || '') : '';
+  document.getElementById('bd-name').value    = b ? (b.name || '') : '';
+  document.getElementById('bd-date').value    = b ? (b.date_mmdd || '') : '';
+  document.getElementById('bd-days').value    = b ? (b.remind_days ?? 7) : 7;
+  const rp = b ? (JSON.parse(b.remind_persons || '[]')) : [];
+  document.querySelectorAll('.bd-person-cb').forEach(cb => {
+    cb.checked = rp.includes(cb.value);
+  });
+  document.getElementById('bd-notes').value   = b ? (b.notes || '') : '';
+  document.getElementById('birthday-modal').classList.add('open');
+}
+
+async function saveBirthday() {
+  const remind_persons = [...document.querySelectorAll('.bd-person-cb:checked')].map(cb => cb.value);
+  const payload = {
+    id:             document.getElementById('bd-id').value || null,
+    name:           document.getElementById('bd-name').value.trim(),
+    date_mmdd:      document.getElementById('bd-date').value.trim(),
+    remind_days:    parseInt(document.getElementById('bd-days').value) || 7,
+    remind_persons,
+    notes:          document.getElementById('bd-notes').value.trim(),
+  };
+  if (!payload.name || !payload.date_mmdd) { showToast('Name and date required', 'error'); return; }
+  const r = await fetch('/admin/birthday', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (r.ok) { showToast('Birthday saved'); document.getElementById('birthday-modal').classList.remove('open'); setTimeout(() => location.reload(), 400); }
+  else showToast('Failed to save', 'error');
+}
+
+async function deleteBirthday(id) {
+  if (!confirm('Delete this birthday?')) return;
+  const r = await fetch(`/admin/birthday/${id}/delete`, { method: 'POST' });
+  if (r.ok) { showToast('Deleted'); setTimeout(() => location.reload(), 400); }
 }
 
 </script>

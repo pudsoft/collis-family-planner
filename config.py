@@ -132,6 +132,22 @@ PERSON_DISPLAY = {
     "family": {"label": "Family", "colour": "#7B5BA6", "emoji": "🏠"},
 }
 
+# ── Home grid tiles ───────────────────────────────────────────────────────────
+HOME_TILES = [
+    {"id": "today",      "label": "Today",        "emoji": "📅", "url": "/dashboard",         "admin_only": False},
+    {"id": "calendar",   "label": "Calendar",     "emoji": "🗓️",  "url": "/calendar",          "admin_only": False},
+    {"id": "tasks",      "label": "To-do",        "emoji": "✅", "url": "/tasks",             "admin_only": False},
+    {"id": "scanner",    "label": "ASDA Scanner", "emoji": "📷", "url": "/shopping?scanner=1","admin_only": False},
+    {"id": "shopping",   "label": "Shopping",     "emoji": "🛒", "url": "/shopping",          "admin_only": False},
+    {"id": "meals",      "label": "Meal Plan",    "emoji": "🍽️",  "url": "/meals",             "admin_only": False},
+    {"id": "medicines",  "label": "Medicines",    "emoji": "💊", "url": "/medicines",         "admin_only": False},
+    {"id": "wifi",       "label": "WiFi",         "emoji": "📶", "url": "/network",           "admin_only": True},
+    {"id": "temps",      "label": "Temperatures", "emoji": "🌡️",  "url": "/smarthome",         "admin_only": False},
+    {"id": "energy",     "label": "Energy",       "emoji": "⚡", "url": "/energy",            "admin_only": False},
+    {"id": "settings",   "label": "Settings",     "emoji": "⚙️",  "url": "/settings",          "admin_only": False},
+    {"id": "admin",      "label": "Admin",        "emoji": "🔐", "url": "/admin",             "admin_only": True},
+]
+
 # ── Before-you-leave rules ────────────────────────────────────────────────────
 # Maps keywords in event titles → checklist items to suggest
 BEFORE_YOU_LEAVE_RULES = [

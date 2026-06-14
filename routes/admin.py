@@ -64,6 +64,8 @@ def admin_view():
     pin_status = {r["person"]: bool(r["login_pin"]) for r in pin_rows}
     pin_status["family"] = bool(family_passcode_row and family_passcode_row["value"])
 
+    birthdays = [dict(r) for r in db.execute("SELECT * FROM birthdays ORDER BY date_mmdd").fetchall()]
+
     return render_template(
         "admin.html",
         person=person,
@@ -77,6 +79,7 @@ def admin_view():
         google_connected=google_connected,
         admin_pin=config.ADMIN_PIN,
         pin_status=pin_status,
+        birthdays=birthdays,
     )
 
 
@@ -542,3 +545,41 @@ def admin_smarthome_seed():
         )
     db.commit()
     return jsonify({"ok": True, "seeded": len(seed)})
+
+
+# ── Birthdays ──────────────────────────────────────────────────────────────────
+
+@bp.route("/admin/birthday", methods=["POST"])
+@require_admin
+def admin_birthday_save():
+    d  = request.get_json(force=True)
+    db = get_db()
+    bday_id        = d.get("id")
+    name           = (d.get("name") or "").strip()
+    date_mmdd      = (d.get("date_mmdd") or "").strip()
+    remind_days    = int(d.get("remind_days") or 7)
+    remind_persons = json.dumps(d.get("remind_persons") or [])
+    notes          = (d.get("notes") or "").strip() or None
+    if not name or not date_mmdd:
+        return jsonify({"error": "Name and date required"}), 400
+    if bday_id:
+        db.execute(
+            "UPDATE birthdays SET name=?, date_mmdd=?, remind_days=?, remind_persons=?, notes=? WHERE id=?",
+            (name, date_mmdd, remind_days, remind_persons, notes, bday_id)
+        )
+    else:
+        db.execute(
+            "INSERT INTO birthdays (name, date_mmdd, remind_days, remind_persons, notes) VALUES (?,?,?,?,?)",
+            (name, date_mmdd, remind_days, remind_persons, notes)
+        )
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@bp.route("/admin/birthday/<int:bday_id>/delete", methods=["POST"])
+@require_admin
+def admin_birthday_delete(bday_id: int):
+    db = get_db()
+    db.execute("DELETE FROM birthdays WHERE id=?", (bday_id,))
+    db.commit()
+    return jsonify({"ok": True})

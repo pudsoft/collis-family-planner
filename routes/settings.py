@@ -1,6 +1,7 @@
 """Settings blueprint — /settings, /push routes, /settings/email_accounts routes."""
 from __future__ import annotations
 
+import json
 import logging
 
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
@@ -19,19 +20,34 @@ def settings_view():
     person = auth_person()
     db     = get_db()
     prefs  = get_prefs(db, person)
+    is_admin = person in config.ADMINS
 
     google_connected = bool(
         db.execute("SELECT value FROM app_settings WHERE key='google_token'").fetchone()
     )
+
+    visible_raw = prefs.get("visible_pages")
+    if visible_raw:
+        try:
+            visible_pages = set(json.loads(visible_raw))
+        except Exception:
+            visible_pages = {t["id"] for t in config.HOME_TILES}
+    else:
+        visible_pages = {t["id"] for t in config.HOME_TILES}
+
+    home_tiles = [t for t in config.HOME_TILES if not t.get("admin_only") or is_admin]
+
     return render_template(
         "settings.html",
         person=person,
         prefs=prefs,
         people=config.PEOPLE,
         person_display=config.PERSON_DISPLAY,
-        is_admin=person in config.ADMINS,
+        is_admin=is_admin,
         google_connected=google_connected,
         vapid_public_key=push_notif.get_public_key(db),
+        home_tiles=home_tiles,
+        visible_pages=visible_pages,
     )
 
 
@@ -50,6 +66,17 @@ def settings_save():
     )
     db.commit()
     return redirect(url_for("settings.settings_view"))
+
+
+@bp.route("/settings/save_tiles", methods=["POST"])
+def settings_save_tiles():
+    person = auth_person()
+    db     = get_db()
+    data   = request.get_json(force=True)
+    visible_pages = json.dumps(data.get("visible_pages", []))
+    db.execute("UPDATE person_prefs SET visible_pages=? WHERE person=?", (visible_pages, person))
+    db.commit()
+    return jsonify({"ok": True})
 
 
 @bp.route("/settings/change_pin", methods=["POST"])

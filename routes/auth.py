@@ -23,7 +23,7 @@ def _google_redirect_uri() -> str:
 @bp.route("/login")
 def login():
     if session.get("authenticated"):
-        return redirect(url_for("dashboard.dashboard"))
+        return redirect(url_for("dashboard.home_grid"))
     next_url = request.args.get("next", "")
     return render_template(
         "login.html",
@@ -40,7 +40,7 @@ def login():
 def login_pin():
     person  = request.form.get("person", "").strip()
     pin_val = request.form.get("pin", "").strip()
-    next_url = request.form.get("next", "") or url_for("dashboard.dashboard")
+    next_url = request.form.get("next", "") or url_for("dashboard.home_grid")
 
     if person not in config.PEOPLE + ["family"]:
         return redirect(url_for("auth.login", error="Invalid person", next=next_url))
@@ -91,7 +91,7 @@ def login_google_callback():
     session["authenticated"] = True
     session["person"]      = person
     session["auth_person"] = person
-    return redirect(url_for("dashboard.dashboard"))
+    return redirect(url_for("dashboard.home_grid"))
 
 
 @bp.route("/sw.js")
@@ -116,7 +116,7 @@ def set_person(person: str):
     if person in config.PEOPLE + ["family"]:
         session["person"] = person
     # Redirect back but strip ?person= so the route doesn't override the session
-    referrer = request.referrer or url_for("dashboard.dashboard")
+    referrer = request.referrer or url_for("dashboard.home_grid")
     from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
     parsed = urlparse(referrer)
     qs = {k: v for k, v in parse_qs(parsed.query).items() if k != "person"}

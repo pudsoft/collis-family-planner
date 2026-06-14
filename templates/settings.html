@@ -21,12 +21,13 @@
 
       <div class="settings-row">
         <div>
-          <div class="settings-label">Dark mode</div>
-          <div class="settings-desc">Default theme for your account</div>
+          <div class="settings-label">Theme</div>
+          <div class="settings-desc">Default appearance for your account</div>
         </div>
         <select class="form-select" name="theme" style="width:auto">
-          <option value="default" {% if prefs.theme != 'dark' %}selected{% endif %}>Light</option>
+          <option value="default" {% if prefs.theme not in ('dark','auto') %}selected{% endif %}>Light</option>
           <option value="dark"    {% if prefs.theme == 'dark' %}selected{% endif %}>Dark</option>
+          <option value="auto"    {% if prefs.theme == 'auto' %}selected{% endif %}>Auto (7am–7pm)</option>
         </select>
       </div>
 
@@ -124,6 +125,23 @@
       </svg>
       in Safari, then choose <strong>Add to Home Screen</strong>.
     </div>
+  </div>
+
+  <!-- ── Home tiles ────────────────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">🏠 Home tiles</div>
+    <div class="settings-desc" style="margin-bottom:12px;font-size:.82rem;color:var(--text-muted)">Choose which tiles appear on your home screen</div>
+    {% for tile in home_tiles %}
+    <div class="settings-row" style="padding:8px 0;border-bottom:1px solid var(--border)">
+      <div class="settings-label" style="margin:0">{{ tile.emoji }} {{ tile.label }}</div>
+      <label class="toggle">
+        <input type="checkbox" class="tile-toggle" data-tile="{{ tile.id }}"
+               {% if tile.id in visible_pages %}checked{% endif %}
+               onchange="saveTiles()">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    {% endfor %}
   </div>
 
   <!-- ── Change PIN ──────────────────────────────────────────────────────── -->
@@ -234,6 +252,16 @@
 
 {% block extra_js %}
 <script>
+async function saveTiles() {
+  const checked = [...document.querySelectorAll('.tile-toggle:checked')].map(el => el.dataset.tile);
+  await fetch('/settings/save_tiles', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ visible_pages: checked }),
+  });
+  showToast('Home tiles saved');
+}
+
 // Surface any unhandled JS error into the email-accounts card for remote diagnosis
 window.onerror = function(msg, _src, line) {
   const el = document.getElementById('email-accounts-list');

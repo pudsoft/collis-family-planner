@@ -34,29 +34,53 @@
         {% set ns.current_date = event_date %}
         <div class="section-label">{{ event_date | friendlydate }}</div>
       {% endif %}
-      <div class="event-card colour-{{ e.colour }}
-                  {% if e.cancelled %}cancelled{% endif %}
-                  {% if highlight_event == e.id %}highlight{% endif %}"
-           id="event-{{ e.id }}">
-        <div class="event-time">
-          {% if e.all_day %}All day
-          {% else %}{{ e.start_dt[11:16] }}–{{ e.end_dt[11:16] }}{% endif %}
-        </div>
-        <div class="event-body">
-          <div class="event-title">{{ e.title }}</div>
-          {% if e.attendees %}
-          <div class="event-attendees">
-            {% for p in e.attendees %}
-            <span class="chip chip-{{ p }}">{{ p | title }}</span>
-            {% endfor %}
+
+      <div class="event-wrapper">
+        <div class="event-card colour-{{ e.colour }}
+                    {% if e.cancelled %}cancelled{% endif %}
+                    {% if highlight_event == e.id %}highlight{% endif %}"
+             id="event-{{ e.id }}">
+          <div class="event-time">
+            {% if e.all_day %}All day
+            {% else %}{{ e.start_dt[11:16] }}–{{ e.end_dt[11:16] }}{% endif %}
           </div>
-          {% endif %}
-          {% if e.first_seen_at %}
-          <div class="first-seen">Added {{ e.first_seen_at[:10] }}</div>
+          <div class="event-body">
+            <div class="event-title">{{ e.title }}</div>
+            {% if e.attendees %}
+            <div class="event-attendees">
+              {% for p in e.attendees %}
+              <span class="chip chip-{{ p }}">{{ p | title }}</span>
+              {% endfor %}
+            </div>
+            {% endif %}
+            {% if e.first_seen_at %}
+            <div class="first-seen">Added {{ e.first_seen_at[:10] }}</div>
+            {% endif %}
+          </div>
+          {% if e.cancelled %}
+          <span class="badge-cancelled">Cancelled</span>
+          {% elif not e.is_birthday %}
+            {% set tc = task_counts.get(e.id, {}) %}
+            <button class="event-tasks-btn {% if tc.open is defined and tc.open > 0 %}has-tasks{% endif %}"
+                    onclick="toggleEventTasks('{{ e.id }}')"
+                    title="To-do list for this event">
+              📋{% if tc.total is defined and tc.total > 0 %}<span class="task-badge">{{ tc.open }}/{{ tc.total }}</span>{% endif %}
+            </button>
           {% endif %}
         </div>
-        {% if e.cancelled %}
-        <span class="badge-cancelled">Cancelled</span>
+
+        {% if not e.is_birthday %}
+        <div class="event-tasks-panel" id="tasks-panel-{{ e.id }}" style="display:none">
+          <div class="event-tasks-list" id="tasks-list-{{ e.id }}">
+            <div style="font-size:.8rem;color:var(--text-muted);padding:6px 0">Loading…</div>
+          </div>
+          <div class="event-tasks-add">
+            <input class="form-input event-task-input" id="task-input-{{ e.id }}"
+                   placeholder="Add a task…" style="flex:1;font-size:.85rem"
+                   onkeydown="if(event.key==='Enter') addEventTask('{{ e.id }}')">
+            <button class="btn btn-primary btn-sm" onclick="addEventTask('{{ e.id }}')">Add</button>
+          </div>
+        </div>
         {% endif %}
       </div>
     {% endfor %}
@@ -65,12 +89,84 @@
       <div class="empty-state-icon">📅</div>
       <div class="empty-state-text">
         No upcoming events
-        {% if not google_connected %}
-        — <a href="{{ url_for('calendar.calendar_auth') }}?admin_pin={{ admin_pin }}" style="color:var(--person-colour,var(--family));font-weight:600">Connect Google Calendar</a>
-        {% endif %}
       </div>
     </div>
   {% endif %}
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function toggleEventTasks(eventId) {
+  const panel = document.getElementById('tasks-panel-' + eventId);
+  if (!panel) return;
+  const open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : '';
+  if (!open) await loadEventTasks(eventId);
+}
+
+async function loadEventTasks(eventId) {
+  const list = document.getElementById('tasks-list-' + eventId);
+  if (!list) return;
+  const r = await fetch('/calendar/tasks?event_id=' + encodeURIComponent(eventId));
+  const tasks = await r.json().catch(() => []);
+  renderTaskList(eventId, tasks);
+}
+
+function renderTaskList(eventId, tasks) {
+  const list = document.getElementById('tasks-list-' + eventId);
+  if (!list) return;
+  if (!tasks.length) {
+    list.innerHTML = '<div style="font-size:.8rem;color:var(--text-muted);padding:4px 0">No tasks yet</div>';
+    return;
+  }
+  list.innerHTML = tasks.map(t => `
+    <div class="event-task-item ${t.completed ? 'done' : ''}" id="et-${t.id}">
+      <button class="task-check ${t.completed ? 'checked' : ''}" onclick="toggleTask(${t.id}, '${eventId}')"></button>
+      <span class="event-task-title">${escHtml(t.title)}</span>
+      <button class="event-task-del" onclick="deleteTask(${t.id}, '${eventId}')">✕</button>
+    </div>
+  `).join('');
+}
+
+async function addEventTask(eventId) {
+  const input = document.getElementById('task-input-' + eventId);
+  const title = input.value.trim();
+  if (!title) return;
+  input.value = '';
+  await fetch('/calendar/tasks/add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ event_id: eventId, title })
+  });
+  await loadEventTasks(eventId);
+}
+
+async function toggleTask(taskId, eventId) {
+  await fetch(`/calendar/tasks/${taskId}/toggle`, { method: 'POST' });
+  await loadEventTasks(eventId);
+}
+
+async function deleteTask(taskId, eventId) {
+  await fetch(`/calendar/tasks/${taskId}/delete`, { method: 'POST' });
+  await loadEventTasks(eventId);
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Live clock for work meetings
+(function liveClock() {
+  const el = document.getElementById('live-clock');
+  if (!el) return;
+  function tick() {
+    const now = new Date();
+    el.textContent = now.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }
+  tick();
+  setInterval(tick, 1000);
+})();
+</script>
 {% endblock %}

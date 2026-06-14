@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Home — {{ person_display[person].label if person in person_display else person.title() }}{% endblock %}
+
+{% block content %}
+<div class="home-grid-page">
+  <div class="home-grid">
+    {% for tile in visible_tiles %}
+    <a href="{{ tile.url }}{% if '?' not in tile.url %}?person={{ person }}{% else %}&person={{ person }}{% endif %}"
+       class="home-tile">
+      <span class="home-tile-emoji">{{ tile.emoji }}</span>
+      <span class="home-tile-label">{{ tile.label }}</span>
+    </a>
+    {% endfor %}
+    {% if not visible_tiles %}
+    <div style="grid-column:1/-1;text-align:center;padding:40px 16px;color:var(--text-muted)">
+      <div style="font-size:2rem;margin-bottom:8px">🏠</div>
+      <div style="font-size:.9rem">No tiles enabled — go to <a href="/settings" style="color:var(--person-colour,#7B5BA6)">Settings</a> to choose your home tiles.</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

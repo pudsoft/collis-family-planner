@@ -1,6 +1,7 @@
-"""Dashboard blueprint — / and /dashboard."""
+"""Dashboard blueprint — / (home grid) and /dashboard (today view)."""
 from __future__ import annotations
 
+import json
 import logging
 from datetime import date
 
@@ -16,10 +17,41 @@ bp = Blueprint("dashboard", __name__)
 
 
 @bp.route("/")
+def home_grid():
+    person   = current_person()
+    viewer   = auth_person()
+    db       = get_db()
+    prefs    = get_prefs(db, person)
+    is_admin = viewer in config.ADMINS
+
+    visible_raw = prefs.get("visible_pages")
+    if visible_raw:
+        try:
+            visible_ids = set(json.loads(visible_raw))
+        except Exception:
+            visible_ids = {t["id"] for t in config.HOME_TILES}
+    else:
+        visible_ids = {t["id"] for t in config.HOME_TILES}
+
+    visible_tiles = [
+        t for t in config.HOME_TILES
+        if t["id"] in visible_ids and (not t.get("admin_only") or is_admin)
+    ]
+
+    return render_template(
+        "home.html",
+        person=person,
+        prefs=prefs,
+        people=config.PEOPLE,
+        person_display=config.PERSON_DISPLAY,
+        is_admin=is_admin,
+        visible_tiles=visible_tiles,
+    )
+
+
 @bp.route("/dashboard")
 def dashboard():
     person = current_person()
-    # Override person from URL param (NTFY deep-link)
     if "person" in request.args and request.args["person"] in config.PEOPLE + ["family"]:
         person = request.args["person"]
         session["person"] = person
@@ -38,7 +70,6 @@ def dashboard():
     kids_first_events  = calendar_sync.first_events_today(db, ["joshua", "violet"]) if person in ("paul", "family") else {}
     weather_days       = int(prefs.get("weather_days") or 3)
 
-    # Non-admins only see their own medicines (same rule as /medicines page)
     viewer = auth_person()
     if viewer not in config.ADMINS:
         today_meds = [m for m in today_meds if m["person"] == viewer]

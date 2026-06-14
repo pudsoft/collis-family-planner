@@ -224,6 +224,26 @@ def _init_db_mysql(db):
             email_address VARCHAR(255) NOT NULL,
             app_password  TEXT NOT NULL
         )""",
+        """CREATE TABLE IF NOT EXISTS event_tasks (
+            id           INT AUTO_INCREMENT PRIMARY KEY,
+            event_id     TEXT NOT NULL,
+            title        VARCHAR(500) NOT NULL,
+            assignee     VARCHAR(50) DEFAULT 'anyone',
+            completed    TINYINT DEFAULT 0,
+            completed_at VARCHAR(50),
+            completed_by VARCHAR(50),
+            created_at   VARCHAR(50),
+            created_by   VARCHAR(50)
+        )""",
+        """CREATE TABLE IF NOT EXISTS birthdays (
+            id             INT AUTO_INCREMENT PRIMARY KEY,
+            name           VARCHAR(200) NOT NULL,
+            date_mmdd      VARCHAR(5) NOT NULL,
+            remind_days    INT DEFAULT 7,
+            remind_persons TEXT,
+            notes          TEXT,
+            last_reminded  VARCHAR(20)
+        )""",
     ]
     for stmt in statements:
         db.execute(stmt)
@@ -259,6 +279,9 @@ def _init_db_mysql(db):
         ("shopping_items",   "is_manual",       "INTEGER DEFAULT 0"),
         ("shopping_items",   "added_by",        "TEXT"),
         ("shopping_items",   "added_at",        "TEXT"),
+        ("person_prefs",     "visible_pages",   "TEXT"),
+        ("birthdays",        "last_reminded",   "VARCHAR(20)"),
+        ("birthdays",        "notes",           "TEXT"),
     ]:
         if not _col_exists_mysql(db, table, col):
             db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {defn}")
@@ -427,6 +450,26 @@ def _init_db_sqlite(db):
             email_address TEXT NOT NULL,
             app_password  TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS event_tasks (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id     TEXT NOT NULL,
+            title        TEXT NOT NULL,
+            assignee     TEXT DEFAULT 'anyone',
+            completed    INTEGER DEFAULT 0,
+            completed_at TEXT,
+            completed_by TEXT,
+            created_at   TEXT,
+            created_by   TEXT
+        );
+        CREATE TABLE IF NOT EXISTS birthdays (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            name           TEXT NOT NULL,
+            date_mmdd      TEXT NOT NULL,
+            remind_days    INTEGER DEFAULT 7,
+            remind_persons TEXT,
+            notes          TEXT,
+            last_reminded  TEXT
+        );
     """)
     db.commit()
 
@@ -455,6 +498,9 @@ def _init_db_sqlite(db):
         ("medicines",        "start_date",    "TEXT"),
         ("medicines",        "end_date",      "TEXT"),
         ("medicines",        "frequency_type","TEXT DEFAULT 'daily'"),
+        ("person_prefs",     "visible_pages", "TEXT"),
+        ("birthdays",        "last_reminded", "TEXT"),
+        ("birthdays",        "notes",         "TEXT"),
     ]:
         cols = [r[1] for r in db.execute(f"PRAGMA table_info({table})").fetchall()]
         if col not in cols:
@@ -596,6 +642,93 @@ def start_medicine_reminders():
     t.start()
 
 
+# ── Birthday reminder background thread ───────────────────────────────────────
+
+_birthday_last_check: str = ""
+
+
+def _send_birthday_reminders_now():
+    global _birthday_last_check
+    today = date.today()
+    today_str = today.isoformat()
+    if _birthday_last_check == today_str:
+        return
+    _birthday_last_check = today_str
+
+    conn = _get_db_for_thread()
+    try:
+        rows = conn.execute("SELECT * FROM birthdays").fetchall()
+        for row in rows:
+            b = dict(row)
+            try:
+                mm, dd = b["date_mmdd"].split("-")
+                remind_days = int(b.get("remind_days") or 7)
+                remind_date = date(today.year, int(mm), int(dd)) - timedelta(days=remind_days)
+                if remind_date < today:
+                    remind_date = date(today.year + 1, int(mm), int(dd)) - timedelta(days=remind_days)
+                if remind_date != today:
+                    continue
+                if b.get("last_reminded") == today_str:
+                    continue
+            except Exception:
+                continue
+
+            persons = []
+            try:
+                persons = json.loads(b["remind_persons"] or "[]")
+            except Exception:
+                pass
+            if not persons:
+                continue
+
+            birthday_date = date(today.year, int(mm), int(dd))
+            if birthday_date < today:
+                birthday_date = date(today.year + 1, int(mm), int(dd))
+            days_away = (birthday_date - today).days
+            msg = f"🎂 {b['name']}'s birthday is in {days_away} day{'s' if days_away != 1 else ''}!"
+
+            for person in persons:
+                pp = conn.execute(
+                    "SELECT notif_method, ntfy_channel FROM person_prefs WHERE person=?",
+                    (person,)
+                ).fetchone()
+                if not pp:
+                    continue
+                pp = dict(pp)
+                if pp.get("notif_method") == "push":
+                    push_notif.send_push_to_person(
+                        conn, person, "🎂 Birthday Reminder", msg,
+                        f"{config.APP_BASE_URL}/calendar?person={person}"
+                    )
+                elif pp.get("ntfy_channel"):
+                    ntfy.send_ntfy(pp["ntfy_channel"], msg, title="🎂 Birthday Reminder",
+                                   click_url=f"{config.APP_BASE_URL}/calendar?person={person}")
+
+            conn.execute(
+                "UPDATE birthdays SET last_reminded=? WHERE id=?", (today_str, b["id"])
+            )
+            conn.commit()
+    except Exception:
+        log.exception("Birthday reminder job failed")
+    finally:
+        conn.close()
+
+
+def _birthday_reminder_loop():
+    _time.sleep(30)
+    while True:
+        try:
+            _send_birthday_reminders_now()
+        except Exception:
+            log.exception("Birthday reminder loop error")
+        _time.sleep(3600)
+
+
+def start_birthday_reminders():
+    t = threading.Thread(target=_birthday_reminder_loop, daemon=True, name="bday-reminders")
+    t.start()
+
+
 # ── Blueprint registration ─────────────────────────────────────────────────────
 
 from routes.auth      import bp as auth_bp
@@ -633,4 +766,5 @@ if __name__ == "__main__":
         tasks.ensure_chores_scheduled(get_db())
     calendar_sync.start_background_sync(_get_db_for_thread)
     start_medicine_reminders()
+    start_birthday_reminders()
     app.run(host="0.0.0.0", port=config.PORT, debug=False)
