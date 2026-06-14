@@ -98,10 +98,11 @@ def get_climate_data() -> list[dict]:
             if did:
                 dev_map[did] = d.get("props", {})
 
-        if not dev_map and devices:
-            # Log first device structure to diagnose
-            log.info("Hive first device keys: %s", list(devices[0].keys()))
-            log.info("Hive first device props: %s", list(devices[0].get("props", {}).keys()))
+        log.info("Hive API: %d products, %d devices, %d in dev_map", len(products), len(devices), len(dev_map))
+        if devices:
+            first_dev = devices[0]
+            log.info("Hive first device keys: %s", list(first_dev.keys()))
+            log.info("Hive first device props keys: %s", list(first_dev.get("props", {}).keys()))
 
         for p in products:
             ptype = p.get("type", "")
@@ -118,12 +119,21 @@ def get_climate_data() -> list[dict]:
             if current is None:
                 # Try props.trvs[].props.temperature (nested in product)
                 trvs_in_props = props.get("trvs", [])
-                if trvs_in_props:
-                    if not zones:  # log structure once for debugging
+                if not zones:  # log trvs + consumers structure once
+                    log.info("Hive trvs count: %d, consumers count: %d",
+                             len(trvs_in_props), len(props.get("consumers", [])))
+                    if trvs_in_props:
                         first = trvs_in_props[0]
                         log.info("Hive TRV-in-props keys: %s  props: %s",
                                  list(first.keys()) if isinstance(first, dict) else type(first),
                                  list(first.get("props", {}).keys()) if isinstance(first, dict) else "N/A")
+                    consumers = props.get("consumers", [])
+                    if consumers:
+                        first_c = consumers[0]
+                        log.info("Hive consumer keys: %s  props: %s",
+                                 list(first_c.keys()) if isinstance(first_c, dict) else type(first_c),
+                                 list(first_c.get("props", {}).keys()) if isinstance(first_c, dict) else "N/A")
+                if trvs_in_props:
                     temps = []
                     for t in trvs_in_props:
                         if isinstance(t, dict):
@@ -135,6 +145,15 @@ def get_climate_data() -> list[dict]:
                             temps.append(v)
                     if temps:
                         current = round(sum(temps) / len(temps), 1)
+
+            if current is None:
+                # Try props.consumers[].props.temperature
+                for c in props.get("consumers", []):
+                    if isinstance(c, dict):
+                        v = _safe_float(c.get("props", {}).get("temperature"))
+                        if v is not None:
+                            current = v
+                            break
 
             if current is None:
                 # Try device map via product id (some APIs link product ↔ device by same ID)
