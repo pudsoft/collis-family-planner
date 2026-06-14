@@ -81,6 +81,18 @@ def send_reorder_alert(channel: str, person: str,
     )
 
 
+def send_medicine_taken_notification(channel: str, taker: str, taker_display: str,
+                                      medicine_name: str) -> bool:
+    url = f"{APP_BASE_URL}/medicines?person={taker}"
+    return send_ntfy(
+        channel=channel,
+        message=f"{taker_display} just took {medicine_name}",
+        title="💊 Dose taken",
+        click_url=url,
+        priority="default",
+    )
+
+
 def send_broadcast(channels: list[str], message: str,
                    title: str = "📢 Family Notice", priority: str = "default") -> int:
     """Send the same message to multiple channels. Returns count of successes."""

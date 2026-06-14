@@ -324,6 +324,19 @@
       </div>
       <div style="font-size:.72rem;color:var(--text-muted);margin-top:3px">Medicine automatically hides outside these dates. Leave both blank for ongoing medications.</div>
     </div>
+    <div class="form-group">
+      <label class="form-label">Also notify
+        <span style="font-size:.72rem;font-weight:400;color:var(--text-muted)"> — send reminder to others too</span>
+      </label>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px">
+        {% for p in people %}
+        <label style="display:flex;align-items:center;gap:6px;font-size:.88rem;cursor:pointer">
+          <input type="checkbox" class="med-also-notify-cb" value="{{ p }}">
+          {{ person_display[p].emoji if p in person_display else '' }} {{ person_display[p].label if p in person_display else p | title }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
     <div class="settings-row" style="margin-bottom:14px">
       <div>
         <div class="settings-label">Active (send reminders)</div>
@@ -558,6 +571,13 @@ function editMed(med) {
     });
   }
 
+  // Restore also_notify checkboxes
+  let notifyList = [];
+  if (med.also_notify) { try { notifyList = JSON.parse(med.also_notify); } catch {} }
+  document.querySelectorAll(".med-also-notify-cb").forEach(cb => {
+    cb.checked = notifyList.includes(cb.value);
+  });
+
   document.getElementById("add-med-modal").classList.add("open");
 }
 
@@ -594,6 +614,10 @@ async function saveMed() {
     fd.append("dose_time_1", document.getElementById("med-single-time").value || "");
   }
 
+  document.querySelectorAll(".med-also-notify-cb:checked").forEach(cb => {
+    fd.append("also_notify", cb.value);
+  });
+
   const r = await adminPost("/admin/medicine", fd, "Medicine saved");
   if (r) { document.getElementById("add-med-modal").classList.remove("open"); setTimeout(() => location.reload(), 400); }
 }
@@ -618,6 +642,7 @@ document.querySelector('[data-modal="add-med-modal"]').addEventListener("click",
   document.getElementById("med-frequency").value   = "daily:1";
   document.getElementById("med-monthly-dom").value = "1";
   document.getElementById("med-single-time").value = "";
+  document.querySelectorAll(".med-also-notify-cb").forEach(cb => { cb.checked = false; });
   updateFrequencyUI();
 });
 

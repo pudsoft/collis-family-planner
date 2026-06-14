@@ -1,13 +1,14 @@
 """Medicines blueprint — /medicines, /prn routes."""
 from __future__ import annotations
 
+import json
 import logging
 from datetime import date, timedelta
 
 from flask import Blueprint, jsonify, render_template, request, session
 
 import config
-from modules import medicines
+from modules import medicines, ntfy
 from routes.utils import auth_person, current_person, get_db, get_prefs
 
 log = logging.getLogger(__name__)
@@ -77,12 +78,43 @@ def medicines_view():
     )
 
 
+def _fire_also_notify(db, med_id: int, taker: str):
+    med = db.execute("SELECT name, also_notify FROM medicines WHERE id=?", (med_id,)).fetchone()
+    if not med:
+        return
+    also = []
+    if med["also_notify"]:
+        try:
+            also = json.loads(med["also_notify"])
+        except (json.JSONDecodeError, TypeError):
+            pass
+    if not also:
+        return
+    taker_display = config.PERSON_DISPLAY.get(taker, {}).get("label", taker.title())
+    for recipient in also:
+        if recipient == taker:
+            continue
+        row = db.execute(
+            "SELECT ntfy_channel FROM person_prefs WHERE person=?", (recipient,)
+        ).fetchone()
+        if row and row["ntfy_channel"]:
+            ntfy.send_medicine_taken_notification(
+                channel=row["ntfy_channel"],
+                taker=taker,
+                taker_display=taker_display,
+                medicine_name=med["name"],
+            )
+
+
 @bp.route("/medicines/<int:med_id>/take", methods=["POST"])
 def medicine_take(med_id: int):
     person      = current_person()
     dose_date   = request.form.get("dose_date") or None
     dose_number = int(request.form.get("dose_number") or 1)
-    taken = medicines.log_dose(get_db(), med_id, person, dose_date=dose_date, dose_number=dose_number)
+    db    = get_db()
+    taken = medicines.log_dose(db, med_id, person, dose_date=dose_date, dose_number=dose_number)
+    if taken:
+        _fire_also_notify(db, med_id, person)
     return jsonify({"ok": True, "already_taken": not taken})
 
 
