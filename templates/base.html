@@ -87,6 +87,9 @@
   </a>
 
   <div class="side-nav-section">House</div>
+  <a href="/smarthome" class="side-nav-item {% if request.endpoint == 'smarthome.smarthome_view' %}active{% endif %}">
+    <span class="side-nav-icon">🌡️</span>Temperatures
+  </a>
   <a href="/energy" class="side-nav-item {% if request.endpoint == 'energy.energy_view' %}active{% endif %}">
     <span class="side-nav-icon">⚡</span>Energy
   </a>
