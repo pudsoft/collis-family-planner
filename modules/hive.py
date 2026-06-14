@@ -99,10 +99,14 @@ def get_climate_data() -> list[dict]:
                 dev_map[did] = d.get("props", {})
 
         log.info("Hive API: %d products, %d devices, %d in dev_map", len(products), len(devices), len(dev_map))
-        if devices:
-            first_dev = devices[0]
-            log.info("Hive first device keys: %s", list(first_dev.keys()))
-            log.info("Hive first device props keys: %s", list(first_dev.get("props", {}).keys()))
+        for i, d in enumerate(devices[:10]):
+            dtype = d.get("type", "?")
+            sprops = list(d.get("props", {}).keys())
+            sstate = list(d.get("state", {}).keys())
+            temp_p = d.get("props", {}).get("temperature")
+            temp_s = d.get("state", {}).get("temperature")
+            log.info("  dev[%d] type=%s props_temp=%s state_temp=%s state_keys=%s",
+                     i, dtype, temp_p, temp_s, sstate[:6])
 
         for p in products:
             ptype = p.get("type", "")
