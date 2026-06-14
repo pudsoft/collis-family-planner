@@ -21,8 +21,13 @@ _cache_ts:   float      = 0.0
 _cache_data: list[dict] = []
 
 
-def _fetch_all() -> tuple[list, list]:
-    """Authenticate with Hive and return (products, devices) from Beekeeper API."""
+def _fetch_all() -> tuple[list, list, dict]:
+    """Authenticate with Hive and return (products, devices, trv_node_sample).
+
+    trv_node_sample is the raw response from /nodes/trv/{first_trv_id} — used to
+    probe whether individual TRV endpoints expose temperature after the June 2026
+    bulk-API change removed it from /nodes/all.
+    """
     from pyhiveapi import Hive
 
     h = Hive(username=config.HIVE_EMAIL, password=config.HIVE_PASSWORD)
@@ -50,7 +55,32 @@ def _fetch_all() -> tuple[list, list]:
         raise RuntimeError(f"Beekeeper API error: {status}")
 
     parsed = resp.get("parsed") or {}
-    return list(parsed.get("products", [])), list(parsed.get("devices", []))
+    products = list(parsed.get("products", []))
+    devices  = list(parsed.get("devices", []))
+
+    # Probe individual TRV endpoint to see if it has temperature data
+    trv_node_sample: dict = {}
+    trv_devs = [d for d in devices if d.get("type") == "trv"]
+    if trv_devs:
+        trv_id = trv_devs[0].get("id", "")
+        if trv_id:
+            try:
+                node_resp = h.api.request("GET",
+                    f"{h.api.urls['base']}/nodes/trv/{trv_id}")
+                trv_node_sample = node_resp.json() if hasattr(node_resp, 'json') else {}
+                log.info("  /nodes/trv/%s keys: %s", trv_id[:20],
+                         list(trv_node_sample.keys()) if isinstance(trv_node_sample, dict) else type(trv_node_sample))
+                if isinstance(trv_node_sample, dict):
+                    nd_props = trv_node_sample.get("props", {})
+                    nd_state = trv_node_sample.get("state", {})
+                    log.info("  /nodes/trv props keys: %s  state keys: %s",
+                             list(nd_props.keys()), list(nd_state.keys()))
+                    log.info("  /nodes/trv props.temp=%s state.temp=%s",
+                             nd_props.get("temperature"), nd_state.get("temperature"))
+            except Exception as e:
+                log.info("  /nodes/trv fetch failed: %s", e)
+
+    return products, devices, trv_node_sample
 
 
 def _safe_float(val) -> float | None:
@@ -87,39 +117,17 @@ def get_climate_data() -> list[dict]:
         return _cache_data
 
     try:
-        products, devices = _fetch_all()
+        products, devices, _trv_sample = _fetch_all()
         zones: list[dict] = []
 
-        # Build device-id → props map for temperature lookup
-        # After June 2026 API change, temperature is in devices[].props not products[].props
+        # Build device-id → data map for temperature lookup
         dev_map: dict[str, dict] = {}
         for d in devices:
             did = d.get("id") or d.get("deviceId") or d.get("device_id")
             if did:
-                dev_map[did] = d.get("props", {})
+                dev_map[did] = d
 
         log.info("Hive API: %d products, %d devices, %d in dev_map", len(products), len(devices), len(dev_map))
-
-        # Try fetching individual TRV device data — /nodes/trv/{id} may have temperature
-        # that the bulk /nodes/all endpoint no longer includes after June 2026 API change
-        trv_devices = [d for d in devices if d.get("type") == "trv"]
-        if trv_devices:
-            first_trv_id = trv_devices[0].get("id", "")
-            log.info("Trying /nodes/trv/%s for individual TRV data", first_trv_id[:20])
-            try:
-                node_resp = h.api.request("GET",
-                    f"{h.api.urls['base']}/nodes/trv/{first_trv_id}")
-                node_data = node_resp.json() if hasattr(node_resp, 'json') else {}
-                log.info("  /nodes/trv response keys: %s", list(node_data.keys()) if isinstance(node_data, dict) else type(node_data))
-                if isinstance(node_data, dict):
-                    props_nd = node_data.get("props", {})
-                    state_nd = node_data.get("state", {})
-                    log.info("  /nodes/trv props keys: %s", list(props_nd.keys()))
-                    log.info("  /nodes/trv state keys: %s", list(state_nd.keys()))
-                    log.info("  /nodes/trv props.temperature=%s state.temperature=%s",
-                             props_nd.get("temperature"), state_nd.get("temperature"))
-            except Exception as e:
-                log.info("  /nodes/trv fetch failed: %s", e)
 
         for p in products:
             ptype = p.get("type", "")
@@ -154,27 +162,37 @@ def get_climate_data() -> list[dict]:
                     temps = []
                     for t in trvs_in_props:
                         if isinstance(t, dict):
-                            v = _safe_float(t.get("props", {}).get("temperature"))
+                            v = (_safe_float(t.get("props", {}).get("temperature")) or
+                                 _safe_float(t.get("state", {}).get("temperature")))
                         else:
                             # t might be a device ID string — look up in dev_map
-                            v = _safe_float(dev_map.get(str(t), {}).get("temperature"))
+                            dev_t = dev_map.get(str(t), {})
+                            v = (_safe_float(dev_t.get("props", {}).get("temperature")) or
+                                 _safe_float(dev_t.get("state", {}).get("temperature")))
                         if v is not None:
                             temps.append(v)
                     if temps:
                         current = round(sum(temps) / len(temps), 1)
 
             if current is None:
-                # Try props.consumers[].props.temperature
+                # Try props.consumers[].props/state.temperature
                 for c in props.get("consumers", []):
                     if isinstance(c, dict):
-                        v = _safe_float(c.get("props", {}).get("temperature"))
-                        if v is not None:
-                            current = v
-                            break
+                        v = (_safe_float(c.get("props", {}).get("temperature")) or
+                             _safe_float(c.get("state", {}).get("temperature")))
+                    else:
+                        dev_c = dev_map.get(str(c), {})
+                        v = (_safe_float(dev_c.get("props", {}).get("temperature")) or
+                             _safe_float(dev_c.get("state", {}).get("temperature")))
+                    if v is not None:
+                        current = v
+                        break
 
             if current is None:
                 # Try device map via product id (some APIs link product ↔ device by same ID)
-                v = _safe_float(dev_map.get(p.get("id", ""), {}).get("temperature"))
+                dev = dev_map.get(p.get("id", ""), {})
+                v = (_safe_float(dev.get("props", {}).get("temperature")) or
+                     _safe_float(dev.get("state", {}).get("temperature")))
                 if v is not None:
                     current = v
 
