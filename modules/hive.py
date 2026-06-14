@@ -3,6 +3,9 @@
 Authenticates via Cognito SRP (pyhiveapi), then queries the Beekeeper REST API
 directly. We bypass pyhiveapi's startSession() because it crashes when the API
 returns an empty homes list (IndexError not caught by the library).
+
+After the June 2026 Hive API change, temperature moved from products.props.temperature
+to the devices section (devices[].props.temperature), keyed by device ID.
 """
 from __future__ import annotations
 
@@ -18,8 +21,8 @@ _cache_ts:   float      = 0.0
 _cache_data: list[dict] = []
 
 
-def _fetch_products() -> list[dict]:
-    """Authenticate with Hive and return raw products list from Beekeeper API."""
+def _fetch_all() -> tuple[list, list]:
+    """Authenticate with Hive and return (products, devices) from Beekeeper API."""
     from pyhiveapi import Hive
 
     h = Hive(username=config.HIVE_EMAIL, password=config.HIVE_PASSWORD)
@@ -39,10 +42,6 @@ def _fetch_products() -> list[dict]:
     if "AuthenticationResult" not in login_result:
         raise RuntimeError(f"Hive login failed: {login_result}")
 
-    # Load tokens into the session so h.api can make authenticated requests.
-    # We call updateTokens directly rather than startSession() because
-    # startSession → getDevices crashes with IndexError when the Beekeeper API
-    # returns an empty homes list (pyhiveapi bug, not caught by its except clause).
     h.updateTokens(login_result, False)
 
     resp = h.api.getAll()
@@ -51,7 +50,17 @@ def _fetch_products() -> list[dict]:
         raise RuntimeError(f"Beekeeper API error: {status}")
 
     parsed = resp.get("parsed") or {}
-    return list(parsed.get("products", []))
+    return list(parsed.get("products", [])), list(parsed.get("devices", []))
+
+
+def _safe_float(val) -> float | None:
+    if val is None:
+        return None
+    try:
+        f = float(val)
+        return round(f, 1) if f != 0.0 else None  # treat 0.0 as no reading
+    except (TypeError, ValueError):
+        return None
 
 
 def get_climate_data() -> list[dict]:
@@ -78,8 +87,21 @@ def get_climate_data() -> list[dict]:
         return _cache_data
 
     try:
-        products = _fetch_products()
+        products, devices = _fetch_all()
         zones: list[dict] = []
+
+        # Build device-id → props map for temperature lookup
+        # After June 2026 API change, temperature is in devices[].props not products[].props
+        dev_map: dict[str, dict] = {}
+        for d in devices:
+            did = d.get("id") or d.get("deviceId") or d.get("device_id")
+            if did:
+                dev_map[did] = d.get("props", {})
+
+        if not dev_map and devices:
+            # Log first device structure to diagnose
+            log.info("Hive first device keys: %s", list(devices[0].keys()))
+            log.info("Hive first device props: %s", list(devices[0].get("props", {}).keys()))
 
         for p in products:
             ptype = p.get("type", "")
@@ -89,45 +111,52 @@ def get_climate_data() -> list[dict]:
             props = p.get("props", {})
             state = p.get("state", {})
 
-            # Temperature: for heating zones it may be in props.temperature;
-            # for trvcontrol zones the Beekeeper API nests it inside props.trvs[].props.temperature
-            current = props.get("temperature")
-            if current is None and ptype == "trvcontrol":
-                trvs = props.get("trvs", [])
-                if not zones and trvs:  # log first zone's first TRV structure once
-                    first_trv = trvs[0]
-                    log.info("Hive TRV keys: %s", list(first_trv.keys()))
-                    log.info("Hive TRV props keys: %s", list(first_trv.get("props", {}).keys()))
-                if trvs:
-                    temps = [
-                        t.get("props", {}).get("temperature")
-                        for t in trvs
-                        if t.get("props", {}).get("temperature") is not None
-                    ]
-                    if temps:
-                        current = sum(temps) / len(temps)
+            # ── Temperature ──────────────────────────────────────────────────
+            # Try in order: props.temperature → nested TRVs → devices section
+            current = _safe_float(props.get("temperature"))
 
-            # Target: may be state.target, state.heat, or schedule current slot
-            target = state.get("target") or state.get("heat")
+            if current is None:
+                # Try props.trvs[].props.temperature (nested in product)
+                trvs_in_props = props.get("trvs", [])
+                if trvs_in_props:
+                    if not zones:  # log structure once for debugging
+                        first = trvs_in_props[0]
+                        log.info("Hive TRV-in-props keys: %s  props: %s",
+                                 list(first.keys()) if isinstance(first, dict) else type(first),
+                                 list(first.get("props", {}).keys()) if isinstance(first, dict) else "N/A")
+                    temps = []
+                    for t in trvs_in_props:
+                        if isinstance(t, dict):
+                            v = _safe_float(t.get("props", {}).get("temperature"))
+                        else:
+                            # t might be a device ID string — look up in dev_map
+                            v = _safe_float(dev_map.get(str(t), {}).get("temperature"))
+                        if v is not None:
+                            temps.append(v)
+                    if temps:
+                        current = round(sum(temps) / len(temps), 1)
+
+            if current is None:
+                # Try device map via product id (some APIs link product ↔ device by same ID)
+                v = _safe_float(dev_map.get(p.get("id", ""), {}).get("temperature"))
+                if v is not None:
+                    current = v
+
+            # ── Target temperature ───────────────────────────────────────────
+            target = _safe_float(state.get("target")) or _safe_float(state.get("heat"))
             if target is None:
                 schedule = state.get("schedule", {})
                 if isinstance(schedule, dict):
-                    current_slot = schedule.get("current") or {}
-                    target = current_slot.get("target") or current_slot.get("heat")
+                    slot = schedule.get("current") or {}
+                    if not slot and "slots" in schedule:
+                        slots = schedule.get("slots") or []
+                        slot = slots[0] if slots else {}
+                    target = (_safe_float(slot.get("target")) or
+                              _safe_float(slot.get("heat")) or
+                              _safe_float(slot.get("value")))
 
-            try:
-                current = round(float(current), 1) if current is not None else None
-            except (TypeError, ValueError):
-                current = None
-            try:
-                target = round(float(target), 1) if target is not None else None
-            except (TypeError, ValueError):
-                target = None
-
-            # Mode: may be state.mode or derived from schedule/frostProtection
-            mode = state.get("mode")
-            if not mode:
-                mode = "OFF" if state.get("frostProtection") else "SCHEDULE"
+            # ── Mode ─────────────────────────────────────────────────────────
+            mode = state.get("mode") or ("OFF" if state.get("frostProtection") else "SCHEDULE")
 
             zones.append({
                 "id":           p.get("id", ""),
@@ -142,7 +171,8 @@ def get_climate_data() -> list[dict]:
 
         _cache_data = zones
         _cache_ts   = now
-        log.info("Hive: fetched %d zones", len(zones))
+        temps_found = sum(1 for z in zones if z["current_temp"] is not None)
+        log.info("Hive: fetched %d zones, %d with temperature", len(zones), temps_found)
         return zones
 
     except Exception as exc:
