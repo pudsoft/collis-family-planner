@@ -99,14 +99,27 @@ def get_climate_data() -> list[dict]:
                 dev_map[did] = d.get("props", {})
 
         log.info("Hive API: %d products, %d devices, %d in dev_map", len(products), len(devices), len(dev_map))
-        for i, d in enumerate(devices[:10]):
-            dtype = d.get("type", "?")
-            sprops = list(d.get("props", {}).keys())
-            sstate = list(d.get("state", {}).keys())
-            temp_p = d.get("props", {}).get("temperature")
-            temp_s = d.get("state", {}).get("temperature")
-            log.info("  dev[%d] type=%s props_temp=%s state_temp=%s state_keys=%s",
-                     i, dtype, temp_p, temp_s, sstate[:6])
+
+        # Try fetching individual TRV device data — /nodes/trv/{id} may have temperature
+        # that the bulk /nodes/all endpoint no longer includes after June 2026 API change
+        trv_devices = [d for d in devices if d.get("type") == "trv"]
+        if trv_devices:
+            first_trv_id = trv_devices[0].get("id", "")
+            log.info("Trying /nodes/trv/%s for individual TRV data", first_trv_id[:20])
+            try:
+                node_resp = h.api.request("GET",
+                    f"{h.api.urls['base']}/nodes/trv/{first_trv_id}")
+                node_data = node_resp.json() if hasattr(node_resp, 'json') else {}
+                log.info("  /nodes/trv response keys: %s", list(node_data.keys()) if isinstance(node_data, dict) else type(node_data))
+                if isinstance(node_data, dict):
+                    props_nd = node_data.get("props", {})
+                    state_nd = node_data.get("state", {})
+                    log.info("  /nodes/trv props keys: %s", list(props_nd.keys()))
+                    log.info("  /nodes/trv state keys: %s", list(state_nd.keys()))
+                    log.info("  /nodes/trv props.temperature=%s state.temperature=%s",
+                             props_nd.get("temperature"), state_nd.get("temperature"))
+            except Exception as e:
+                log.info("  /nodes/trv fetch failed: %s", e)
 
         for p in products:
             ptype = p.get("type", "")
