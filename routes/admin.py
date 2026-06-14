@@ -183,6 +183,8 @@ def admin_medicine_save():
         dose_times     = json.dumps([t or None for t in raw_times]) if doses_per_day > 1 else None
         scheduled_time = raw_times[0] if raw_times[0] else None
 
+    also_notify = json.dumps(d.getlist("also_notify") or [])
+
     kwargs = dict(
         name=d["name"], person=d["person"],
         daily_dose=float(d.get("daily_dose", 1)),
@@ -196,6 +198,7 @@ def admin_medicine_save():
         active=active,
         start_date=d.get("start_date") or None,
         end_date=d.get("end_date") or None,
+        also_notify=also_notify,
     )
     if med_id:
         medicines.update_medicine(db, med_id, **kwargs)

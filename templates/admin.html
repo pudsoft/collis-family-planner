@@ -76,33 +76,6 @@
     {% endfor %}
   </div>
 
-  <!-- ── Known / protected devices ───────────────────────────────────────── -->
-  <div class="card admin-section">
-    <div class="card-header">
-      <span class="admin-section-title" style="border:none;margin:0">🔒 Protected devices</span>
-      <button class="btn btn-primary btn-sm" data-modal="add-device-modal">Edit</button>
-    </div>
-    <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px">
-      Protected devices are hidden from Network controls and cannot be blocked.
-    </div>
-    {% set protected_devs = all_devices | selectattr('protected') | list %}
-    {% if protected_devs %}
-    {% for dev in protected_devs %}
-    <div class="settings-row" style="flex-wrap:nowrap">
-      <div style="flex:1;min-width:0">
-        <div class="settings-label">{{ dev.display_name }}</div>
-        <div class="settings-desc">{{ dev.mac }}</div>
-      </div>
-      <button class="btn btn-danger btn-sm" style="flex-shrink:0" onclick="deleteDevice({{ dev.id }})">✕</button>
-    </div>
-    {% endfor %}
-    {% else %}
-    <div class="empty-state" style="padding:12px 0">
-      <div class="empty-state-text">No protected devices — tap Edit to select from connected devices.</div>
-    </div>
-    {% endif %}
-  </div>
-
   <!-- ── Login PINs ───────────────────────────────────────────────────────── -->
   <div class="card admin-section">
     <div class="admin-section-title">🔑 Login PINs</div>
@@ -168,7 +141,7 @@
         </div>
       </div>
       <button class="btn btn-secondary btn-sm"
-              onclick="editBirthday({{ b | tojson | e }})">Edit</button>
+              onclick='editBirthday({{ b | tojson }})'>Edit</button>
       <button class="btn btn-danger btn-sm"
               onclick="deleteBirthday({{ b.id }})">✕</button>
     </div>
@@ -373,19 +346,6 @@
   </div>
 </div>
 
-<!-- ── Protect devices modal ─────────────────────────────────────────────────── -->
-<div class="modal-backdrop" id="add-device-modal">
-  <div class="modal-sheet">
-    <span class="modal-close">✕</span>
-    <div class="modal-title">Protect devices</div>
-    <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px">Tick each device you want to protect from being blocked.</div>
-    <div id="protect-device-list">
-      <div style="color:var(--text-muted);text-align:center;padding:20px 0">Loading…</div>
-    </div>
-    <button class="btn btn-primary btn-full" style="margin-top:14px" onclick="saveProtectedDevices()">Save</button>
-  </div>
-</div>
-
 <!-- ── Birthday modal ──────────────────────────────────────────────────────── -->
 <div class="modal-backdrop" id="birthday-modal">
   <div class="modal-sheet">
@@ -397,8 +357,8 @@
       <input class="form-input" id="bd-name" type="text" placeholder="e.g. Grandma Joan">
     </div>
     <div class="form-group">
-      <label class="form-label">Date (MM-DD)</label>
-      <input class="form-input" id="bd-date" type="text" placeholder="e.g. 06-15" maxlength="5">
+      <label class="form-label">Date (DD-MM)</label>
+      <input class="form-input" id="bd-date" type="text" placeholder="e.g. 15-06" maxlength="5">
     </div>
     <div class="form-group">
       <label class="form-label">Remind days before</label>
@@ -649,58 +609,6 @@ document.querySelector('[data-modal="add-med-modal"]').addEventListener("click",
 // Initialise on page load
 updateFrequencyUI();
 
-const _protectedMacs = new Set({{ all_devices | selectattr('protected') | map(attribute='mac') | list | tojson }});
-
-document.addEventListener("click", async e => {
-  if (!e.target.closest("[data-modal='add-device-modal']")) return;
-  const listEl = document.getElementById("protect-device-list");
-  listEl.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px 0">Loading…</div>';
-  try {
-    const r    = await fetch("/network/status");
-    const data = await r.json();
-    const clients = (data.clients || []).slice().sort((a, b) =>
-      (a.hostname || a.mac).localeCompare(b.hostname || b.mac));
-    if (!clients.length) {
-      listEl.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">No devices currently connected</div>';
-      return;
-    }
-    listEl.innerHTML = clients.map(c => {
-      const checked = _protectedMacs.has(c.mac.toLowerCase());
-      return `<label style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
-        <input type="checkbox" class="protect-check" data-mac="${c.mac}"
-               data-name="${(c.hostname || c.mac).replace(/"/g, '')}"
-               ${checked ? "checked" : ""}
-               style="width:18px;height:18px;flex-shrink:0;accent-color:var(--family)">
-        <div>
-          <div style="font-size:.9rem;font-weight:600">${c.hostname || c.mac}</div>
-          <div style="font-size:.75rem;color:var(--text-muted)">${c.mac}${c.ip ? ' · ' + c.ip : ''}</div>
-        </div>
-      </label>`;
-    }).join("");
-  } catch {
-    listEl.innerHTML = '<div style="color:var(--text-muted)">Could not load devices — is UniFi reachable?</div>';
-  }
-});
-
-async function saveProtectedDevices() {
-  const checkboxes = document.querySelectorAll(".protect-check");
-  const devices = Array.from(checkboxes).map(cb => ({
-    mac:     cb.dataset.mac,
-    name:    cb.dataset.name,
-    protect: cb.checked,
-  }));
-  const fd = new FormData();
-  fd.append("devices", JSON.stringify(devices));
-  const r = await adminPost("/admin/devices/protect_bulk", fd, "Saved");
-  if (r) { document.getElementById("add-device-modal").classList.remove("open"); setTimeout(() => location.reload(), 400); }
-}
-
-async function deleteDevice(id) {
-  if (!confirm("Remove this device?")) return;
-  const r = await adminPost(`/admin/device/${id}/delete`, null, "Device removed");
-  if (r) setTimeout(() => location.reload(), 400);
-}
-
 async function sendBroadcast() {
   const msg = document.getElementById("broadcast-msg").value.trim();
   if (!msg) { showToast("Enter a message", "error"); return; }
@@ -748,10 +656,21 @@ async function clearPin(person) {
 
 // ── Birthdays ──────────────────────────────────────────────────────────────
 
+function mmddToDdmm(v) {
+  if (!v) return '';
+  const p = v.split('-');
+  return p.length === 2 ? p[1] + '-' + p[0] : v;
+}
+function ddmmToMmdd(v) {
+  if (!v) return '';
+  const p = v.split('-');
+  return p.length === 2 ? p[1] + '-' + p[0] : v;
+}
+
 function editBirthday(b) {
   document.getElementById('bd-id').value      = b ? (b.id || '') : '';
   document.getElementById('bd-name').value    = b ? (b.name || '') : '';
-  document.getElementById('bd-date').value    = b ? (b.date_mmdd || '') : '';
+  document.getElementById('bd-date').value    = b ? mmddToDdmm(b.date_mmdd) : '';
   document.getElementById('bd-days').value    = b ? (b.remind_days ?? 7) : 7;
   const rp = b ? (JSON.parse(b.remind_persons || '[]')) : [];
   document.querySelectorAll('.bd-person-cb').forEach(cb => {
@@ -766,7 +685,7 @@ async function saveBirthday() {
   const payload = {
     id:             document.getElementById('bd-id').value || null,
     name:           document.getElementById('bd-name').value.trim(),
-    date_mmdd:      document.getElementById('bd-date').value.trim(),
+    date_mmdd:      ddmmToMmdd(document.getElementById('bd-date').value.trim()),
     remind_days:    parseInt(document.getElementById('bd-days').value) || 7,
     remind_persons,
     notes:          document.getElementById('bd-notes').value.trim(),
