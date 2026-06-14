@@ -1,15 +1,14 @@
-const CACHE_VER    = 'cfp-v1';
+const CACHE_VER    = 'cfp-v3';
 const STATIC_CACHE = CACHE_VER + '-static';
 
 const PRECACHE = [
-  '/static/css/main.css',
-  '/static/js/app.js',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',
   '/offline',
 ];
 
-// Install: cache static shell
+// Install: cache only stable assets (icons, offline page)
+// CSS and JS use network-first so deploys are never blocked by cache
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(STATIC_CACHE).then(c => c.addAll(PRECACHE))
@@ -17,7 +16,7 @@ self.addEventListener('install', e => {
   self.skipWaiting();
 });
 
-// Activate: evict old caches
+// Activate: evict ALL old cfp- caches
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
@@ -50,16 +49,20 @@ self.addEventListener('notificationclick', e => {
   }));
 });
 
-// Fetch strategy
+// Fetch strategy:
+//   CSS + JS  → network-first (always get fresh on deploy, cache as fallback)
+//   Icons     → cache-first   (stable, large)
+//   Pages     → network-first, fall back to /offline
 self.addEventListener('fetch', e => {
   const { request } = e;
   const url = new URL(request.url);
 
-  // Only handle same-origin requests
   if (url.origin !== location.origin) return;
 
-  // Static assets: cache-first
-  if (url.pathname.startsWith('/static/')) {
+  const path = url.pathname;
+
+  // Icons: cache-first
+  if (path.startsWith('/static/icons/') || path.startsWith('/static/images/')) {
     e.respondWith(
       caches.match(request).then(cached => {
         if (cached) return cached;
@@ -69,6 +72,18 @@ self.addEventListener('fetch', e => {
           return res;
         });
       })
+    );
+    return;
+  }
+
+  // CSS, JS, and all other static: network-first, cache as fallback
+  if (path.startsWith('/static/')) {
+    e.respondWith(
+      fetch(request).then(res => {
+        const clone = res.clone();
+        caches.open(STATIC_CACHE).then(c => c.put(request, clone));
+        return res;
+      }).catch(() => caches.match(request))
     );
     return;
   }
