@@ -2,7 +2,7 @@
   "name": "Family Planner",
   "short_name": "Family",
   "description": "Collis Family Planner",
-  "start_url": "/dashboard",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#1a1a2e",
   "theme_color": "#7B5BA6",
