@@ -151,6 +151,22 @@
     {% endif %}
   </div>
 
+  <!-- ── Email manager ─────────────────────────────────────────────────────── -->
+  <div class="card admin-section">
+    <div class="admin-section-title">📧 Email Manager</div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">Enable Email Manager</div>
+        <div class="settings-desc">Show the Email tile and menu link for all users</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="email-enabled-toggle" {% if email_enabled %}checked{% endif %}
+               onchange="setFeatureToggle('email_enabled', this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </div>
+
   <!-- ── Data refresh ───────────────────────────────────────────────────────── -->
   <div class="card admin-section">
     <div class="admin-section-title">🔄 Data</div>
@@ -621,6 +637,13 @@ async function sendBroadcast() {
 
 async function adminAction(url, successMsg) {
   await adminPost(url, null, successMsg);
+}
+
+async function setFeatureToggle(key, enabled) {
+  const fd = new FormData();
+  fd.append('key',   key);
+  fd.append('value', enabled ? '1' : '0');
+  await adminPost('/admin/feature_toggle', fd, enabled ? 'Enabled' : 'Disabled');
 }
 
 function openSetPin(person, label) {

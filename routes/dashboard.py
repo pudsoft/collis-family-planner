@@ -36,9 +36,14 @@ def home_grid():
     else:
         visible_ids = all_tile_ids
 
+    _email_row    = db.execute("SELECT value FROM app_settings WHERE key='email_enabled'").fetchone()
+    email_enabled = not (_email_row and _email_row["value"] == "0")
+
     visible_tiles = [
         t for t in config.HOME_TILES
-        if t["id"] in visible_ids and (not t.get("admin_only") or is_admin)
+        if t["id"] in visible_ids
+        and (not t.get("admin_only") or is_admin)
+        and (t["id"] != "email" or email_enabled)
     ]
 
     return render_template(

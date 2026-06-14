@@ -141,6 +141,7 @@ HOME_TILES = [
     {"id": "shopping",   "label": "Shopping",     "emoji": "🛒", "url": "/shopping",          "admin_only": False},
     {"id": "meals",      "label": "Meal Plan",    "emoji": "🍽️",  "url": "/meals",             "admin_only": False},
     {"id": "medicines",  "label": "Medicines",    "emoji": "💊", "url": "/medicines",         "admin_only": False},
+    {"id": "email",      "label": "Email",        "emoji": "📧", "url": "/email",             "admin_only": False},
     {"id": "wifi",       "label": "WiFi",         "emoji": "📶", "url": "/network",           "admin_only": True},
     {"id": "temps",        "label": "Temperatures", "emoji": "🌡️",  "url": "/smarthome",        "admin_only": False},
     {"id": "energy",     "label": "Energy",       "emoji": "⚡", "url": "/energy",            "admin_only": False},

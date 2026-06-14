@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import re
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 
 import config
 from modules import email_accounts as accounts_mod
@@ -15,10 +15,17 @@ log = logging.getLogger(__name__)
 bp = Blueprint("email_manager", __name__)
 
 
+def _email_enabled(db) -> bool:
+    row = db.execute("SELECT value FROM app_settings WHERE key='email_enabled'").fetchone()
+    return not (row and row["value"] == "0")
+
+
 @bp.route("/email")
 def email_view():
     person   = auth_person()
     db       = get_db()
+    if not _email_enabled(db):
+        return redirect(url_for("dashboard.home_grid"))
     accounts = accounts_mod.list_accounts(db, person)
     return render_template(
         "email_manager.html",

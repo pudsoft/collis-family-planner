@@ -85,6 +85,9 @@
   <a href="/medicines?person={{ person }}" class="side-nav-item {% if request.endpoint == 'medicines.medicines_view' %}active{% endif %}">
     <span class="side-nav-icon">💊</span>Medicines
   </a>
+  <a href="/email" class="side-nav-item {% if request.endpoint == 'email_manager.email_view' %}active{% endif %}">
+    <span class="side-nav-icon">📧</span>Email
+  </a>
 
   <div class="side-nav-section">House</div>
   <a href="/smarthome" class="side-nav-item {% if request.endpoint == 'smarthome.smarthome_view' %}active{% endif %}">

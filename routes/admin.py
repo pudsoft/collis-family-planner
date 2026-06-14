@@ -66,6 +66,9 @@ def admin_view():
 
     birthdays = [dict(r) for r in db.execute("SELECT * FROM birthdays ORDER BY date_mmdd").fetchall()]
 
+    _email_row   = db.execute("SELECT value FROM app_settings WHERE key='email_enabled'").fetchone()
+    email_enabled = not (_email_row and _email_row["value"] == "0")
+
     return render_template(
         "admin.html",
         person=person,
@@ -80,6 +83,7 @@ def admin_view():
         admin_pin=config.ADMIN_PIN,
         pin_status=pin_status,
         birthdays=birthdays,
+        email_enabled=email_enabled,
     )
 
 
@@ -548,6 +552,23 @@ def admin_smarthome_seed():
         )
     db.commit()
     return jsonify({"ok": True, "seeded": len(seed)})
+
+
+# ── Feature toggles ───────────────────────────────────────────────────────────
+
+_FEATURE_TOGGLE_KEYS = {"email_enabled"}
+
+@bp.route("/admin/feature_toggle", methods=["POST"])
+@require_admin
+def admin_feature_toggle():
+    key   = request.form.get("key", "").strip()
+    value = request.form.get("value", "1").strip()
+    if key not in _FEATURE_TOGGLE_KEYS:
+        return jsonify({"error": "Unknown feature"}), 400
+    db = get_db()
+    db.execute("INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)", (key, value))
+    db.commit()
+    return jsonify({"ok": True})
 
 
 # ── Birthdays ──────────────────────────────────────────────────────────────────
