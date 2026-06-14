@@ -139,8 +139,10 @@ def smarthome_status():
         for d in room_devs:
             if d["provider"] == "hive":
                 z = hive_zones.get(d["device_id"])
-                log.info("  room %s: hive device_id=%s match=%s",
-                         room["name"], str(d["device_id"])[:20], z is not None)
+                log.info("  room %s: match=%s current_temp=%s type=%s",
+                         room["name"], z is not None,
+                         z.get("current_temp") if z else None,
+                         z.get("type") if z else None)
                 if z:
                     hive_row = {**z, "trend": trend_map.get(d["name"])}
 
