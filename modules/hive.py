@@ -88,6 +88,9 @@ def get_climate_data() -> list[dict]:
 
             props = p.get("props", {})
             state = p.get("state", {})
+            if not zones:  # log first zone only
+                log.info("Hive first zone raw props keys: %s", list(props.keys()))
+                log.info("Hive first zone raw state keys: %s", list(state.keys()))
 
             current = props.get("temperature")
             target  = state.get("target") or state.get("heat")
