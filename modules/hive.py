@@ -88,38 +88,57 @@ def get_climate_data() -> list[dict]:
 
             props = p.get("props", {})
             state = p.get("state", {})
-            if not zones:  # log first zone only
-                log.info("Hive first zone raw props keys: %s", list(props.keys()))
-                log.info("Hive first zone raw state keys: %s", list(state.keys()))
 
+            # Temperature: for heating zones it may be in props.temperature;
+            # for trvcontrol zones the Beekeeper API nests it inside props.trvs[].props.temperature
             current = props.get("temperature")
-            target  = state.get("target") or state.get("heat")
+            if current is None and ptype == "trvcontrol":
+                trvs = props.get("trvs", [])
+                if trvs:
+                    temps = [
+                        t.get("props", {}).get("temperature")
+                        for t in trvs
+                        if t.get("props", {}).get("temperature") is not None
+                    ]
+                    if temps:
+                        current = sum(temps) / len(temps)
+
+            # Target: may be state.target, state.heat, or schedule current slot
+            target = state.get("target") or state.get("heat")
+            if target is None:
+                schedule = state.get("schedule", {})
+                if isinstance(schedule, dict):
+                    current_slot = schedule.get("current") or {}
+                    target = current_slot.get("target") or current_slot.get("heat")
 
             try:
-                current = float(current) if current is not None else None
+                current = round(float(current), 1) if current is not None else None
             except (TypeError, ValueError):
                 current = None
             try:
-                target = float(target) if target is not None else None
+                target = round(float(target), 1) if target is not None else None
             except (TypeError, ValueError):
                 target = None
 
+            # Mode: may be state.mode or derived from schedule/frostProtection
+            mode = state.get("mode")
+            if not mode:
+                mode = "OFF" if state.get("frostProtection") else "SCHEDULE"
+
             zones.append({
                 "id":           p.get("id", ""),
-                "name":         state.get("name", "Heating"),
+                "name":         state.get("name", props.get("zoneName", "Heating")),
                 "type":         ptype,
                 "current_temp": current,
                 "target_temp":  target,
-                "mode":         state.get("mode", "SCHEDULE"),
+                "mode":         mode,
                 "is_heating":   bool(props.get("working", False)),
                 "online":       bool(props.get("online", True)),
             })
 
         _cache_data = zones
         _cache_ts   = now
-        for z in zones:
-            log.info("Hive zone: %s type=%s current_temp=%s target=%s",
-                     z.get("name"), z.get("type"), z.get("current_temp"), z.get("target_temp"))
+        log.info("Hive: fetched %d zones", len(zones))
         return zones
 
     except Exception as exc:
