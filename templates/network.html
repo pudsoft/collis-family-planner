@@ -63,16 +63,24 @@ let _protectedMacs = new Set();
 async function pollStatus() {
   try {
     const r = await fetch("/network/status");
-    if (!r.ok) return;
+    if (!r.ok) {
+      if (r.status === 302 || r.status === 401 || r.url.includes('/login')) {
+        document.getElementById("poll-status").textContent = "Session expired — please reload";
+      } else {
+        document.getElementById("poll-status").textContent = "Error " + r.status;
+      }
+      return;
+    }
     const data = await r.json();
     _blockedMacs   = new Set((data.blocked_macs   || []).map(m => m.toLowerCase()));
     _protectedMacs = new Set((data.protected_macs || []).map(m => m.toLowerCase()));
-    renderWlans(data.wlans || []);
+    renderWlans(data.wlans || [], data.unifi_reachable !== false);
     updateBlockButtons(_blockedMacs);
     document.getElementById("poll-status").textContent =
       "Updated " + new Date().toLocaleTimeString("en-GB", {hour:"2-digit",minute:"2-digit",second:"2-digit"});
   } catch (e) {
     document.getElementById("poll-status").textContent = "Offline";
+    renderWlans([], false);
   }
 }
 
@@ -88,10 +96,10 @@ function updateBlockButtons(blockedMacs) {
   });
 }
 
-function renderWlans(wlans) {
+function renderWlans(wlans, reachable = true) {
   const el = document.getElementById("wlan-list");
-  if (!wlans.length) {
-    el.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">No networks found</div>';
+  if (!reachable || !wlans.length) {
+    el.innerHTML = `<div style="color:var(--text-muted);font-size:.85rem;padding:8px 0">${reachable ? 'No networks found' : '⚠️ UniFi controller unreachable'}</div>`;
     return;
   }
   el.innerHTML = wlans.map(w => `

@@ -49,10 +49,12 @@ def network_status():
     protected_macs = [r["mac"].lower() for r in db.execute(
         "SELECT mac FROM known_devices WHERE protected=1"
     ).fetchall()]
+    wlans = unifi.list_wlans()
     _out = {
-        "wlans":          unifi.list_wlans(),
-        "blocked_macs":   list(unifi.list_blocked_macs()),
-        "protected_macs": protected_macs,
+        "wlans":            wlans,
+        "blocked_macs":     list(unifi.list_blocked_macs()),
+        "protected_macs":   protected_macs,
+        "unifi_reachable":  len(wlans) > 0 or not (config.UNIFI_HOST and config.UNIFI_API_KEY),
     }
     _pcache_set("network_status", _out)
     return jsonify(_out)

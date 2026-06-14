@@ -38,7 +38,7 @@ def list_wlans() -> list[dict]:
         return []
     try:
         s = _session()
-        resp = s.get(f"{_base()}/rest/wlanconf", timeout=10)
+        resp = s.get(f"{_base()}/rest/wlanconf", timeout=4)
         resp.raise_for_status()
         return [
             {"id": w["_id"], "name": w.get("name", ""), "enabled": w.get("enabled", False)}
@@ -55,7 +55,7 @@ def get_wifi_credentials(ssid_name: str) -> dict | None:
         return None
     try:
         s = _session()
-        resp = s.get(f"{_base()}/rest/wlanconf", timeout=10)
+        resp = s.get(f"{_base()}/rest/wlanconf", timeout=4)
         resp.raise_for_status()
         for w in resp.json().get("data", []):
             if w.get("name") == ssid_name:
@@ -75,7 +75,7 @@ def set_wlan_enabled(ssid_name: str, enabled: bool) -> bool:
         return False
     try:
         s = _session()
-        resp = s.get(f"{_base()}/rest/wlanconf", timeout=10)
+        resp = s.get(f"{_base()}/rest/wlanconf", timeout=4)
         resp.raise_for_status()
         wlan_id = None
         for w in resp.json().get("data", []):
@@ -85,7 +85,7 @@ def set_wlan_enabled(ssid_name: str, enabled: bool) -> bool:
         if not wlan_id:
             log.warning("WLAN '%s' not found", ssid_name)
             return False
-        put = s.put(f"{_base()}/rest/wlanconf/{wlan_id}", json={"enabled": enabled}, timeout=10)
+        put = s.put(f"{_base()}/rest/wlanconf/{wlan_id}", json={"enabled": enabled}, timeout=4)
         put.raise_for_status()
         log.info("WLAN '%s' %s", ssid_name, "enabled" if enabled else "disabled")
         return True
@@ -101,7 +101,7 @@ def _stamgr(cmd: str, mac: str) -> bool:
         return False
     try:
         s = _session()
-        resp = s.post(f"{_base()}/cmd/stamgr", json={"cmd": cmd, "mac": mac}, timeout=10)
+        resp = s.post(f"{_base()}/cmd/stamgr", json={"cmd": cmd, "mac": mac}, timeout=4)
         resp.raise_for_status()
         log.info("stamgr %s → %s", cmd, mac)
         return True
@@ -128,7 +128,7 @@ def list_connected_clients() -> list[dict]:
         return []
     try:
         s = _session()
-        resp = s.get(f"{_base()}/stat/sta", timeout=10)
+        resp = s.get(f"{_base()}/stat/sta", timeout=4)
         resp.raise_for_status()
         result = []
         for c in resp.json().get("data", []):
@@ -165,7 +165,7 @@ def list_blocked_macs() -> set:
         return set()
     try:
         s = _session()
-        resp = s.get(f"{_base()}/rest/user", timeout=10)
+        resp = s.get(f"{_base()}/rest/user", timeout=4)
         resp.raise_for_status()
         return {
             c["mac"] for c in resp.json().get("data", [])
