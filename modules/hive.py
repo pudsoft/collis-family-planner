@@ -94,6 +94,10 @@ def get_climate_data() -> list[dict]:
             current = props.get("temperature")
             if current is None and ptype == "trvcontrol":
                 trvs = props.get("trvs", [])
+                if not zones and trvs:  # log first zone's first TRV structure once
+                    first_trv = trvs[0]
+                    log.info("Hive TRV keys: %s", list(first_trv.keys()))
+                    log.info("Hive TRV props keys: %s", list(first_trv.get("props", {}).keys()))
                 if trvs:
                     temps = [
                         t.get("props", {}).get("temperature")
