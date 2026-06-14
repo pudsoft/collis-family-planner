@@ -1,12 +1,8 @@
 """Hive smart heating — TRV temperatures, zone states, boiler status.
 
-Uses pyhiveapi for Cognito SRP authentication (required by Hive), then
-queries the Beekeeper REST API for device data. Results are cached for
-60 seconds to avoid hammering the API on every page poll.
-
-API note: this version of pyhiveapi uses a synchronous auth flow:
-    h = Hive(username, password)  →  h.login()  →  h.startSession(tokens)
-The older HiveAuth / async startSession interface no longer exists.
+Authenticates via Cognito SRP (pyhiveapi), then queries the Beekeeper REST API
+directly. We bypass pyhiveapi's startSession() because it crashes when the API
+returns an empty homes list (IndexError not caught by the library).
 """
 from __future__ import annotations
 
@@ -18,15 +14,12 @@ log = logging.getLogger(__name__)
 
 _CACHE_TTL = 60   # seconds
 
-# ── In-memory cache ───────────────────────────────────────────────────────────
 _cache_ts:   float      = 0.0
 _cache_data: list[dict] = []
 
 
-# ── Hive auth + data fetch ────────────────────────────────────────────────────
-
 def _fetch_products() -> list[dict]:
-    """Authenticate with Hive and return all raw products from the API."""
+    """Authenticate with Hive and return raw products list from Beekeeper API."""
     from pyhiveapi import Hive
 
     h = Hive(username=config.HIVE_EMAIL, password=config.HIVE_PASSWORD)
@@ -36,22 +29,30 @@ def _fetch_products() -> list[dict]:
     if not login_result:
         raise RuntimeError("Hive login returned no result — check credentials")
 
-    if "ChallengeName" in login_result:
+    if "ChallengeName" in login_result and "AuthenticationResult" not in login_result:
         challenge = login_result["ChallengeName"]
-        raise RuntimeError(
-            f"Hive requires 2FA ({challenge}) — disable SMS 2FA or "
-            "whitelist the server IP in your Hive account settings."
-        )
+        if challenge != "PASSWORD_VERIFIER":
+            raise RuntimeError(
+                f"Hive requires 2FA ({challenge}) — disable SMS 2FA in your Hive account"
+            )
 
     if "AuthenticationResult" not in login_result:
         raise RuntimeError(f"Hive login failed: {login_result}")
 
-    h.startSession({"tokens": login_result, "username": config.HIVE_EMAIL})
+    # Load tokens into the session so h.api can make authenticated requests.
+    # We call updateTokens directly rather than startSession() because
+    # startSession → getDevices crashes with IndexError when the Beekeeper API
+    # returns an empty homes list (pyhiveapi bug, not caught by its except clause).
+    h.updateTokens(login_result, False)
 
-    return list(h.data.products.values())
+    resp = h.api.getAll()
+    status = str(resp.get("original", ""))
+    if "20" not in status:
+        raise RuntimeError(f"Beekeeper API error: {status}")
 
+    parsed = resp.get("parsed") or {}
+    return list(parsed.get("products", []))
 
-# ── Public API ────────────────────────────────────────────────────────────────
 
 def get_climate_data() -> list[dict]:
     """
