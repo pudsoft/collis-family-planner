@@ -86,13 +86,13 @@
   </div>
   {% endif %}
 
-  <!-- ── 4-day forecast ──────────────────────────────────────────────────── -->
+  <!-- ── 3-day forecast ──────────────────────────────────────────────────── -->
   {% if forecast_days | length > 1 %}
   <div class="card" style="padding:12px 16px">
-    <div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:10px">4-day forecast</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
-      {% set day_labels = ['Tomorrow', 'In 2 days', 'In 3 days', 'In 4 days'] %}
-      {% for day in forecast_days[1:5] %}
+    <div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:10px">3-day forecast</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+      {% set day_labels = ['Tomorrow', 'In 2 days', 'In 3 days'] %}
+      {% for day in forecast_days[1:4] %}
       <div style="text-align:center;background:var(--bg);border-radius:10px;padding:12px 6px">
         <div style="font-size:.7rem;color:var(--text-muted);font-weight:600;margin-bottom:6px">{{ day_labels[loop.index0] }}</div>
         <div style="font-size:1.8rem;margin-bottom:6px">{{ day.emoji }}</div>

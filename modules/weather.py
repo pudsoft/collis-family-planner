@@ -109,7 +109,65 @@ def _save_disk(data: dict):
         log.warning("weather: could not write disk cache: %s", exc)
 
 
-# ── Live fetch ────────────────────────────────────────────────────────────────
+# ── Open-Meteo 5-day forecast ─────────────────────────────────────────────────
+
+_WMO_EMOJI = {
+    0: "☀️", 1: "🌤️", 2: "⛅", 3: "☁️",
+    45: "🌫️", 48: "🌫️",
+    51: "🌦️", 53: "🌦️", 55: "🌦️",
+    61: "🌧️", 63: "🌧️", 65: "🌧️",
+    71: "🌨️", 73: "❄️", 75: "❄️", 77: "❄️",
+    80: "🌦️", 81: "🌧️", 82: "🌧️",
+    85: "🌨️", 86: "❄️",
+    95: "⛈️", 96: "⛈️", 99: "⛈️",
+}
+_WMO_DESC = {
+    0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
+    45: "Fog", 48: "Icy fog",
+    51: "Light drizzle", 53: "Drizzle", 55: "Heavy drizzle",
+    61: "Light rain", 63: "Rain", 65: "Heavy rain",
+    71: "Light snow", 73: "Snow", 75: "Heavy snow", 77: "Snow grains",
+    80: "Rain showers", 81: "Heavy showers", 82: "Violent showers",
+    85: "Snow showers", 86: "Heavy snow showers",
+    95: "Thunderstorm", 96: "Thunderstorm & hail", 99: "Thunderstorm & hail",
+}
+
+
+def _fetch_om_forecast() -> list | None:
+    """5-day daily forecast from Open-Meteo. Returns list of day dicts or None."""
+    url = (
+        "https://api.open-meteo.com/v1/forecast"
+        f"?latitude={WEATHER_LAT}&longitude={WEATHER_LON}"
+        "&daily=weathercode,temperature_2m_max,temperature_2m_min"
+        ",precipitation_probability_max,precipitation_sum,windspeed_10m_max"
+        "&timezone=Europe%2FLondon&forecast_days=5"
+    )
+    try:
+        resp = requests.get(url, timeout=_HTTP_TIMEOUT,
+                            headers={"User-Agent": "CollisFamilyPlanner/1.0"})
+        resp.raise_for_status()
+        d = resp.json()["daily"]
+        result = []
+        for i, date in enumerate(d["time"]):
+            code = int(d["weathercode"][i] or 0)
+            result.append({
+                "date":     date,
+                "emoji":    _WMO_EMOJI.get(code, "🌡️"),
+                "desc":     _WMO_DESC.get(code, ""),
+                "max":      float(d["temperature_2m_max"][i] or 0),
+                "min":      float(d["temperature_2m_min"][i] or 0),
+                "rain_pct": int(d["precipitation_probability_max"][i] or 0),
+                "rain_mm":  round(float(d["precipitation_sum"][i] or 0), 1),
+                "wind_max": round(float(d["windspeed_10m_max"][i] or 0)),
+            })
+        log.info("weather: Open-Meteo forecast OK (%d days)", len(result))
+        return result
+    except Exception as exc:
+        log.warning("weather: Open-Meteo forecast failed: %s", exc)
+        return None
+
+
+# ── Live fetch (wttr.in current + hourly, Open-Meteo forecast) ────────────────
 
 def _fetch_live() -> dict | None:
     """Fetch from wttr.in. Returns a cache dict on success, None on failure."""
@@ -171,6 +229,8 @@ def _fetch_live() -> dict | None:
                 "wind_max": wind_max,
             })
 
+        om_forecast = _fetch_om_forecast()
+
         result = {
             "current": {
                 "temp":       float(cur["temp_C"]),
@@ -182,7 +242,7 @@ def _fetch_live() -> dict | None:
                 "uv":         int(cur.get("uvIndex", 0)),
                 "pressure":   int(cur.get("pressure", 0)),
             },
-            "forecast":     forecast,
+            "forecast":     om_forecast if om_forecast else forecast,
             "today_hourly": today_hourly,
             "fetched_at":   time.time(),
         }
