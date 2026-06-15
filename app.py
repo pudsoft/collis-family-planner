@@ -282,6 +282,7 @@ def _init_db_mysql(db):
         ("person_prefs",     "visible_pages",   "TEXT"),
         ("birthdays",        "last_reminded",   "VARCHAR(20)"),
         ("birthdays",        "notes",           "TEXT"),
+        ("medicines",        "also_notify",     "TEXT"),
     ]:
         if not _col_exists_mysql(db, table, col):
             db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {defn}")
@@ -501,6 +502,7 @@ def _init_db_sqlite(db):
         ("person_prefs",     "visible_pages", "TEXT"),
         ("birthdays",        "last_reminded", "TEXT"),
         ("birthdays",        "notes",         "TEXT"),
+        ("medicines",        "also_notify",   "TEXT"),
     ]:
         cols = [r[1] for r in db.execute(f"PRAGMA table_info({table})").fetchall()]
         if col not in cols:
@@ -609,18 +611,43 @@ def _send_medicine_reminders_now():
                 ).fetchone():
                     continue
 
-                person        = med["person"]
-                notif_method  = med.get("notif_method") or "ntfy"
-                med_name      = med["name"]
-                url           = f"{config.APP_BASE_URL}/medicines?person={person}"
+                person       = med["person"]
+                notif_method = med.get("notif_method") or "ntfy"
+                med_name     = med["name"]
+                url          = f"{config.APP_BASE_URL}/medicines?person={person}"
 
+                # Notify the person whose medicine it is
                 if notif_method == "push":
                     push_notif.send_push_to_person(conn, person, "💊 Medicine Reminder",
-                                                   f"Time to take {med_name}", url)
+                                                   f"Time for {med_name}", url)
                 else:
                     ch = med.get("ntfy_channel")
                     if ch:
                         ntfy.send_medicine_reminder(ch, person, med_name)
+
+                # Notify any additional people configured on this medicine
+                also_notify = []
+                try:
+                    also_notify = json.loads(med.get("also_notify") or "[]")
+                except Exception:
+                    pass
+                for extra_person in also_notify:
+                    if extra_person == person:
+                        continue
+                    pp = conn.execute(
+                        "SELECT notif_method, ntfy_channel FROM person_prefs WHERE person=?",
+                        (extra_person,)
+                    ).fetchone()
+                    if not pp:
+                        continue
+                    pp = dict(pp)
+                    extra_msg = f"Reminder: {person.title()}'s {med_name} is due"
+                    if pp.get("notif_method") == "push":
+                        push_notif.send_push_to_person(conn, extra_person, "💊 Medicine Reminder",
+                                                       extra_msg, url)
+                    elif pp.get("ntfy_channel"):
+                        ntfy.send_ntfy(pp["ntfy_channel"], extra_msg,
+                                       title="💊 Medicine Reminder", click_url=url)
     except Exception:
         log.exception("Medicine reminder job failed")
     finally:

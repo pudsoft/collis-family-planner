@@ -280,16 +280,17 @@ def add_medicine(db_conn, name: str, person: str, daily_dose: float = 1,
                  notes: str = None, scheduled_time: str = None,
                  doses_per_day: int = 1, dose_times: str = None,
                  active: int = 1, start_date: str = None,
-                 end_date: str = None, frequency_type: str = "daily") -> int:
+                 end_date: str = None, frequency_type: str = "daily",
+                 also_notify: str = None) -> int:
     db_conn.execute(
         """INSERT INTO medicines
            (name, person, daily_dose, stock_count, reorder_threshold_days,
             notes, scheduled_time, doses_per_day, dose_times, active,
-            start_date, end_date, frequency_type)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            start_date, end_date, frequency_type, also_notify)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (name, person, daily_dose, stock_count, reorder_threshold_days,
          notes, scheduled_time, doses_per_day, dose_times, active,
-         start_date, end_date, frequency_type),
+         start_date, end_date, frequency_type, also_notify),
     )
     db_conn.commit()
     return db_conn.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -298,7 +299,7 @@ def add_medicine(db_conn, name: str, person: str, daily_dose: float = 1,
 def update_medicine(db_conn, med_id: int, **fields):
     allowed = {"name", "person", "daily_dose", "stock_count", "reorder_threshold_days",
                "notes", "last_ordered", "scheduled_time", "doses_per_day", "dose_times",
-               "active", "start_date", "end_date", "frequency_type"}
+               "active", "start_date", "end_date", "frequency_type", "also_notify"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return
