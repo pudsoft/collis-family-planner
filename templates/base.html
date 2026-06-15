@@ -70,6 +70,9 @@
   <a href="/dashboard?person={{ person }}" class="side-nav-item {% if request.endpoint == 'dashboard.dashboard' %}active{% endif %}">
     <span class="side-nav-icon">📅</span>Today
   </a>
+  <a href="/weather" class="side-nav-item {% if request.endpoint == 'weather_page.weather_view' %}active{% endif %}">
+    <span class="side-nav-icon">🌤️</span>Weather
+  </a>
   <a href="/calendar?person={{ person }}" class="side-nav-item {% if request.endpoint == 'calendar.calendar_view' %}active{% endif %}">
     <span class="side-nav-icon">🗓️</span>Calendar
   </a>

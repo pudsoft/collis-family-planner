@@ -127,9 +127,9 @@ def _fetch_live() -> dict | None:
         desc = cur["weatherDesc"][0]["value"]
         emoji = _WTTR_EMOJI.get(code, "🌡️")
 
+        today_hourly: list = []
         forecast = []
-        for day in data.get("weather", []):
-            # Use the noon (1200) hour as representative for the day
+        for day_idx, day in enumerate(data.get("weather", [])):
             noon = next(
                 (h for h in day.get("hourly", []) if str(h.get("time")) == "1200"),
                 day.get("hourly", [{}])[0],
@@ -138,10 +138,27 @@ def _fetch_live() -> dict | None:
             d_desc  = (noon.get("weatherDesc") or [{}])[0].get("value", "")
             d_emoji = _WTTR_EMOJI.get(d_code, "🌡️")
 
-            # Aggregate rain across all hours
             hourly = day.get("hourly", [])
             rain_pct = max((int(h.get("chanceofrain", 0)) for h in hourly), default=0)
             rain_mm  = round(sum(float(h.get("precipMM", 0)) for h in hourly), 1)
+            wind_max = round(max((float(h.get("windspeedKmph", 0)) for h in hourly), default=0))
+
+            if day_idx == 0:
+                for h in hourly:
+                    t = str(h.get("time", "0"))
+                    h_code = int(h.get("weatherCode", 113))
+                    today_hourly.append({
+                        "time":       f"{int(t) // 100:02d}:00",
+                        "temp":       round(float(h.get("tempC", 0))),
+                        "feels_like": round(float(h.get("FeelsLikeC", h.get("tempC", 0)))),
+                        "emoji":      _WTTR_EMOJI.get(h_code, "🌡️"),
+                        "desc":       (h.get("weatherDesc") or [{}])[0].get("value", ""),
+                        "wind":       round(float(h.get("windspeedKmph", 0))),
+                        "rain_pct":   int(h.get("chanceofrain", 0)),
+                        "rain_mm":    round(float(h.get("precipMM", 0)), 1),
+                        "uv":         int(h.get("uvIndex", 0)),
+                        "humidity":   int(h.get("humidity", 0)),
+                    })
 
             forecast.append({
                 "date":     day["date"],
@@ -151,17 +168,23 @@ def _fetch_live() -> dict | None:
                 "min":      float(day["mintempC"]),
                 "rain_mm":  rain_mm,
                 "rain_pct": rain_pct,
+                "wind_max": wind_max,
             })
 
         result = {
             "current": {
-                "temp":  float(cur["temp_C"]),
-                "desc":  desc,
-                "emoji": emoji,
-                "wind":  float(cur["windspeedKmph"]),
+                "temp":       float(cur["temp_C"]),
+                "desc":       desc,
+                "emoji":      emoji,
+                "wind":       float(cur["windspeedKmph"]),
+                "feels_like": float(cur.get("FeelsLikeC", cur["temp_C"])),
+                "humidity":   int(cur.get("humidity", 0)),
+                "uv":         int(cur.get("uvIndex", 0)),
+                "pressure":   int(cur.get("pressure", 0)),
             },
-            "forecast": forecast,
-            "fetched_at": time.time(),
+            "forecast":     forecast,
+            "today_hourly": today_hourly,
+            "fetched_at":   time.time(),
         }
         log.info("weather: fetched OK via wttr.in (%s, %s)", desc, cur["temp_C"])
         return result
@@ -204,10 +227,11 @@ if _disk:
 threading.Thread(target=_refresh_loop, daemon=True, name="weather-refresh").start()
 
 
-# ── Grass pollen forecast (Open-Meteo Air Quality API) ───────────────────────
+# ── Pollen forecast (Open-Meteo Air Quality API — all types) ─────────────────
 
 _POLLEN_CACHE_FILE = Path(__file__).parent.parent / "data" / "pollen_cache.json"
-_pollen_cache:     list = []
+_pollen_cache:    list = []   # grass only — kept for dashboard compat
+_pollen_by_type:  dict = {}   # {"grass": [...], "birch": [...], ...}
 _pollen_lock = threading.Lock()
 
 _POLLEN_LEVELS = [
@@ -218,6 +242,14 @@ _POLLEN_LEVELS = [
     (100, "Very High", "#f44336"),
 ]
 
+# Open-Meteo field name → (display label, emoji)
+_POLLEN_TYPES: dict[str, tuple[str, str]] = {
+    "grass":   ("grass_pollen",   "Grass",  "🌿"),
+    "birch":   ("birch_pollen",   "Birch",  "🌲"),
+    "alder":   ("alder_pollen",   "Alder",  "🌳"),
+    "mugwort": ("mugwort_pollen", "Weed",   "🌾"),
+}
+
 def _pollen_level(grains: float) -> tuple[str, str]:
     label, colour = "Very Low", "#4caf50"
     for threshold, lbl, col in _POLLEN_LEVELS:
@@ -226,34 +258,37 @@ def _pollen_level(grains: float) -> tuple[str, str]:
     return label, colour
 
 
-def _fetch_pollen() -> list | None:
+def _fetch_pollen_all() -> dict | None:
+    """Fetch all pollen types in one Open-Meteo call. Returns {key: [day_data]} or None."""
+    fields = ",".join(v[0] for v in _POLLEN_TYPES.values())
     url = (
         f"https://air-quality-api.open-meteo.com/v1/air-quality"
         f"?latitude={WEATHER_LAT}&longitude={WEATHER_LON}"
-        f"&hourly=grass_pollen&forecast_days=5&timezone=Europe%2FLondon"
+        f"&hourly={fields}&forecast_days=5&timezone=Europe%2FLondon"
     )
     try:
         resp = requests.get(url, timeout=15, headers={"User-Agent": "CollisFamilyPlanner/1.0"})
         resp.raise_for_status()
         data = resp.json()
-        times  = data["hourly"]["time"]          # "2026-06-09T00:00" …
-        values = data["hourly"]["grass_pollen"]  # grains/m³ or null
+        times = data["hourly"]["time"]
 
-        # Group by date, take daily max
-        by_date: dict[str, list] = {}
-        for t, v in zip(times, values):
-            d = t[:10]
-            if v is not None:
-                by_date.setdefault(d, []).append(v)
+        result: dict[str, list] = {}
+        for key, (api_field, _label, _emoji) in _POLLEN_TYPES.items():
+            values = data["hourly"].get(api_field, [None] * len(times))
+            by_date: dict[str, list] = {}
+            for t, v in zip(times, values):
+                d = t[:10]
+                if v is not None:
+                    by_date.setdefault(d, []).append(v)
+            days = sorted(by_date)[:5]
+            day_list = []
+            for d in days:
+                peak = max(by_date[d])
+                lbl, colour = _pollen_level(peak)
+                day_list.append({"date": d, "peak": round(peak, 1), "label": lbl, "colour": colour})
+            result[key] = day_list
 
-        days = sorted(by_date)[:5]
-        result = []
-        for d in days:
-            peak = max(by_date[d])
-            label, colour = _pollen_level(peak)
-            result.append({"date": d, "peak": round(peak, 1), "label": label, "colour": colour})
-
-        log.info("pollen: fetched OK (%d days)", len(result))
+        log.info("pollen: fetched all types OK")
         return result
     except Exception as exc:
         log.warning("pollen: fetch failed: %s", exc)
@@ -261,17 +296,17 @@ def _fetch_pollen() -> list | None:
 
 
 def _pollen_refresh_loop():
-    # Stagger start so it doesn't hit at the same time as weather
     time.sleep(15)
     while True:
-        result = _fetch_pollen()
+        result = _fetch_pollen_all()
         if result:
             with _pollen_lock:
-                global _pollen_cache
-                _pollen_cache = result
+                global _pollen_cache, _pollen_by_type
+                _pollen_by_type = result
+                _pollen_cache   = result.get("grass", [])
             try:
                 _POLLEN_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-                _POLLEN_CACHE_FILE.write_text(json.dumps(result))
+                _POLLEN_CACHE_FILE.write_text(json.dumps({"by_type": result}))
             except Exception:
                 pass
             time.sleep(_REFRESH_INTERVAL)
@@ -285,10 +320,21 @@ def get_pollen_forecast() -> list:
         return list(_pollen_cache)
 
 
+def get_pollen_by_type() -> dict:
+    """Return cached 5-day pollen forecast keyed by type. Never blocks."""
+    with _pollen_lock:
+        return dict(_pollen_by_type)
+
+
 # Load pollen disk cache on startup
 try:
     if _POLLEN_CACHE_FILE.exists():
-        _pollen_cache = json.loads(_POLLEN_CACHE_FILE.read_text())
+        stored = json.loads(_POLLEN_CACHE_FILE.read_text())
+        if isinstance(stored, dict) and "by_type" in stored:
+            _pollen_by_type = stored["by_type"]
+            _pollen_cache   = stored["by_type"].get("grass", [])
+        elif isinstance(stored, list):
+            _pollen_cache = stored   # old single-type format
 except Exception:
     pass
 

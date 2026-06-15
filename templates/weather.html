@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Weather — Brundall{% endblock %}
+
+{% block content %}
+<div class="page">
+
+  <div style="font-size:1.1rem;font-weight:700;margin-bottom:12px">🌤️ Weather <span style="font-size:.8rem;font-weight:400;color:var(--text-muted)">Brundall, Norfolk</span></div>
+
+  <!-- ── Current conditions ──────────────────────────────────────────────── -->
+  {% if weather.current %}
+  {% set cur = weather.current %}
+  <div class="card" style="padding:16px">
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
+      <div style="font-size:3.5rem;line-height:1">{{ cur.emoji }}</div>
+      <div>
+        <div style="font-size:2.4rem;font-weight:700;line-height:1">{{ cur.temp }}°C</div>
+        <div style="color:var(--text-muted);font-size:.9rem;margin-top:4px">{{ cur.desc }}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.84rem">
+      <div style="background:var(--bg);border-radius:8px;padding:8px 10px">
+        <div style="font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Feels like</div>
+        <div style="font-weight:700;margin-top:2px">{{ cur.feels_like }}°C</div>
+      </div>
+      <div style="background:var(--bg);border-radius:8px;padding:8px 10px">
+        <div style="font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Wind</div>
+        <div style="font-weight:700;margin-top:2px">{{ cur.wind | int }} km/h</div>
+      </div>
+      <div style="background:var(--bg);border-radius:8px;padding:8px 10px">
+        <div style="font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Humidity</div>
+        <div style="font-weight:700;margin-top:2px">{{ cur.humidity }}%</div>
+      </div>
+      <div style="background:var(--bg);border-radius:8px;padding:8px 10px">
+        <div style="font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">UV Index</div>
+        <div style="font-weight:700;margin-top:2px">{{ cur.uv }}
+          {% if cur.uv <= 2 %}<span style="font-weight:400;font-size:.75rem;color:#4caf50"> Low</span>
+          {% elif cur.uv <= 5 %}<span style="font-weight:400;font-size:.75rem;color:#ffc107"> Moderate</span>
+          {% elif cur.uv <= 7 %}<span style="font-weight:400;font-size:.75rem;color:#ff9800"> High</span>
+          {% elif cur.uv <= 10 %}<span style="font-weight:400;font-size:.75rem;color:#f44336"> Very High</span>
+          {% else %}<span style="font-weight:400;font-size:.75rem;color:#9c27b0"> Extreme</span>
+          {% endif %}
+        </div>
+      </div>
+      {% if cur.pressure %}
+      <div style="background:var(--bg);border-radius:8px;padding:8px 10px;grid-column:span 2">
+        <div style="font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Pressure</div>
+        <div style="font-weight:700;margin-top:2px">{{ cur.pressure }} hPa</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── Today's hourly ──────────────────────────────────────────────────── -->
+  {% if today_hourly %}
+  <div class="card" style="padding:12px 16px">
+    <div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:10px">Today — hourly</div>
+    <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch">
+      {% for h in today_hourly %}
+      <div style="flex:0 0 auto;width:68px;text-align:center;padding:8px 4px;border-radius:8px;
+        background:{% if h.is_current %}var(--accent-dim, rgba(124,58,237,.15)){% else %}var(--bg){% endif %};
+        {% if h.is_current %}outline:1.5px solid var(--accent){% elif h.is_past %}opacity:.45{% endif %}">
+        <div style="font-size:.68rem;font-weight:{% if h.is_current %}700{% else %}400{% endif %};color:{% if h.is_current %}var(--accent){% else %}var(--text-muted){% endif %}">{{ h.time }}</div>
+        <div style="font-size:1.4rem;margin:4px 0">{{ h.emoji }}</div>
+        <div style="font-size:.9rem;font-weight:700">{{ h.temp }}°</div>
+        {% if h.rain_pct > 10 %}
+        <div style="font-size:.65rem;color:#60a5fa;margin-top:2px">💧{{ h.rain_pct }}%</div>
+        {% endif %}
+        <div style="font-size:.62rem;color:var(--text-muted);margin-top:2px">{{ h.wind }}k</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── 3-day forecast ──────────────────────────────────────────────────── -->
+  {% set forecast_days = weather.get('forecast', []) %}
+  {% if forecast_days | length > 1 %}
+  <div class="card" style="padding:12px 16px">
+    <div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:10px">3-day forecast</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+      {% set day_labels = ['Tomorrow', 'In 2 days', 'In 3 days'] %}
+      {% for day in forecast_days[1:4] %}
+      <div style="text-align:center;background:var(--bg);border-radius:10px;padding:12px 6px">
+        <div style="font-size:.7rem;color:var(--text-muted);font-weight:600;margin-bottom:6px">{{ day_labels[loop.index0] }}</div>
+        <div style="font-size:1.8rem;margin-bottom:6px">{{ day.emoji }}</div>
+        <div style="font-size:.88rem;font-weight:700">{{ day.max | int }}°</div>
+        <div style="font-size:.75rem;color:var(--text-muted)">{{ day.min | int }}°</div>
+        {% if day.rain_pct > 5 %}
+        <div style="font-size:.68rem;color:#60a5fa;margin-top:4px">💧{{ day.rain_pct }}%{% if day.rain_mm > 0 %} · {{ day.rain_mm }}mm{% endif %}</div>
+        {% endif %}
+        {% if day.get('wind_max') %}
+        <div style="font-size:.65rem;color:var(--text-muted);margin-top:2px">💨 {{ day.wind_max | int }}k</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── Pollen by type ──────────────────────────────────────────────────── -->
+  {% if pollen_grid %}
+  <div class="card" style="padding:12px 16px">
+    <div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:10px">Pollen forecast</div>
+
+    <!-- Date headers -->
+    <div style="display:grid;grid-template-columns:60px repeat({{ pollen_grid | length }},1fr);gap:4px;margin-bottom:4px">
+      <div></div>
+      {% for day in pollen_grid %}
+      <div style="text-align:center;font-size:.66rem;font-weight:600;color:var(--text-muted)">
+        {% if loop.index0 == 0 %}Today
+        {% elif loop.index0 == 1 %}Tmrw
+        {% else %}{{ day.date[5:] }}{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- One row per pollen type -->
+    {% for key, icon, label in pollen_type_meta %}
+    <div style="display:grid;grid-template-columns:60px repeat({{ pollen_grid | length }},1fr);gap:4px;margin-bottom:4px;align-items:center">
+      <div style="font-size:.74rem;font-weight:600">{{ icon }} {{ label }}</div>
+      {% for day in pollen_grid %}
+      {% set entry = day[key] %}
+      {% if entry %}
+      <div style="text-align:center;font-size:.62rem;font-weight:700;color:{{ entry.colour }};background:{{ entry.colour }}22;border-radius:4px;padding:3px 0">
+        {{ entry.label | replace('Very Low', 'V.Low') | replace('Very High', 'V.High') }}
+      </div>
+      {% else %}
+      <div style="text-align:center;font-size:.62rem;color:var(--text-muted)">—</div>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

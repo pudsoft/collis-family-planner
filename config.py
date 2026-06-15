@@ -135,6 +135,7 @@ PERSON_DISPLAY = {
 # ── Home grid tiles ───────────────────────────────────────────────────────────
 HOME_TILES = [
     {"id": "today",      "label": "Today",        "emoji": "📅", "url": "/dashboard",         "admin_only": False},
+    {"id": "weather",    "label": "Weather",      "emoji": "🌤️",  "url": "/weather",           "admin_only": False},
     {"id": "calendar",   "label": "Calendar",     "emoji": "🗓️",  "url": "/calendar",          "admin_only": False},
     {"id": "tasks",      "label": "To-do",        "emoji": "✅", "url": "/tasks",             "admin_only": False},
     {"id": "scanner",    "label": "ASDA Scanner", "emoji": "📷", "url": "/shopping?scanner=1","admin_only": False},
