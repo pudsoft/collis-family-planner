@@ -57,7 +57,8 @@
     <div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:10px">Today — hourly</div>
     <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch">
       {% for h in today_hourly %}
-      <div style="flex:0 0 auto;width:68px;text-align:center;padding:8px 4px;border-radius:8px;
+      <div {% if h.is_current %}id="hourly-now"{% endif %}
+           style="flex:0 0 auto;width:68px;text-align:center;padding:8px 4px;border-radius:8px;
         background:{% if h.is_current %}var(--accent-dim, rgba(124,58,237,.15)){% else %}var(--bg){% endif %};
         {% if h.is_current %}outline:1.5px solid var(--accent){% elif h.is_past %}opacity:.45{% endif %}">
         <div style="font-size:.68rem;font-weight:{% if h.is_current %}700{% else %}400{% endif %};color:{% if h.is_current %}var(--accent){% else %}var(--text-muted){% endif %}">{{ h.time }}</div>
@@ -110,7 +111,7 @@
       <div style="text-align:center;font-size:.66rem;font-weight:600;color:var(--text-muted)">
         {% if loop.index0 == 0 %}Today
         {% elif loop.index0 == 1 %}Tmrw
-        {% else %}{{ day.date[5:] }}{% endif %}
+        {% else %}{{ day.date[8:] }}-{{ day.date[5:7] }}{% endif %}
       </div>
       {% endfor %}
     </div>
@@ -135,4 +136,16 @@
   {% endif %}
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const cur = document.getElementById('hourly-now');
+  if (cur) {
+    const strip = cur.parentElement;
+    strip.scrollLeft = cur.offsetLeft - strip.offsetLeft - Math.max(0, (strip.clientWidth / 2) - (cur.clientWidth / 2));
+  }
+});
+</script>
 {% endblock %}
