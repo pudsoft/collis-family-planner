@@ -244,6 +244,17 @@ def _init_db_mysql(db):
             notes          TEXT,
             last_reminded  VARCHAR(20)
         )""",
+        """CREATE TABLE IF NOT EXISTS vehicles (
+            id                     INT AUTO_INCREMENT PRIMARY KEY,
+            name                   VARCHAR(200) NOT NULL,
+            registration           VARCHAR(20),
+            mot_expiry             VARCHAR(20),
+            last_service_date      VARCHAR(20),
+            last_service_mileage   INT,
+            service_interval_miles INT,
+            notes                  TEXT,
+            mot_last_reminded      VARCHAR(20)
+        )""",
     ]
     for stmt in statements:
         db.execute(stmt)
@@ -470,6 +481,17 @@ def _init_db_sqlite(db):
             remind_persons TEXT,
             notes          TEXT,
             last_reminded  TEXT
+        );
+        CREATE TABLE IF NOT EXISTS vehicles (
+            id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+            name                   TEXT NOT NULL,
+            registration           TEXT,
+            mot_expiry             TEXT,
+            last_service_date      TEXT,
+            last_service_mileage   INTEGER,
+            service_interval_miles INTEGER,
+            notes                  TEXT,
+            mot_last_reminded      TEXT
         );
     """)
     db.commit()
@@ -756,6 +778,82 @@ def start_birthday_reminders():
     t.start()
 
 
+# ── MOT reminder background thread ────────────────────────────────────────────
+
+_mot_last_check: str = ""
+
+
+def _send_mot_reminders_now():
+    global _mot_last_check
+    today = date.today()
+    today_str = today.isoformat()
+    if _mot_last_check == today_str:
+        return
+    _mot_last_check = today_str
+
+    conn = _get_db_for_thread()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM vehicles WHERE mot_expiry IS NOT NULL"
+        ).fetchall()
+        for row in rows:
+            v = dict(row)
+            try:
+                expiry = date.fromisoformat(v["mot_expiry"])
+                days_until = (expiry - today).days
+            except Exception:
+                continue
+
+            if days_until not in (30, 14, 7, 1):
+                continue
+            if v.get("mot_last_reminded") == today_str:
+                continue
+
+            name = v["name"]
+            if days_until == 1:
+                msg = f"🚗 {name} MOT expires TOMORROW ({v['mot_expiry']})"
+            else:
+                msg = f"🚗 {name} MOT expires in {days_until} days ({v['mot_expiry']})"
+            url = f"{config.APP_BASE_URL}/admin"
+
+            for person in ("paul", "katie"):
+                pp = conn.execute(
+                    "SELECT notif_method, ntfy_channel FROM person_prefs WHERE person=?",
+                    (person,),
+                ).fetchone()
+                if not pp:
+                    continue
+                pp = dict(pp)
+                if pp.get("notif_method") == "push":
+                    push_notif.send_push_to_person(conn, person, "🚗 MOT Reminder", msg, url)
+                elif pp.get("ntfy_channel"):
+                    ntfy.send_ntfy(pp["ntfy_channel"], msg, title="🚗 MOT Reminder", click_url=url)
+
+            conn.execute(
+                "UPDATE vehicles SET mot_last_reminded=? WHERE id=?", (today_str, v["id"])
+            )
+            conn.commit()
+    except Exception:
+        log.exception("MOT reminder job failed")
+    finally:
+        conn.close()
+
+
+def _mot_reminder_loop():
+    _time.sleep(45)
+    while True:
+        try:
+            _send_mot_reminders_now()
+        except Exception:
+            log.exception("MOT reminder loop error")
+        _time.sleep(3600)
+
+
+def start_mot_reminders():
+    t = threading.Thread(target=_mot_reminder_loop, daemon=True, name="mot-reminders")
+    t.start()
+
+
 # ── Blueprint registration ─────────────────────────────────────────────────────
 
 from routes.auth      import bp as auth_bp
@@ -794,4 +892,5 @@ if __name__ == "__main__":
     calendar_sync.start_background_sync(_get_db_for_thread)
     start_medicine_reminders()
     start_birthday_reminders()
+    start_mot_reminders()
     app.run(host="0.0.0.0", port=config.PORT, debug=False)

@@ -151,6 +151,32 @@
     {% endif %}
   </div>
 
+  <!-- ── Vehicles ──────────────────────────────────────────────────────────── -->
+  <div class="card admin-section">
+    <div class="card-header">
+      <span class="admin-section-title" style="border:none;margin:0">🚗 Vehicles</span>
+      <button class="btn btn-primary btn-sm" onclick="editVehicle(null)">+ Add</button>
+    </div>
+    {% if vehicles %}
+    {% for v in vehicles %}
+    <div class="device-item">
+      <div style="flex:1">
+        <div class="device-name">{{ v.name }}{% if v.registration %} · <span style="font-weight:400">{{ v.registration }}</span>{% endif %}</div>
+        <div class="device-mac">
+          {% if v.mot_expiry %}MOT expires: {{ v.mot_expiry }}{% endif %}
+          {% if v.last_service_date %} · Service: {{ v.last_service_date }}{% if v.last_service_mileage %} @ {{ "{:,}".format(v.last_service_mileage) }} mi{% endif %}{% endif %}
+          {% if v.notes %} · {{ v.notes }}{% endif %}
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick='editVehicle({{ v | tojson }})'>Edit</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteVehicle({{ v.id }})">✕</button>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div style="font-size:.85rem;color:var(--text-muted);padding:8px 0">No vehicles saved yet.</div>
+    {% endif %}
+  </div>
+
   <!-- ── Email manager ─────────────────────────────────────────────────────── -->
   <div class="card admin-section">
     <div class="admin-section-title">📧 Email Manager</div>
@@ -359,6 +385,44 @@
              placeholder="Repeat PIN" autocomplete="new-password">
     </div>
     <button class="btn btn-primary btn-full" onclick="savePin()">Save PIN</button>
+  </div>
+</div>
+
+<!-- ── Vehicle modal ───────────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="vehicle-modal">
+  <div class="modal-sheet">
+    <span class="modal-close" onclick="document.getElementById('vehicle-modal').classList.remove('open')">✕</span>
+    <div class="modal-title">🚗 Vehicle</div>
+    <input type="hidden" id="v-id">
+    <div class="form-group">
+      <label class="form-label">Name</label>
+      <input class="form-input" id="v-name" type="text" placeholder="e.g. VW Golf">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Registration</label>
+      <input class="form-input" id="v-reg" type="text" placeholder="e.g. AB12 CDE" style="text-transform:uppercase">
+    </div>
+    <div class="form-group">
+      <label class="form-label">MOT expiry date</label>
+      <input class="form-input" id="v-mot-expiry" type="date">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Last service date</label>
+      <input class="form-input" id="v-service-date" type="date">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Mileage at last service</label>
+      <input class="form-input" id="v-service-miles" type="number" min="0" placeholder="e.g. 45000">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Service interval (miles)</label>
+      <input class="form-input" id="v-service-interval" type="number" min="0" placeholder="e.g. 10000">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <input class="form-input" id="v-notes" type="text" placeholder="Optional notes">
+    </div>
+    <button class="btn btn-primary btn-full" onclick="saveVehicle()">Save vehicle</button>
   </div>
 </div>
 
@@ -726,6 +790,50 @@ async function saveBirthday() {
 async function deleteBirthday(id) {
   if (!confirm('Delete this birthday?')) return;
   const r = await fetch(`/admin/birthday/${id}/delete`, { method: 'POST' });
+  if (r.ok) { showToast('Deleted'); setTimeout(() => location.reload(), 400); }
+}
+
+// ── Vehicles ──────────────────────────────────────────────────────────────
+
+function editVehicle(v) {
+  document.getElementById('v-id').value               = v ? (v.id || '') : '';
+  document.getElementById('v-name').value             = v ? (v.name || '') : '';
+  document.getElementById('v-reg').value              = v ? (v.registration || '') : '';
+  document.getElementById('v-mot-expiry').value       = v ? (v.mot_expiry || '') : '';
+  document.getElementById('v-service-date').value     = v ? (v.last_service_date || '') : '';
+  document.getElementById('v-service-miles').value    = v ? (v.last_service_mileage || '') : '';
+  document.getElementById('v-service-interval').value = v ? (v.service_interval_miles || '') : '';
+  document.getElementById('v-notes').value            = v ? (v.notes || '') : '';
+  document.getElementById('vehicle-modal').classList.add('open');
+}
+
+async function saveVehicle() {
+  const payload = {
+    id:                     document.getElementById('v-id').value || null,
+    name:                   document.getElementById('v-name').value.trim(),
+    registration:           document.getElementById('v-reg').value.trim().toUpperCase() || null,
+    mot_expiry:             document.getElementById('v-mot-expiry').value || null,
+    last_service_date:      document.getElementById('v-service-date').value || null,
+    last_service_mileage:   document.getElementById('v-service-miles').value || null,
+    service_interval_miles: document.getElementById('v-service-interval').value || null,
+    notes:                  document.getElementById('v-notes').value.trim() || null,
+  };
+  if (!payload.name) { showToast('Name required', 'error'); return; }
+  const r = await fetch('/admin/vehicle', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (r.ok) {
+    showToast('Vehicle saved');
+    document.getElementById('vehicle-modal').classList.remove('open');
+    setTimeout(() => location.reload(), 400);
+  } else showToast('Failed to save', 'error');
+}
+
+async function deleteVehicle(id) {
+  if (!confirm('Delete this vehicle?')) return;
+  const r = await fetch(`/admin/vehicle/${id}/delete`, { method: 'POST' });
   if (r.ok) { showToast('Deleted'); setTimeout(() => location.reload(), 400); }
 }
 

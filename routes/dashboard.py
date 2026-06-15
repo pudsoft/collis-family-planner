@@ -84,6 +84,31 @@ def dashboard():
 
     today_meds.sort(key=lambda m: m.get("scheduled_time") or "99:99")
 
+    today_date = date.today()
+    vehicles = []
+    for row in db.execute("SELECT * FROM vehicles ORDER BY name").fetchall():
+        v = dict(row)
+        if v.get("mot_expiry"):
+            try:
+                expiry = date.fromisoformat(v["mot_expiry"])
+                days = (expiry - today_date).days
+                v["_mot_days"] = days
+                if days < 0:
+                    v["_mot_status"] = "overdue"
+                elif days < 14:
+                    v["_mot_status"] = "urgent"
+                elif days < 30:
+                    v["_mot_status"] = "warn"
+                else:
+                    v["_mot_status"] = "ok"
+            except Exception:
+                v["_mot_days"] = None
+                v["_mot_status"] = "ok"
+        else:
+            v["_mot_days"] = None
+            v["_mot_status"] = "ok"
+        vehicles.append(v)
+
     return render_template(
         "dashboard.html",
         person=person,
@@ -100,7 +125,8 @@ def dashboard():
         weather_days=weather_days,
         people=config.PEOPLE,
         person_display=config.PERSON_DISPLAY,
-        today=date.today().isoformat(),
+        today=today_date.isoformat(),
         is_admin=person in config.ADMINS,
         calendar_error=calendar_sync.get_sync_error() if person in config.ADMINS else None,
+        vehicles=vehicles,
     )

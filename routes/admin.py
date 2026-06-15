@@ -69,6 +69,8 @@ def admin_view():
     _email_row   = db.execute("SELECT value FROM app_settings WHERE key='email_enabled'").fetchone()
     email_enabled = not (_email_row and _email_row["value"] == "0")
 
+    vehicles = [dict(r) for r in db.execute("SELECT * FROM vehicles ORDER BY name").fetchall()]
+
     return render_template(
         "admin.html",
         person=person,
@@ -84,6 +86,7 @@ def admin_view():
         pin_status=pin_status,
         birthdays=birthdays,
         email_enabled=email_enabled,
+        vehicles=vehicles,
     )
 
 
@@ -605,5 +608,57 @@ def admin_birthday_save():
 def admin_birthday_delete(bday_id: int):
     db = get_db()
     db.execute("DELETE FROM birthdays WHERE id=?", (bday_id,))
+    db.commit()
+    return jsonify({"ok": True})
+
+
+# ── Vehicles ──────────────────────────────────────────────────────────────────
+
+@bp.route("/admin/vehicle", methods=["POST"])
+@require_admin
+def admin_vehicle_save():
+    d  = request.get_json(force=True)
+    db = get_db()
+    vid  = d.get("id")
+    name = (d.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "Name required"}), 400
+
+    def _int(key):
+        try:
+            return int(d[key]) if d.get(key) not in (None, "") else None
+        except (TypeError, ValueError):
+            return None
+
+    fields = (
+        name,
+        (d.get("registration") or "").strip().upper() or None,
+        d.get("mot_expiry") or None,
+        d.get("last_service_date") or None,
+        _int("last_service_mileage"),
+        _int("service_interval_miles"),
+        (d.get("notes") or "").strip() or None,
+    )
+    if vid:
+        db.execute(
+            "UPDATE vehicles SET name=?,registration=?,mot_expiry=?,last_service_date=?,"
+            "last_service_mileage=?,service_interval_miles=?,notes=? WHERE id=?",
+            fields + (vid,),
+        )
+    else:
+        db.execute(
+            "INSERT INTO vehicles (name,registration,mot_expiry,last_service_date,"
+            "last_service_mileage,service_interval_miles,notes) VALUES (?,?,?,?,?,?,?)",
+            fields,
+        )
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@bp.route("/admin/vehicle/<int:vid>/delete", methods=["POST"])
+@require_admin
+def admin_vehicle_delete(vid: int):
+    db = get_db()
+    db.execute("DELETE FROM vehicles WHERE id=?", (vid,))
     db.commit()
     return jsonify({"ok": True})

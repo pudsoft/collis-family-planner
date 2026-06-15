@@ -179,6 +179,42 @@
     {% endif %}
   </div>
 
+  <!-- ── Vehicles ────────────────────────────────────────────────────────── -->
+  {% if vehicles %}
+  <div class="card">
+    <div class="card-title">🚗 Vehicles</div>
+    {% for v in vehicles %}
+    <div style="padding:8px 0;{% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}">
+      <div style="font-weight:600;font-size:.9rem">
+        {{ v.name }}{% if v.registration %} <span style="font-weight:400;font-size:.8rem;color:var(--text-muted)">{{ v.registration }}</span>{% endif %}
+      </div>
+      {% if v.mot_expiry %}
+      <div style="font-size:.82rem;margin-top:3px">
+        {% if v._mot_days is not none %}
+          {% if v._mot_status == 'overdue' %}
+            <span style="color:#EF4444;font-weight:600">⚠️ MOT overdue by {{ (v._mot_days * -1) }} day{{ 's' if v._mot_days != -1 else '' }}</span>
+          {% elif v._mot_status == 'urgent' %}
+            <span style="color:#EF4444;font-weight:600">⚠️ MOT expires in {{ v._mot_days }} day{{ 's' if v._mot_days != 1 else '' }}</span>
+          {% elif v._mot_status == 'warn' %}
+            <span style="color:#F59E0B;font-weight:600">MOT in {{ v._mot_days }} days ({{ v.mot_expiry }})</span>
+          {% else %}
+            <span style="color:var(--text-muted)">MOT: {{ v.mot_expiry }}</span>
+          {% endif %}
+        {% else %}
+          <span style="color:var(--text-muted)">MOT: {{ v.mot_expiry }}</span>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% if v.last_service_date %}
+      <div style="font-size:.76rem;color:var(--text-muted);margin-top:2px">
+        Last service: {{ v.last_service_date }}{% if v.last_service_mileage %} · {{ "{:,}".format(v.last_service_mileage) }} mi{% endif %}{% if v.last_service_mileage and v.service_interval_miles %} · next at {{ "{:,}".format(v.last_service_mileage + v.service_interval_miles) }} mi{% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   <!-- ── Medicine check-in — only shown while doses remain to take ─────────── -->
   {% set pending_meds = today_meds | selectattr('taken_today', 'equalto', false) | list %}
   {% if pending_meds %}
