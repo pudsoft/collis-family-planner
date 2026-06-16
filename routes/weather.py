@@ -38,6 +38,11 @@ def weather_view():
         entry["is_past"]    = now_hour >= slot_hour + 3
         today_hourly.append(entry)
 
+    # Derive today's high/low from wttr.in hourly data so they match the hourly strip
+    today_temps = [h["temp"] for h in today_hourly]
+    today_high = max(today_temps) if today_temps else None
+    today_low  = min(today_temps) if today_temps else None
+
     # Build pollen grid: list of {date, grass, birch, alder, mugwort}
     pollen_raw = weather.get_pollen_by_type()
     grass_days = pollen_raw.get("grass", [])
@@ -58,6 +63,8 @@ def weather_view():
         is_admin=viewer in config.ADMINS,
         weather=wx,
         today_hourly=today_hourly,
+        today_high=today_high,
+        today_low=today_low,
         pollen_grid=pollen_grid,
         pollen_type_meta=_POLLEN_TYPE_META,
     )

@@ -42,15 +42,14 @@
           {% endif %}
         </div>
       </div>
-      {% if forecast_days %}
-      {% set today_fc = forecast_days[0] %}
+      {% if today_high is not none %}
       <div style="background:var(--bg);border-radius:8px;padding:8px 10px">
         <div style="font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Today high</div>
-        <div style="font-weight:700;margin-top:2px">{{ today_fc.max | int }}°C</div>
+        <div style="font-weight:700;margin-top:2px">{{ today_high }}°C</div>
       </div>
       <div style="background:var(--bg);border-radius:8px;padding:8px 10px">
         <div style="font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Today low</div>
-        <div style="font-weight:700;margin-top:2px">{{ today_fc.min | int }}°C</div>
+        <div style="font-weight:700;margin-top:2px">{{ today_low }}°C</div>
       </div>
       {% endif %}
       {% if cur.pressure %}
