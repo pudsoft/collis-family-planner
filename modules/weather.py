@@ -1,4 +1,4 @@
-"""wttr.in weather for Brundall, Norfolk. No API key required.
+"""Open-Meteo weather for Brundall, Norfolk. No API key required.
 
 Caching strategy
 ----------------
@@ -7,7 +7,7 @@ Caching strategy
 * On import the disk cache is loaded immediately — get_weather() is always
   instant, it never blocks a dashboard request.
 * A background thread refreshes the cache every _REFRESH_INTERVAL seconds.
-  If wttr.in is unavailable, the previous data is served and the thread
+  If the API is unavailable, the previous data is served and the thread
   retries every _FAIL_RETRY seconds without touching user requests.
 """
 from __future__ import annotations
@@ -30,59 +30,6 @@ _HTTP_TIMEOUT     = 15     # seconds (background thread — latency doesn't matt
 
 _cache:     dict  = {}
 _cache_lock = threading.Lock()
-
-# wttr.in weather codes → emoji
-# Description comes directly from the API response.
-_WTTR_EMOJI = {
-    113: "☀️",   # Clear/Sunny
-    116: "⛅",   # Partly cloudy
-    119: "☁️",   # Cloudy
-    122: "☁️",   # Overcast
-    143: "🌫️",  # Mist
-    176: "🌦️",  # Patchy rain
-    179: "🌨️",  # Patchy snow
-    182: "🌧️",  # Patchy sleet
-    185: "🌧️",  # Patchy freezing drizzle
-    200: "⛈️",  # Thundery outbreaks
-    227: "❄️",  # Blowing snow
-    230: "❄️",  # Blizzard
-    248: "🌫️",  # Fog
-    260: "🌫️",  # Freezing fog
-    263: "🌦️",  # Patchy light drizzle
-    266: "🌦️",  # Light drizzle
-    281: "🌧️",  # Freezing drizzle
-    284: "🌧️",  # Heavy freezing drizzle
-    293: "🌦️",  # Patchy light rain
-    296: "🌧️",  # Light rain
-    299: "🌧️",  # Moderate rain at times
-    302: "🌧️",  # Moderate rain
-    305: "🌧️",  # Heavy rain at times
-    308: "🌧️",  # Heavy rain
-    311: "🌧️",  # Light freezing rain
-    314: "🌧️",  # Mod/heavy freezing rain
-    317: "🌧️",  # Light sleet
-    320: "🌧️",  # Mod/heavy sleet
-    323: "🌨️",  # Patchy light snow
-    326: "🌨️",  # Light snow
-    329: "❄️",  # Patchy moderate snow
-    332: "❄️",  # Moderate snow
-    335: "❄️",  # Patchy heavy snow
-    338: "❄️",  # Heavy snow
-    350: "🌨️",  # Ice pellets
-    353: "🌦️",  # Light rain shower
-    356: "🌧️",  # Mod/heavy rain shower
-    359: "⛈️",  # Torrential rain shower
-    362: "🌧️",  # Light sleet showers
-    365: "🌧️",  # Mod/heavy sleet showers
-    368: "🌨️",  # Light snow showers
-    371: "❄️",  # Mod/heavy snow showers
-    374: "🌨️",  # Light ice pellet showers
-    377: "🌨️",  # Mod/heavy ice pellet showers
-    386: "⛈️",  # Patchy rain with thunder
-    389: "⛈️",  # Mod/heavy rain with thunder
-    392: "⛈️",  # Patchy snow with thunder
-    395: "⛈️",  # Mod/heavy snow with thunder
-}
 
 _FALLBACK = {
     "current":  {"temp": None, "desc": "Unavailable", "emoji": "❓", "wind": 0},
@@ -109,7 +56,7 @@ def _save_disk(data: dict):
         log.warning("weather: could not write disk cache: %s", exc)
 
 
-# ── Open-Meteo 5-day forecast ─────────────────────────────────────────────────
+# ── WMO weather codes ────────────────────────────────────────────────────────
 
 _WMO_EMOJI = {
     0: "☀️", 1: "🌤️", 2: "⛅", 3: "☁️",
@@ -133,11 +80,18 @@ _WMO_DESC = {
 }
 
 
-def _fetch_om_forecast() -> list | None:
-    """5-day daily forecast from Open-Meteo. Returns list of day dicts or None."""
+# ── Live fetch (Open-Meteo — current, hourly, 5-day forecast) ────────────────
+
+def _fetch_live() -> dict | None:
+    """Single Open-Meteo call for current conditions, today's hourly, and 5-day forecast."""
+    import datetime as _dt
     url = (
         "https://api.open-meteo.com/v1/forecast"
         f"?latitude={WEATHER_LAT}&longitude={WEATHER_LON}"
+        "&current=temperature_2m,relative_humidity_2m,apparent_temperature"
+        ",weather_code,wind_speed_10m,surface_pressure,uv_index"
+        "&hourly=temperature_2m,apparent_temperature,relative_humidity_2m"
+        ",precipitation_probability,precipitation,weather_code,wind_speed_10m,uv_index"
         "&daily=weathercode,temperature_2m_max,temperature_2m_min"
         ",precipitation_probability_max,precipitation_sum,windspeed_10m_max"
         "&timezone=Europe%2FLondon&forecast_days=5"
@@ -146,11 +100,52 @@ def _fetch_om_forecast() -> list | None:
         resp = requests.get(url, timeout=_HTTP_TIMEOUT,
                             headers={"User-Agent": "CollisFamilyPlanner/1.0"})
         resp.raise_for_status()
-        d = resp.json()["daily"]
-        result = []
+        data = resp.json()
+
+        # Current conditions
+        cur      = data["current"]
+        cur_code = int(cur.get("weather_code") or 0)
+        current  = {
+            "temp":       round(float(cur["temperature_2m"])),
+            "desc":       _WMO_DESC.get(cur_code, ""),
+            "emoji":      _WMO_EMOJI.get(cur_code, "🌡️"),
+            "wind":       round(float(cur["wind_speed_10m"])),
+            "feels_like": round(float(cur["apparent_temperature"])),
+            "humidity":   int(cur["relative_humidity_2m"]),
+            "uv":         int(cur.get("uv_index") or 0),
+            "pressure":   int(cur.get("surface_pressure") or 0),
+        }
+
+        # Today's hourly — every 3 hours (Open-Meteo returns 1-hour resolution)
+        today_str    = _dt.date.today().isoformat()
+        h            = data["hourly"]
+        today_hourly = []
+        for i, t in enumerate(h["time"]):
+            if not t.startswith(today_str):
+                continue
+            hour = int(t[11:13])
+            if hour % 3 != 0:
+                continue
+            h_code = int(h["weather_code"][i] or 0)
+            today_hourly.append({
+                "time":       t[11:16],
+                "temp":       round(float(h["temperature_2m"][i] or 0)),
+                "feels_like": round(float(h["apparent_temperature"][i] or 0)),
+                "emoji":      _WMO_EMOJI.get(h_code, "🌡️"),
+                "desc":       _WMO_DESC.get(h_code, ""),
+                "wind":       round(float(h["wind_speed_10m"][i] or 0)),
+                "rain_pct":   int(h["precipitation_probability"][i] or 0),
+                "rain_mm":    round(float(h["precipitation"][i] or 0), 1),
+                "uv":         int(h["uv_index"][i] or 0),
+                "humidity":   int(h["relative_humidity_2m"][i] or 0),
+            })
+
+        # 5-day daily forecast
+        d        = data["daily"]
+        forecast = []
         for i, date in enumerate(d["time"]):
             code = int(d["weathercode"][i] or 0)
-            result.append({
+            forecast.append({
                 "date":     date,
                 "emoji":    _WMO_EMOJI.get(code, "🌡️"),
                 "desc":     _WMO_DESC.get(code, ""),
@@ -160,93 +155,14 @@ def _fetch_om_forecast() -> list | None:
                 "rain_mm":  round(float(d["precipitation_sum"][i] or 0), 1),
                 "wind_max": round(float(d["windspeed_10m_max"][i] or 0)),
             })
-        log.info("weather: Open-Meteo forecast OK (%d days)", len(result))
-        return result
-    except Exception as exc:
-        log.warning("weather: Open-Meteo forecast failed: %s", exc)
-        return None
-
-
-# ── Live fetch (wttr.in current + hourly, Open-Meteo forecast) ────────────────
-
-def _fetch_live() -> dict | None:
-    """Fetch from wttr.in. Returns a cache dict on success, None on failure."""
-    url = f"https://wttr.in/{WEATHER_LAT},{WEATHER_LON}?format=j1"
-    try:
-        resp = requests.get(
-            url, timeout=_HTTP_TIMEOUT,
-            headers={"User-Agent": "CollisFamilyPlanner/1.0"},
-        )
-        resp.raise_for_status()
-        data = resp.json()
-
-        cur  = data["current_condition"][0]
-        code = int(cur["weatherCode"])
-        desc = cur["weatherDesc"][0]["value"]
-        emoji = _WTTR_EMOJI.get(code, "🌡️")
-
-        today_hourly: list = []
-        forecast = []
-        for day_idx, day in enumerate(data.get("weather", [])):
-            noon = next(
-                (h for h in day.get("hourly", []) if str(h.get("time")) == "1200"),
-                day.get("hourly", [{}])[0],
-            )
-            d_code  = int(noon.get("weatherCode", 113))
-            d_desc  = (noon.get("weatherDesc") or [{}])[0].get("value", "")
-            d_emoji = _WTTR_EMOJI.get(d_code, "🌡️")
-
-            hourly = day.get("hourly", [])
-            rain_pct = max((int(h.get("chanceofrain", 0)) for h in hourly), default=0)
-            rain_mm  = round(sum(float(h.get("precipMM", 0)) for h in hourly), 1)
-            wind_max = round(max((float(h.get("windspeedKmph", 0)) for h in hourly), default=0))
-
-            if day_idx == 0:
-                for h in hourly:
-                    t = str(h.get("time", "0"))
-                    h_code = int(h.get("weatherCode", 113))
-                    today_hourly.append({
-                        "time":       f"{int(t) // 100:02d}:00",
-                        "temp":       round(float(h.get("tempC", 0))),
-                        "feels_like": round(float(h.get("FeelsLikeC", h.get("tempC", 0)))),
-                        "emoji":      _WTTR_EMOJI.get(h_code, "🌡️"),
-                        "desc":       (h.get("weatherDesc") or [{}])[0].get("value", ""),
-                        "wind":       round(float(h.get("windspeedKmph", 0))),
-                        "rain_pct":   int(h.get("chanceofrain", 0)),
-                        "rain_mm":    round(float(h.get("precipMM", 0)), 1),
-                        "uv":         int(h.get("uvIndex", 0)),
-                        "humidity":   int(h.get("humidity", 0)),
-                    })
-
-            forecast.append({
-                "date":     day["date"],
-                "desc":     d_desc,
-                "emoji":    d_emoji,
-                "max":      float(day["maxtempC"]),
-                "min":      float(day["mintempC"]),
-                "rain_mm":  rain_mm,
-                "rain_pct": rain_pct,
-                "wind_max": wind_max,
-            })
-
-        om_forecast = _fetch_om_forecast()
 
         result = {
-            "current": {
-                "temp":       float(cur["temp_C"]),
-                "desc":       desc,
-                "emoji":      emoji,
-                "wind":       float(cur["windspeedKmph"]),
-                "feels_like": float(cur.get("FeelsLikeC", cur["temp_C"])),
-                "humidity":   int(cur.get("humidity", 0)),
-                "uv":         int(cur.get("uvIndex", 0)),
-                "pressure":   int(cur.get("pressure", 0)),
-            },
-            "forecast":     om_forecast if om_forecast else forecast,
+            "current":      current,
+            "forecast":     forecast,
             "today_hourly": today_hourly,
             "fetched_at":   time.time(),
         }
-        log.info("weather: fetched OK via wttr.in (%s, %s)", desc, cur["temp_C"])
+        log.info("weather: Open-Meteo OK (%s, %s°C)", current["desc"], current["temp"])
         return result
 
     except Exception as exc:
