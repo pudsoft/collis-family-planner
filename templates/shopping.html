@@ -36,7 +36,7 @@
       <span class="card-title" style="margin-bottom:0">📋 This week's list</span>
       <div style="display:flex;gap:6px">
         <a class="btn btn-secondary btn-sm" href="https://www.asda.com/groceries" target="_blank" rel="noopener">🛒 Open ASDA</a>
-        <button class="btn btn-secondary btn-sm" onclick="exportList()">⬇️ Export for ASDA</button>
+        {% if person == 'paul' %}<button class="btn btn-secondary btn-sm" onclick="exportList()">⬇️ Export for ASDA</button>{% endif %}
         <button class="btn btn-secondary btn-sm" onclick="clearChecked()">Clear ticked</button>
       </div>
     </div>
