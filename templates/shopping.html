@@ -24,6 +24,8 @@
              autocomplete="off" style="flex:1"
              oninput="onSearchInput(this.value)"
              onkeydown="if(event.key==='Enter') addCustomFromSearch()">
+      <button class="btn btn-secondary" id="clear-search-btn" style="display:none;white-space:nowrap"
+              onclick="clearSearch()">✕</button>
       <button class="btn btn-secondary" id="add-custom-btn" style="display:none;white-space:nowrap"
               onclick="addCustomFromSearch()">+ Add custom</button>
     </div>
@@ -129,9 +131,17 @@ let _algoliaCache = []; // stores raw Algolia hits so click handler can read the
 let _searchTimer = null;
 let _lastQuery   = '';
 
+function clearSearch() {
+  const inp = document.getElementById('reg-search');
+  inp.value = '';
+  onSearchInput('');
+  inp.focus();
+}
+
 function onSearchInput(raw) {
   const q = raw.trim();
   document.getElementById('add-custom-btn').style.display = q ? '' : 'none';
+  document.getElementById('clear-search-btn').style.display = q ? '' : 'none';
   _lastQuery = q;
   clearTimeout(_searchTimer);
   if (!q) { document.getElementById('reg-results').innerHTML = ''; return; }
