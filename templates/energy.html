@@ -544,17 +544,6 @@ function initFilters() {
 let _lastData       = null;
 let _currentPeriod  = localStorage.getItem('cfp_energy_period') || 'both';
 
-function maskByPeriod(arr, night) {
-  if (_currentPeriod === 'both' || !arr) return arr;
-  return arr.map((v, i) => {
-    if (v === null || v === undefined) return v;
-    const n = night[i] === 1;
-    if (_currentPeriod === 'day'   &&  n) return null;
-    if (_currentPeriod === 'night' && !n) return null;
-    return v;
-  });
-}
-
 function initPeriodFilter() {
   document.querySelectorAll('.period-btn').forEach(btn => {
     if (btn.dataset.period === _currentPeriod) btn.classList.add('active');
@@ -570,19 +559,30 @@ function initPeriodFilter() {
 
 // ── Chart render (called after fetch and on period toggle) ────────────────────
 function renderCharts(d) {
-  const night  = d.night || [];
-  const labels = (d.timeline || []).map(t => fmtTime(t));
+  const night     = d.night || [];
+  const allLabels = (d.timeline || []).map(t => fmtTime(t));
 
-  if (!labels.length) {
+  if (!allLabels.length) {
     document.getElementById('poll-status').textContent = 'No data yet';
     return;
   }
 
-  _nightAnn = buildNightAnnotations(night);
+  // Build index list for the selected period
+  const keepIdx = _currentPeriod === 'both'
+    ? allLabels.map((_, i) => i)
+    : night.map((n, i) =>
+        (_currentPeriod === 'day' ? n === 0 : n === 1) ? i : -1
+      ).filter(i => i >= 0);
+
+  const labels = keepIdx.map(i => allLabels[i]);
+  const pick   = arr => arr ? keepIdx.map(i => arr[i] !== undefined ? arr[i] : null) : [];
+
+  // Night shading only makes sense in Both mode
+  _nightAnn = _currentPeriod === 'both' ? buildNightAnnotations(night) : {};
 
   _solarChart = buildOrUpdate(_solarChart, 'solar-chart', 'solar-empty', labels,
     [{
-      label:'☀️ kW', data: maskByPeriod(d.solar || [], night),
+      label:'☀️ kW', data: pick(d.solar || []),
       borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,0.15)',
       fill:true, tension:0.4, pointRadius:0, borderWidth:2, spanGaps:false,
     }],
@@ -591,7 +591,7 @@ function renderCharts(d) {
 
   _outdoorChart = buildOrUpdate(_outdoorChart, 'outdoor-chart', 'outdoor-empty', labels,
     [{
-      label:'🌡️ °C', data: maskByPeriod(d.outdoor || [], night),
+      label:'🌡️ °C', data: pick(d.outdoor || []),
       borderColor:'#60a5fa',
       backgroundColor:'rgba(128,128,128,0.07)',
       segment:{
@@ -607,15 +607,15 @@ function renderCharts(d) {
 
   renderExtremes(d.extremes || null);
 
-  const maskRoom = rd => ({
-    temps:   maskByPeriod(rd.temps, night),
-    heating: rd.heating,
+  const pickRoom = rd => ({
+    temps:   pick(rd.temps),
+    heating: pick(rd.heating),
   });
 
   renderRooms(
-    Object.fromEntries(Object.entries(d.ground_rooms || {}).map(([k,v]) => [k, maskRoom(v)])),
-    Object.fromEntries(Object.entries(d.first_rooms  || {}).map(([k,v]) => [k, maskRoom(v)])),
-    Object.fromEntries(Object.entries(d.other_rooms  || {}).map(([k,v]) => [k, maskRoom(v)])),
+    Object.fromEntries(Object.entries(d.ground_rooms || {}).map(([k,v]) => [k, pickRoom(v)])),
+    Object.fromEntries(Object.entries(d.first_rooms  || {}).map(([k,v]) => [k, pickRoom(v)])),
+    Object.fromEntries(Object.entries(d.other_rooms  || {}).map(([k,v]) => [k, pickRoom(v)])),
     d.room_stats || {},
     labels,
     d.y_min != null ? d.y_min : 14,
