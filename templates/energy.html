@@ -4,9 +4,18 @@
 {% block content %}
 <div class="page">
 
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
     <div style="font-size:1.1rem;font-weight:700">☀️ Energy &amp; Temperatures</div>
     <div id="poll-status" style="font-size:.75rem;color:var(--text-muted)">Loading…</div>
+  </div>
+
+  <!-- ── Date range filters ─────────────────────────────────────────────── -->
+  <div id="filter-bar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    <span style="font-size:.78rem;font-weight:600;color:var(--text-muted)">From</span>
+    <input type="date" id="filter-from" class="energy-date-input">
+    <span style="font-size:.78rem;font-weight:600;color:var(--text-muted)">To</span>
+    <input type="date" id="filter-to" class="energy-date-input">
+    <button id="filter-reset" style="background:var(--card-bg);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.78rem;color:var(--text-muted);cursor:pointer;line-height:1.4">Reset</button>
   </div>
 
   <!-- ── Top stat chips ─────────────────────────────────────────────────── -->
@@ -59,6 +68,14 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 <style>
+/* ── Date filter inputs ────────────────────────────────────────────────── */
+.energy-date-input {
+  background:var(--card-bg); border:1px solid var(--border);
+  border-radius:6px; padding:4px 8px;
+  font-size:.78rem; color:var(--text); cursor:pointer;
+}
+.energy-date-input:focus { outline:none; border-color:var(--accent,#7c3aed); }
+
 /* ── Top stat chips ────────────────────────────────────────────────────── */
 .stat-chip {
   background:var(--card-bg); border:1px solid var(--border);
@@ -337,10 +354,22 @@ function trendArrow(temp, trend) {
 
 // ── Stat card HTML ────────────────────────────────────────────────────────────
 function statCardHtml(name, s) {
-  const day = s.day   || {};
-  const ngt = s.night || {};
-  const ti = trendArrow(s.current_temp ?? null, s.trend);
-  const tc = '';  // colour handled inside trendArrow
+  const day   = s.day   || {};
+  const ngt   = s.night || {};
+  const cur   = s.current_temp ?? null;
+  const delta = s.delta ?? null;
+  const ti    = trendArrow(cur, s.trend);
+
+  const curHtml = cur != null
+    ? `<span style="font-weight:700;color:${tempColour(cur)};font-size:.82rem">${cur.toFixed(1)}°</span>`
+    : '';
+
+  let deltaHtml = '';
+  if (delta != null) {
+    const dc   = delta > 0.05 ? '#ef4444' : delta < -0.05 ? '#60a5fa' : 'var(--text-muted)';
+    const sign = delta >= 0 ? '+' : '';
+    deltaHtml = `<span style="font-size:.7rem;margin-left:2px;color:${dc}">${sign}${delta.toFixed(1)}°</span>`;
+  }
 
   const val = v => v != null
     ? `<span style="font-weight:700;color:${tempColour(v)}">${v.toFixed(1)}°</span>`
@@ -351,7 +380,10 @@ function statCardHtml(name, s) {
       ? `<span class="rsc-time">${fmtTime(ts)}</span>` : ''}</div>`;
 
   return `
-    <div class="rsc-name">${name}${ti}</div>
+    <div style="display:flex;align-items:baseline;margin-bottom:4px">
+      <div class="rsc-name" style="margin-bottom:0;flex:1;min-width:0">${name}</div>
+      <div style="flex-shrink:0;margin-left:4px;white-space:nowrap">${curHtml}${deltaHtml}${ti}</div>
+    </div>
     <div class="rsc-periods">
       <div class="rsc-period">
         <div class="rsc-period-lbl">🌅 Day</div>
@@ -457,10 +489,52 @@ function renderRooms(groundRooms, firstRooms, otherRooms, roomStats, labels, yMi
   });
 }
 
+// ── Filter bar — localStorage persistence ─────────────────────────────────────
+const LS_FROM = 'cfp_energy_from';
+const LS_TO   = 'cfp_energy_to';
+
+function initFilters() {
+  const fromEl  = document.getElementById('filter-from');
+  const toEl    = document.getElementById('filter-to');
+  const resetEl = document.getElementById('filter-reset');
+  const today   = new Date().toISOString().slice(0, 10);
+  fromEl.max = today;
+  toEl.max   = today;
+
+  const sf = localStorage.getItem(LS_FROM);
+  const st = localStorage.getItem(LS_TO);
+  if (sf) fromEl.value = sf;
+  if (st) toEl.value   = st;
+
+  fromEl.addEventListener('change', () => {
+    if (fromEl.value) localStorage.setItem(LS_FROM, fromEl.value);
+    else localStorage.removeItem(LS_FROM);
+    loadData();
+  });
+  toEl.addEventListener('change', () => {
+    if (toEl.value) localStorage.setItem(LS_TO, toEl.value);
+    else localStorage.removeItem(LS_TO);
+    loadData();
+  });
+  resetEl.addEventListener('click', () => {
+    fromEl.value = '';
+    toEl.value   = '';
+    localStorage.removeItem(LS_FROM);
+    localStorage.removeItem(LS_TO);
+    loadData();
+  });
+}
+
 // ── Main data load ────────────────────────────────────────────────────────────
 async function loadData() {
   try {
-    const r = await fetch('/energy/data');
+    const fromEl = document.getElementById('filter-from');
+    const toEl   = document.getElementById('filter-to');
+    const params = new URLSearchParams();
+    if (fromEl && fromEl.value) params.set('from', fromEl.value);
+    if (toEl   && toEl.value)   params.set('to',   toEl.value);
+    const url = '/energy/data' + (params.toString() ? '?' + params : '');
+    const r = await fetch(url);
     if (!r.ok) return;
     const d = await r.json();
 
@@ -528,6 +602,7 @@ async function loadData() {
   }
 }
 
+initFilters();
 loadData();
 setInterval(loadData, 5 * 60 * 1000);
 </script>
