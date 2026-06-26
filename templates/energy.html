@@ -16,6 +16,12 @@
     <span style="font-size:.78rem;font-weight:600;color:var(--text-muted)">To</span>
     <input type="date" id="filter-to" class="energy-date-input">
     <button id="filter-reset" style="background:var(--card-bg);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.78rem;color:var(--text-muted);cursor:pointer;line-height:1.4">Reset</button>
+    <div style="width:1px;height:18px;background:var(--border);flex-shrink:0"></div>
+    <div style="display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+      <button class="period-btn" data-period="both">Both</button>
+      <button class="period-btn" data-period="day">☀️ Day</button>
+      <button class="period-btn" data-period="night">🌙 Night</button>
+    </div>
   </div>
 
   <!-- ── Top stat chips ─────────────────────────────────────────────────── -->
@@ -75,6 +81,15 @@
   font-size:.78rem; color:var(--text); cursor:pointer;
 }
 .energy-date-input:focus { outline:none; border-color:var(--accent,#7c3aed); }
+
+/* ── Period toggle ─────────────────────────────────────────────────────── */
+.period-btn {
+  background:var(--card-bg); border:none;
+  border-right:1px solid var(--border);
+  padding:4px 10px; font-size:.75rem; color:var(--text-muted); cursor:pointer;
+}
+.period-btn:last-child { border-right:none; }
+.period-btn.active { background:var(--accent,#7c3aed); color:#fff; }
 
 /* ── Top stat chips ────────────────────────────────────────────────────── */
 .stat-chip {
@@ -525,6 +540,92 @@ function initFilters() {
   });
 }
 
+// ── Period filter ─────────────────────────────────────────────────────────────
+let _lastData       = null;
+let _currentPeriod  = localStorage.getItem('cfp_energy_period') || 'both';
+
+function maskByPeriod(arr, night) {
+  if (_currentPeriod === 'both' || !arr) return arr;
+  return arr.map((v, i) => {
+    if (v === null || v === undefined) return v;
+    const n = night[i] === 1;
+    if (_currentPeriod === 'day'   &&  n) return null;
+    if (_currentPeriod === 'night' && !n) return null;
+    return v;
+  });
+}
+
+function initPeriodFilter() {
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    if (btn.dataset.period === _currentPeriod) btn.classList.add('active');
+    btn.addEventListener('click', () => {
+      _currentPeriod = btn.dataset.period;
+      localStorage.setItem('cfp_energy_period', _currentPeriod);
+      document.querySelectorAll('.period-btn').forEach(b =>
+        b.classList.toggle('active', b === btn));
+      if (_lastData) renderCharts(_lastData);
+    });
+  });
+}
+
+// ── Chart render (called after fetch and on period toggle) ────────────────────
+function renderCharts(d) {
+  const night  = d.night || [];
+  const labels = (d.timeline || []).map(t => fmtTime(t));
+
+  if (!labels.length) {
+    document.getElementById('poll-status').textContent = 'No data yet';
+    return;
+  }
+
+  _nightAnn = buildNightAnnotations(night);
+
+  _solarChart = buildOrUpdate(_solarChart, 'solar-chart', 'solar-empty', labels,
+    [{
+      label:'☀️ kW', data: maskByPeriod(d.solar || [], night),
+      borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,0.15)',
+      fill:true, tension:0.4, pointRadius:0, borderWidth:2, spanGaps:false,
+    }],
+    { unit:' kW' }
+  );
+
+  _outdoorChart = buildOrUpdate(_outdoorChart, 'outdoor-chart', 'outdoor-empty', labels,
+    [{
+      label:'🌡️ °C', data: maskByPeriod(d.outdoor || [], night),
+      borderColor:'#60a5fa',
+      backgroundColor:'rgba(128,128,128,0.07)',
+      segment:{
+        borderColor: ctx => {
+          const y = ctx.p0.parsed.y;
+          return (y != null && !isNaN(y)) ? tempColour(y) : undefined;
+        },
+      },
+      fill:true, tension:0.4, pointRadius:0, borderWidth:2.5, spanGaps:true,
+    }],
+    { unit:'°C', yMin:-10, yMax:40 }
+  );
+
+  renderExtremes(d.extremes || null);
+
+  const maskRoom = rd => ({
+    temps:   maskByPeriod(rd.temps, night),
+    heating: rd.heating,
+  });
+
+  renderRooms(
+    Object.fromEntries(Object.entries(d.ground_rooms || {}).map(([k,v]) => [k, maskRoom(v)])),
+    Object.fromEntries(Object.entries(d.first_rooms  || {}).map(([k,v]) => [k, maskRoom(v)])),
+    Object.fromEntries(Object.entries(d.other_rooms  || {}).map(([k,v]) => [k, maskRoom(v)])),
+    d.room_stats || {},
+    labels,
+    d.y_min != null ? d.y_min : 14,
+    d.y_max != null ? d.y_max : 25,
+  );
+
+  document.getElementById('poll-status').textContent =
+    'Updated ' + new Date().toLocaleTimeString('en-GB',{ hour:'2-digit', minute:'2-digit' });
+}
+
 // ── Main data load ────────────────────────────────────────────────────────────
 async function loadData() {
   try {
@@ -545,56 +646,8 @@ async function loadData() {
     document.getElementById('stat-solar-day').textContent =
       d.solar_today_kwh != null ? d.solar_today_kwh.toFixed(1) + ' kWh' : '--';
 
-    const labels = (d.timeline || []).map(t => fmtTime(t));
-    if (!labels.length) {
-      document.getElementById('poll-status').textContent = 'No data yet';
-      return;
-    }
-
-    // ── Night shading (computed once, shared by all charts) ────────────────
-    _nightAnn = buildNightAnnotations(d.night || []);
-
-    // ── Solar ──────────────────────────────────────────────────────────────
-    _solarChart = buildOrUpdate(_solarChart, 'solar-chart', 'solar-empty', labels,
-      [{
-        label:'☀️ kW', data:d.solar || [],
-        borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,0.15)',
-        fill:true, tension:0.4, pointRadius:0, borderWidth:2, spanGaps:false,
-      }],
-      { unit:' kW' }
-    );
-
-    // ── Outdoor ────────────────────────────────────────────────────────────
-    _outdoorChart = buildOrUpdate(_outdoorChart, 'outdoor-chart', 'outdoor-empty', labels,
-      [{
-        label:'🌡️ °C', data:d.outdoor || [],
-        borderColor:'#60a5fa',
-        backgroundColor:'rgba(128,128,128,0.07)',
-        segment:{
-          borderColor: ctx => {
-            const y = ctx.p0.parsed.y;
-            return (y != null && !isNaN(y)) ? tempColour(y) : undefined;
-          },
-        },
-        fill:true, tension:0.4, pointRadius:0, borderWidth:2.5, spanGaps:true,
-      }],
-      { unit:'°C', yMin:-10, yMax:40 }
-    );
-
-    // ── Extremes callout ───────────────────────────────────────────────────
-    renderExtremes(d.extremes || null);
-
-    // ── Per-room charts ────────────────────────────────────────────────────
-    renderRooms(
-      d.ground_rooms || {}, d.first_rooms || {}, d.other_rooms || {},
-      d.room_stats   || {},
-      labels,
-      d.y_min != null ? d.y_min : 14,
-      d.y_max != null ? d.y_max : 25,
-    );
-
-    document.getElementById('poll-status').textContent =
-      'Updated ' + new Date().toLocaleTimeString('en-GB',{ hour:'2-digit', minute:'2-digit' });
+    _lastData = d;
+    renderCharts(d);
 
   } catch(e) {
     document.getElementById('poll-status').textContent = 'Error loading data';
@@ -603,6 +656,7 @@ async function loadData() {
 }
 
 initFilters();
+initPeriodFilter();
 loadData();
 setInterval(loadData, 5 * 60 * 1000);
 </script>
