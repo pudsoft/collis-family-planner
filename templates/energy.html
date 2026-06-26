@@ -44,14 +44,14 @@
   <div id="top-charts">
     <div class="card" style="padding:10px 12px">
       <div class="chart-title">☀️ Solar generation today</div>
-      <div style="position:relative;height:160px">
+      <div style="position:relative;height:160px;overflow:hidden">
         <canvas id="solar-chart"></canvas>
         <div id="solar-empty" class="chart-empty" style="display:none">No solar data yet</div>
       </div>
     </div>
     <div class="card" style="padding:10px 12px">
       <div class="chart-title">🌡️ Outdoor temperature</div>
-      <div style="position:relative;height:160px">
+      <div style="position:relative;height:160px;overflow:hidden">
         <canvas id="outdoor-chart"></canvas>
         <div id="outdoor-empty" class="chart-empty" style="display:none">No outdoor data yet</div>
       </div>
@@ -128,7 +128,7 @@
 .room-chart-wrap {
   background:var(--card-bg); border:1px solid var(--border);
   border-radius:10px; padding:8px 10px;
-  position:relative; height:140px;
+  position:relative; height:140px; overflow:hidden;
 }
 
 /* ── Mobile: top charts stacked with gap ──────────────────────────────── */
