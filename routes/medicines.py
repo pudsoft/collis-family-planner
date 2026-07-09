@@ -137,7 +137,7 @@ def medicine_untake(med_id: int):
 
 @bp.route("/medicines/<int:med_id>/reordered", methods=["POST"])
 def medicine_reordered(med_id: int):
-    if auth_person() not in config.ADMINS:
+    if auth_person() not in config.ADMINS and auth_person() != "family":
         return jsonify({"error": "Admin only"}), 403
     medicines.mark_reordered(get_db(), med_id)
     return jsonify({"ok": True})
@@ -145,7 +145,7 @@ def medicine_reordered(med_id: int):
 
 @bp.route("/medicines/<int:med_id>/add_stock", methods=["POST"])
 def medicine_add_stock(med_id: int):
-    if auth_person() not in config.ADMINS:
+    if auth_person() not in config.ADMINS and auth_person() != "family":
         return jsonify({"error": "Admin only"}), 403
     quantity = request.form.get("quantity", type=float)
     if not quantity:
