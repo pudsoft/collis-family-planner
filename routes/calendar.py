@@ -5,7 +5,7 @@ import json
 import logging
 from datetime import date, timedelta
 
-from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
+from flask import Blueprint, jsonify, render_template, request, session
 
 import config
 from modules import calendar_sync
@@ -117,27 +117,6 @@ def push_work_calendar():
     count = calendar_sync.push_work_meetings(data)
     return jsonify({"ok": True, "count": count})
 
-
-@bp.route("/calendar/auth")
-def calendar_auth():
-    if current_person() not in config.ADMINS:
-        return "Admin only (switch to Katie or Paul first)", 403
-    url, code_verifier = calendar_sync.get_auth_url()
-    session["oauth_code_verifier"] = code_verifier
-    return redirect(url)
-
-
-@bp.route("/calendar/oauth2callback")
-def calendar_oauth_callback():
-    code = request.args.get("code")
-    if not code:
-        return "Missing code", 400
-    code_verifier = session.pop("oauth_code_verifier", None)
-    ok = calendar_sync.exchange_code(code, get_db(), code_verifier=code_verifier)
-    if ok:
-        calendar_sync.fetch_events(get_db())
-        return redirect(url_for("calendar.calendar_view"))
-    return "OAuth failed — check server logs", 500
 
 
 @bp.route("/api/work_meetings")

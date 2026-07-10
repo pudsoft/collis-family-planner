@@ -50,9 +50,8 @@ def admin_view():
         else:
             _m["_next_due"] = None
     all_devices  = [dict(r) for r in db.execute("SELECT * FROM known_devices ORDER BY display_name").fetchall()]
-    google_connected = bool(
-        db.execute("SELECT value FROM app_settings WHERE key='google_token'").fetchone()
-    )
+    ical_row = db.execute("SELECT value FROM app_settings WHERE key='google_ical_url'").fetchone()
+    ical_url = ical_row["value"] if ical_row else None
 
     pin_rows = db.execute(
         "SELECT person, login_pin FROM person_prefs WHERE person IN (?,?,?)",
@@ -81,7 +80,7 @@ def admin_view():
         all_devices=all_devices,
         chore_templates=chore_templates,
         all_meds=all_meds,
-        google_connected=google_connected,
+        ical_url=ical_url,
         admin_pin=config.ADMIN_PIN,
         pin_status=pin_status,
         birthdays=birthdays,
@@ -381,6 +380,23 @@ def admin_broadcast():
 def admin_refresh_calendar():
     events = calendar_sync.fetch_events(get_db())
     return jsonify({"ok": True, "count": len(events)})
+
+
+@bp.route("/admin/calendar_ical_url", methods=["POST"])
+@require_admin
+def admin_calendar_ical_url():
+    data = request.get_json(force=True, silent=True) or {}
+    url  = (data.get("url") or "").strip()
+    db   = get_db()
+    if url:
+        db.execute(
+            "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('google_ical_url', ?)",
+            (url,),
+        )
+    else:
+        db.execute("DELETE FROM app_settings WHERE key='google_ical_url'")
+    db.commit()
+    return jsonify({"ok": True})
 
 
 # ── Smart home admin routes ────────────────────────────────────────────────────

@@ -23,7 +23,7 @@ def settings_view():
     is_admin = person in config.ADMINS
 
     google_connected = bool(
-        db.execute("SELECT value FROM app_settings WHERE key='google_token'").fetchone()
+        db.execute("SELECT value FROM app_settings WHERE key='google_ical_url'").fetchone()
     )
 
     visible_raw = prefs.get("visible_pages")

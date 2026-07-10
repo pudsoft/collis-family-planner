@@ -196,13 +196,26 @@
   <!-- ── Data refresh ───────────────────────────────────────────────────────── -->
   <div class="card admin-section">
     <div class="admin-section-title">🔄 Data</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-secondary" onclick="adminAction('/admin/refresh_calendar','Calendar refreshed')">
-        Refresh calendar
-      </button>
-      {% if not google_connected %}
-      <a href="{{ url_for('calendar.calendar_auth') }}" class="btn btn-primary">Connect Google Calendar</a>
-      {% endif %}
+    <button class="btn btn-secondary" onclick="adminAction('/admin/refresh_calendar','Calendar refreshed')">
+      Refresh calendar
+    </button>
+
+    <div style="margin-top:16px">
+      <div class="form-label" style="margin-bottom:4px">📅 Google Calendar iCal URL</div>
+      <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px">
+        Google Calendar → Settings → [calendar name] → "Secret address in iCal format"
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="form-input" id="ical-url-input" type="url"
+               value="{{ ical_url or '' }}"
+               placeholder="https://calendar.google.com/calendar/ical/…/basic.ics"
+               style="flex:1;font-size:.8rem">
+        <button class="btn btn-primary" onclick="saveIcalUrl()">Save</button>
+        {% if ical_url %}
+        <button class="btn btn-secondary" onclick="clearIcalUrl()">Clear</button>
+        {% endif %}
+      </div>
+      <div id="ical-url-status" style="font-size:.78rem;margin-top:4px;min-height:1.2em"></div>
     </div>
   </div>
 
@@ -837,5 +850,29 @@ async function deleteVehicle(id) {
   if (r.ok) { showToast('Deleted'); setTimeout(() => location.reload(), 400); }
 }
 
+
+async function saveIcalUrl() {
+  const url = document.getElementById('ical-url-input').value.trim();
+  const statusEl = document.getElementById('ical-url-status');
+  const r = await fetch('/admin/calendar_ical_url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  });
+  const d = await r.json();
+  if (d.ok) {
+    statusEl.textContent = url ? '✅ Saved — calendar will sync on the next cycle' : '✅ Cleared';
+    statusEl.style.color = 'var(--success, #4CAF50)';
+  } else {
+    statusEl.textContent = '❌ Failed to save';
+    statusEl.style.color = 'var(--danger, #f44336)';
+  }
+}
+
+async function clearIcalUrl() {
+  document.getElementById('ical-url-input').value = '';
+  await saveIcalUrl();
+  setTimeout(() => location.reload(), 600);
+}
 </script>
 {% endblock %}

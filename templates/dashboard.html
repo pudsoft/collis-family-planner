@@ -64,12 +64,12 @@
   {% endif %}
 
   <!-- ── Google Calendar disconnected warning (admins only) ─────────────────── -->
-  {% if calendar_error == "token_expired" %}
+  {% if calendar_error %}
   <div class="alert-card alert-warning">
     <div class="alert-icon">📅</div>
     <div class="alert-body">
-      <div class="alert-title">Google Calendar disconnected</div>
-      <div class="alert-desc">Calendar sync has stopped — <a href="{{ url_for('settings.settings_view') }}" style="color:inherit;font-weight:600">reconnect in Settings</a></div>
+      <div class="alert-title">Calendar sync error</div>
+      <div class="alert-desc">Could not fetch calendar events — check the iCal URL in <a href="{{ url_for('admin.admin_view') }}" style="color:inherit;font-weight:600">Admin</a></div>
     </div>
   </div>
   {% endif %}

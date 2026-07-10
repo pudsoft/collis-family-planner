@@ -188,15 +188,12 @@
     <div class="card-title">📅 Google Calendar</div>
     <div class="settings-row">
       <div>
-        <div class="settings-label">Connection status</div>
+        <div class="settings-label">iCal sync</div>
         <div class="settings-desc">
-          {% if google_connected %}✅ Connected{% else %}❌ Not connected{% endif %}
+          {% if google_connected %}✅ iCal URL configured{% else %}❌ Not configured — set in Admin{% endif %}
         </div>
       </div>
-      <a href="{{ url_for('calendar.calendar_auth') }}"
-         class="btn btn-secondary btn-sm">
-        {% if google_connected %}Re-authorise{% else %}Connect{% endif %}
-      </a>
+      <a href="{{ url_for('admin.admin_view') }}" class="btn btn-secondary btn-sm">Admin</a>
     </div>
   </div>
 
