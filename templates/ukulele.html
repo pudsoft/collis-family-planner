@@ -366,6 +366,21 @@
       /* Pinned header: allow a bit more height on mobile */
       #pinned-content { max-height: 40vh; font-size: 12px; }
     }
+
+    /* ── Manual mobile-mode toggle — mirrors the breakpoint above ────── */
+    body.mobile-mode #panel-right { display: none; }
+    body.mobile-mode #sidebar { width: 40px; min-width: 40px; }
+    body.mobile-mode #sidebar:not(.collapsed) { width: var(--sidebar-w); min-width: var(--sidebar-w); }
+    body.mobile-mode .vsep           { display: none; }
+    body.mobile-mode #font-sz        { display: none; }
+    body.mobile-mode #btn-fd         { display: none; }
+    body.mobile-mode #btn-fu         { display: none; }
+    body.mobile-mode #btn-fs         { display: none; }
+    body.mobile-mode #song-title-bar { font-size: 12px; }
+    body.mobile-mode .btn { padding: 5px 10px; }
+    body.mobile-mode #spread { padding: 4px; gap: 0; }
+    body.mobile-mode .page-panel { border-radius: 0; border-left: none; border-right: none; }
+    body.mobile-mode #pinned-content { max-height: 40vh; font-size: 12px; }
   </style>
 </head>
 <body>
@@ -398,7 +413,8 @@
     <button class="btn" id="btn-timer">▶</button>
     <span id="timer-cd"></span>
     <div class="vsep"></div>
-    <button class="btn" id="btn-chords" title="Toggle chord diagrams">♩ Chords</button>
+    <button class="btn active" id="btn-chords" title="Toggle chord diagrams">♩ Chords</button>
+    <button class="btn" id="btn-mobile" title="Toggle mobile mode">📱 Mobile</button>
     <button class="btn" id="btn-fs" title="Fullscreen">⛶</button>
   </div>
 
@@ -444,7 +460,9 @@ const S = {
   spread:  0,
   fontSize: 13,
   sidebarOpen: true,
-  showChords: false,
+  showChords: true,
+  mobileMode: false,
+  forceMobile: false,
   timer: { active: false, secs: 30, remaining: 0, id: null },
 };
 
@@ -534,23 +552,32 @@ function splitBody(body) {
 }
 
 // ── Rendering ────────────────────────────────────────────────────
+function pagesPerSpread() { return S.mobileMode ? 1 : 2; }
+
 function render() {
-  const li     = S.spread * 2;
-  const ri     = li + 1;
+  const pps    = pagesPerSpread();
+  const li     = S.spread * pps;
+  const ri     = pps === 2 ? li + 1 : null;
   const song   = S.songs[S.songIdx];
   const label  = song ? `${song.artist}  —  ${song.title}` : '';
-  const maxSpr = Math.max(0, Math.ceil(S.pages.length / 2) - 1);
+  const maxSpr = Math.max(0, Math.ceil(S.pages.length / pps) - 1);
 
   const setPage = (el, text) => {
     if (S.showChords && text) { el.innerHTML = renderPageContent(text); }
     else { el.textContent = text ?? ''; }
   };
   setPage(pcL, S.pages[li]);
-  setPage(pcR, S.pages[ri]);
   pnL.textContent = S.pages[li] != null ? String(li + 1) : '';
-  pnR.textContent = S.pages[ri] != null ? String(ri + 1) : '';
   rhL.textContent = label;
-  rhR.textContent = label;
+  if (ri != null) {
+    setPage(pcR, S.pages[ri]);
+    pnR.textContent = S.pages[ri] != null ? String(ri + 1) : '';
+    rhR.textContent = label;
+  } else {
+    pcR.textContent = '';
+    pnR.textContent = '';
+    rhR.textContent = '';
+  }
   pInfo.textContent = S.pages.length ? `${S.spread + 1} / ${maxSpr + 1}` : '— / —';
 }
 
@@ -565,7 +592,7 @@ function resplit() {
   const song = S.songs[S.songIdx];
   if (!song?._body) return;
   S.pages  = splitBody(song._body);
-  S.spread = Math.min(S.spread, Math.max(0, Math.ceil(S.pages.length / 2) - 1));
+  S.spread = Math.min(S.spread, Math.max(0, Math.ceil(S.pages.length / pagesPerSpread()) - 1));
   render();
 }
 
@@ -598,11 +625,36 @@ function updateActive() {
   if (a) a.scrollIntoView({ block: 'nearest' });
 }
 
-// Auto-collapse sidebar on small screens
-if (window.innerWidth <= 700) {
-  S.sidebarOpen = false;
-  sidebar.classList.add('collapsed');
+// ── Mobile mode — auto (narrow viewport) or manually forced ──────
+const mobileQuery = window.matchMedia('(max-width: 700px)');
+
+function applyMobileMode(preserveSpread) {
+  const mobile  = mobileQuery.matches || S.forceMobile;
+  const oldPps  = pagesPerSpread();
+  S.mobileMode  = mobile;
+  document.body.classList.toggle('mobile-mode', mobile);
+  $('btn-mobile').classList.toggle('active', mobile);
+
+  if (mobile && S.sidebarOpen) {
+    S.sidebarOpen = false;
+    sidebar.classList.add('collapsed');
+  }
+
+  if (preserveSpread) {
+    const newPps = pagesPerSpread();
+    if (newPps !== oldPps) S.spread = Math.floor((S.spread * oldPps) / newPps);
+  }
+  resplit();
 }
+
+mobileQuery.addEventListener('change', () => applyMobileMode(true));
+
+$('btn-mobile').addEventListener('click', () => {
+  S.forceMobile = !S.forceMobile;
+  applyMobileMode(true);
+});
+
+applyMobileMode(false);
 
 $('sidebar-toggle').addEventListener('click', () => {
   S.sidebarOpen = !S.sidebarOpen;
@@ -661,7 +713,7 @@ async function init() {
 }
 
 // ── Navigation ───────────────────────────────────────────────────
-const maxSpread = () => Math.max(0, Math.ceil(S.pages.length / 2) - 1);
+const maxSpread = () => Math.max(0, Math.ceil(S.pages.length / pagesPerSpread()) - 1);
 
 function goNext(fromTimer = false) {
   if (S.spread < maxSpread()) {
@@ -694,7 +746,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'ArrowUp')    { e.preventDefault(); goPrevSong(); }
 });
 
-panelL.addEventListener('click', goPrev);
+panelL.addEventListener('click', () => S.mobileMode ? goNext() : goPrev());
 panelR.addEventListener('click', () => goNext());
 
 let tx0 = 0;
