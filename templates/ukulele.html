@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Uke Songbook</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --font-size:   13px;
+      --page-pad:    20px;
+      --sidebar-w:   220px;
+      --header-h:    44px;
+
+      --bg:          #111;
+      --sidebar-bg:  #161616;
+      --header-bg:   #0d0d0d;
+      --page-bg:     #1c1c1c;
+      --pinned-bg:   #151515;
+      --text:        #d0d0d0;
+      --text-dim:    #5a5a5a;
+      --text-muted:  #3a3a3a;
+      --accent:      #3b82f6;
+      --accent-dim:  rgba(59,130,246,0.15);
+      --border:      #252525;
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      display: flex;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, sans-serif;
+      user-select: none;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────── */
+    #sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      transition: width 0.22s ease, min-width 0.22s ease;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    #sidebar.collapsed { width: 40px; min-width: 40px; }
+
+    #sidebar-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 10px;
+      height: var(--header-h);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    #sidebar-toggle, #back-link {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 4px 5px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      line-height: 1;
+      text-decoration: none;
+      display: inline-flex;
+    }
+    #sidebar-toggle:hover, #back-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+
+    .sidebar-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    #song-list {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 6px 0 12px;
+    }
+    #song-list::-webkit-scrollbar { width: 3px; }
+    #song-list::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
+
+    .artist-label {
+      padding: 12px 12px 3px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .song-item {
+      padding: 5px 12px 5px 16px;
+      font-size: 13px;
+      color: #666;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      border-left: 2px solid transparent;
+      margin-left: 0;
+      transition: color 0.1s, background 0.1s;
+    }
+    .song-item:hover { color: #aaa; background: rgba(255,255,255,0.03); }
+    .song-item.active {
+      color: #fff;
+      background: var(--accent-dim);
+      border-left-color: var(--accent);
+    }
+
+    /* ── Main column ─────────────────────────────────────────────────── */
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    /* ── Top bar ─────────────────────────────────────────────────────── */
+    #header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 10px;
+      background: var(--header-bg);
+      border-bottom: 1px solid var(--border);
+      height: var(--header-h);
+      flex-shrink: 0;
+    }
+
+    #song-title-bar {
+      flex: 1;
+      font-size: 13px;
+      color: var(--text-dim);
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .btn {
+      background: rgba(255,255,255,0.05);
+      color: #999;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 5px;
+      padding: 3px 9px;
+      cursor: pointer;
+      font-size: 13px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      line-height: 1.6;
+    }
+    .btn:hover  { background: rgba(255,255,255,0.1); color: #ccc; }
+    .btn:active { background: rgba(255,255,255,0.18); }
+
+    .vsep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; margin: 0 2px; }
+
+    #page-info { color: var(--text-dim); font-size: 12px; min-width: 54px; text-align: center; flex-shrink: 0; }
+    #font-sz   { color: var(--text-dim); font-size: 12px; min-width: 24px; text-align: center; flex-shrink: 0; }
+    #timer-cd  { color: var(--text-dim); font-size: 12px; min-width: 28px; text-align: right; flex-shrink: 0; }
+
+    #timer-secs {
+      width: 42px;
+      background: rgba(255,255,255,0.05);
+      color: #999;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 5px;
+      padding: 3px 4px;
+      font-size: 13px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    /* ── Pinned chord header ─────────────────────────────────────────── */
+    #pinned-wrap {
+      background: var(--pinned-bg);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      position: relative;
+    }
+    #pinned-wrap.hidden { display: none; }
+
+    #pinned-label {
+      position: absolute;
+      top: 7px;
+      right: 12px;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    #pinned-content {
+      padding: 6px 16px 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .chord-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: flex-end;
+    }
+    .strum-line {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
+      color: #666;
+      letter-spacing: 0.06em;
+      padding-top: 2px;
+    }
+    /* fallback for captured images */
+    #pinned-content img {
+      max-height: 150px;
+      width: auto;
+      display: block;
+      flex-shrink: 0;
+    }
+
+    /* ── Page spread ─────────────────────────────────────────────────── */
+    #spread {
+      flex: 1;
+      display: flex;
+      gap: 4px;
+      padding: 8px;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .page-panel {
+      flex: 1;
+      background: var(--page-bg);
+      border-radius: 3px;
+      border: 1px solid var(--border);
+      padding: var(--page-pad);
+      padding-left: 28px;
+      padding-top: 26px;
+      padding-bottom: 26px;
+      overflow: hidden;
+      position: relative;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .page-panel:hover { border-color: #333; }
+
+    .running-head {
+      position: absolute;
+      top: 7px;
+      font-size: 10px;
+      font-family: Georgia, serif;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: calc(100% - 40px);
+    }
+    #panel-left  .running-head { right: var(--page-pad); text-align: right; }
+    #panel-right .running-head { left:  var(--page-pad); }
+
+    .page-content {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: var(--font-size);
+      line-height: 1.5;
+      white-space: pre;
+      color: var(--text);
+      overflow: hidden;
+      height: 100%;
+    }
+
+    .page-num {
+      position: absolute;
+      bottom: 7px;
+      font-size: 11px;
+      font-family: Georgia, serif;
+      color: var(--text-muted);
+    }
+    #panel-left  .page-num { left:  var(--page-pad); }
+    #panel-right .page-num { right: var(--page-pad); }
+
+    /* ── Timer bar ───────────────────────────────────────────────────── */
+    #timer-track { height: 3px; background: var(--header-bg); flex-shrink: 0; }
+    #timer-fill  { height: 100%; width: 100%; background: #22c55e; }
+
+    /* ── Empty state ─────────────────────────────────────────────────── */
+    #empty {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 2;
+      font-size: 14px;
+    }
+    #empty code {
+      background: #1a1a1a;
+      color: #5b8dd9;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    /* ── Inline chord display ────────────────────────────────────────── */
+    /* Chord line: block with top padding so SVGs float above the text */
+    .cline { display: block; padding-top: 60px; white-space: pre; line-height: 1.5; min-height: 1.5em; }
+    /* Regular text line */
+    .tline { display: block; white-space: pre; line-height: 1.5; min-height: 1.5em; }
+    /* Chord token: inline block, SVG sits above via absolute positioning */
+    .ct { display: inline-block; position: relative; vertical-align: bottom;
+          color: #6a9fff; font-weight: 600; white-space: nowrap; }
+    /* SVG wrapper: absolutely above the chord name, left-aligned to avoid cropping */
+    .csv { position: absolute; bottom: 100%; left: 0;
+           line-height: 0; pointer-events: none; }
+    /* Active toggle button */
+    .btn.active { background: rgba(59,130,246,0.22); color: #6a9fff;
+                  border-color: rgba(59,130,246,0.35); }
+
+    /* ── Responsive — mobile single-page ────────────────────────────── */
+    @media (max-width: 700px) {
+      /* Single page only */
+      #panel-right { display: none; }
+
+      /* Sidebar starts collapsed on mobile; JS adds .collapsed on init */
+      #sidebar { width: 40px; min-width: 40px; }
+      #sidebar:not(.collapsed) { width: var(--sidebar-w); min-width: var(--sidebar-w); }
+
+      /* Header: hide secondary controls to keep it from overflowing */
+      .vsep           { display: none; }
+      #font-sz        { display: none; }
+      #btn-fd         { display: none; }
+      #btn-fu         { display: none; }
+      #btn-fs         { display: none; }
+
+      /* Give title more room */
+      #song-title-bar { font-size: 12px; }
+
+      /* Slightly larger tap targets */
+      .btn { padding: 5px 10px; }
+
+      /* More breathing room on the single page */
+      #spread { padding: 4px; gap: 0; }
+      .page-panel { border-radius: 0; border-left: none; border-right: none; }
+
+      /* Pinned header: allow a bit more height on mobile */
+      #pinned-content { max-height: 40vh; font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Sidebar ── -->
+<div id="sidebar">
+  <div id="sidebar-top">
+    <a id="back-link" href="/" title="Back to Family Planner">🏠</a>
+    <button id="sidebar-toggle" title="Toggle sidebar">☰</button>
+    <span class="sidebar-label">Songs</span>
+  </div>
+  <div id="song-list"></div>
+</div>
+
+<!-- ── Main ── -->
+<div id="main">
+
+  <div id="header">
+    <span id="song-title-bar">—</span>
+    <div class="vsep"></div>
+    <button class="btn" id="btn-fd" title="Smaller text">A−</button>
+    <span id="font-sz">13</span>
+    <button class="btn" id="btn-fu" title="Larger text">A+</button>
+    <div class="vsep"></div>
+    <span id="page-info">— / —</span>
+    <div class="vsep"></div>
+    <span style="color:var(--text-dim);font-size:13px;flex-shrink:0">⏱</span>
+    <input id="timer-secs" type="number" value="30" min="5" max="600" title="Seconds per spread">
+    <span style="color:var(--text-dim);font-size:11px;flex-shrink:0">s</span>
+    <button class="btn" id="btn-timer">▶</button>
+    <span id="timer-cd"></span>
+    <div class="vsep"></div>
+    <button class="btn" id="btn-chords" title="Toggle chord diagrams">♩ Chords</button>
+    <button class="btn" id="btn-fs" title="Fullscreen">⛶</button>
+  </div>
+
+  <!-- Pinned chord/key header — always visible, auto-extracted from tab top -->
+  <div id="pinned-wrap">
+    <span id="pinned-label">Chords / Key</span>
+    <pre id="pinned-content"></pre>
+  </div>
+
+  <div id="spread">
+    <div class="page-panel" id="panel-left">
+      <span class="running-head" id="rh-left"></span>
+      <div class="page-content" id="pc-left"></div>
+      <span class="page-num"    id="pn-left"></span>
+    </div>
+    <div class="page-panel" id="panel-right">
+      <span class="running-head" id="rh-right"></span>
+      <div class="page-content" id="pc-right"></div>
+      <span class="page-num"    id="pn-right"></span>
+    </div>
+  </div>
+
+  <div id="empty">
+    <div>
+      No songs yet.<br>
+      <span style="font-size:13px;color:#555">Add one from the CFP project root:</span><br>
+      <code>node tools/uketabs/fetch_tab.js &lt;ultimate-guitar-url&gt;</code>
+    </div>
+  </div>
+
+  <div id="timer-track"><div id="timer-fill"></div></div>
+
+</div>
+
+<script>
+'use strict';
+
+// ── State ────────────────────────────────────────────────────────
+const S = {
+  songs:   [],
+  songIdx: 0,
+  pages:   [],
+  spread:  0,
+  fontSize: 13,
+  sidebarOpen: true,
+  showChords: false,
+  timer: { active: false, secs: 30, remaining: 0, id: null },
+};
+
+// ── DOM refs ─────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const pcL          = $('pc-left');
+const pcR          = $('pc-right');
+const pnL          = $('pn-left');
+const pnR          = $('pn-right');
+const rhL          = $('rh-left');
+const rhR          = $('rh-right');
+const pInfo        = $('page-info');
+const tFill        = $('timer-fill');
+const tCD          = $('timer-cd');
+const tSecs        = $('timer-secs');
+const fszEl        = $('font-sz');
+const songTitleBar = $('song-title-bar');
+const pinnedWrap   = $('pinned-wrap');
+const pinnedPre    = $('pinned-content');
+const songList     = $('song-list');
+const sidebar      = $('sidebar');
+const spreadEl     = $('spread');
+const panelL       = $('panel-left');
+const panelR       = $('panel-right');
+
+// ── Header/body extraction ───────────────────────────────────────
+// Splits tab content into a pinned header (chord info, metadata)
+// and paginated body (the actual song verses/choruses).
+function splitTabContent(content) {
+  const lines = content.split('\n');
+
+  // Section markers like [Intro], Verse 1:, CHORUS, Bridge -, etc.
+  const sectionRx = /^\[?(intro|verse|chorus|bridge|outro|pre.?chorus|refrain|hook|interlude|solo|coda|part\s*\d)\]?\s*[:|\-\d]?\s*$/i;
+
+  // Find first real section marker (skip line 0 so we always get some header)
+  let cut = -1;
+  for (let i = 1; i < lines.length; i++) {
+    if (sectionRx.test(lines[i].trim()) && lines[i].trim().length > 0) {
+      cut = i;
+      break;
+    }
+  }
+
+  // Fallback: take up to 15% of lines, minimum 3, maximum 15
+  if (cut < 0) cut = Math.min(15, Math.max(3, Math.floor(lines.length * 0.15)));
+
+  // Trim trailing blank lines from header portion
+  while (cut > 0 && !lines[cut - 1].trim()) cut--;
+
+  return {
+    header: lines.slice(0, cut).join('\n'),
+    body:   lines.slice(cut).join('\n'),
+  };
+}
+
+// ── Page splitting ───────────────────────────────────────────────
+function linesPerPage() {
+  const usable = panelL.clientHeight - 26 - 14 - 26 - 14;
+  const base   = Math.max(4, Math.floor(usable / (S.fontSize * 1.5)));
+  // Chord SVG lines are ~4× taller; assume ~40% of lines are chord lines
+  return S.showChords ? Math.max(3, Math.floor(base * 0.38)) : base;
+}
+
+function splitBody(body) {
+  const n     = linesPerPage();
+  const lines = body.split('\n');
+  const pages = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    let end = Math.min(i + n, lines.length);
+
+    // Don't orphan a chord line at the bottom of a page — its lyric would
+    // end up on the next page. Walk back until the last line isn't a chord line.
+    if (end < lines.length) {
+      let safety = 0;
+      while (end > i + 1 && isChordLine(lines[end - 1]) && ++safety < 8) {
+        end--;
+      }
+    }
+
+    pages.push(lines.slice(i, end).join('\n'));
+    i = end;
+  }
+
+  return pages.length ? pages : [''];
+}
+
+// ── Rendering ────────────────────────────────────────────────────
+function render() {
+  const li     = S.spread * 2;
+  const ri     = li + 1;
+  const song   = S.songs[S.songIdx];
+  const label  = song ? `${song.artist}  —  ${song.title}` : '';
+  const maxSpr = Math.max(0, Math.ceil(S.pages.length / 2) - 1);
+
+  const setPage = (el, text) => {
+    if (S.showChords && text) { el.innerHTML = renderPageContent(text); }
+    else { el.textContent = text ?? ''; }
+  };
+  setPage(pcL, S.pages[li]);
+  setPage(pcR, S.pages[ri]);
+  pnL.textContent = S.pages[li] != null ? String(li + 1) : '';
+  pnR.textContent = S.pages[ri] != null ? String(ri + 1) : '';
+  rhL.textContent = label;
+  rhR.textContent = label;
+  pInfo.textContent = S.pages.length ? `${S.spread + 1} / ${maxSpr + 1}` : '— / —';
+}
+
+function setFont(n) {
+  S.fontSize = Math.max(9, Math.min(22, n));
+  document.documentElement.style.setProperty('--font-size', S.fontSize + 'px');
+  fszEl.textContent = S.fontSize;
+  resplit();
+}
+
+function resplit() {
+  const song = S.songs[S.songIdx];
+  if (!song?._body) return;
+  S.pages  = splitBody(song._body);
+  S.spread = Math.min(S.spread, Math.max(0, Math.ceil(S.pages.length / 2) - 1));
+  render();
+}
+
+// ── Sidebar ──────────────────────────────────────────────────────
+function buildSidebar() {
+  const byArtist = {};
+  S.songs.forEach((s, i) => {
+    (byArtist[s.artist] = byArtist[s.artist] || []).push({ ...s, idx: i });
+  });
+
+  songList.innerHTML = Object.keys(byArtist)
+    .sort((a, b) => a.localeCompare(b))
+    .map(artist => {
+      const items = byArtist[artist]
+        .map(s => `<div class="song-item${s.idx === S.songIdx ? ' active' : ''}" data-idx="${s.idx}">${s.title}</div>`)
+        .join('');
+      return `<div class="artist-label">${artist}</div>${items}`;
+    }).join('');
+
+  songList.querySelectorAll('.song-item').forEach(el => {
+    el.addEventListener('click', () => loadSong(parseInt(el.dataset.idx)));
+  });
+}
+
+function updateActive() {
+  songList.querySelectorAll('.song-item').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.idx) === S.songIdx);
+  });
+  const a = songList.querySelector('.song-item.active');
+  if (a) a.scrollIntoView({ block: 'nearest' });
+}
+
+// Auto-collapse sidebar on small screens
+if (window.innerWidth <= 700) {
+  S.sidebarOpen = false;
+  sidebar.classList.add('collapsed');
+}
+
+$('sidebar-toggle').addEventListener('click', () => {
+  S.sidebarOpen = !S.sidebarOpen;
+  sidebar.classList.toggle('collapsed', !S.sidebarOpen);
+  setTimeout(resplit, 240);
+});
+
+// ── Song loading ─────────────────────────────────────────────────
+async function loadSong(idx) {
+  const song = S.songs[idx];
+  if (!song) return;
+  S.songIdx = idx;
+  songTitleBar.textContent = `${song.artist} — ${song.title}`;
+  updateActive();
+
+  if (!song._body) {
+    try {
+      const data = await fetch(`/ukulele/songs/${song.file}`).then(r => r.json());
+      const { header, body } = splitTabContent(data.content);
+      song._header         = header;
+      song._body           = body;
+      song._chordImageFile = data.chordImageFile || null;
+      song._strumImageFile = data.strumImageFile  || null;
+    } catch (e) {
+      pcL.textContent = `Could not load: ${e.message}`;
+      pcR.textContent = '';
+      return;
+    }
+  }
+
+  renderPinnedHeader(song);
+
+  S.pages  = splitBody(song._body);
+  S.spread = 0;
+  render();
+  if (S.timer.active) resetTimer();
+}
+
+async function init() {
+  try {
+    const songs = await fetch('/ukulele/songs.json').then(r => r.json());
+    S.songs = songs;
+    if (!songs.length) {
+      spreadEl.style.display = 'none';
+      pinnedWrap.classList.add('hidden');
+      $('empty').style.display = 'flex';
+      return;
+    }
+    buildSidebar();
+    await loadSong(0);
+  } catch {
+    spreadEl.style.display = 'none';
+    pinnedWrap.classList.add('hidden');
+    $('empty').style.display = 'flex';
+  }
+}
+
+// ── Navigation ───────────────────────────────────────────────────
+const maxSpread = () => Math.max(0, Math.ceil(S.pages.length / 2) - 1);
+
+function goNext(fromTimer = false) {
+  if (S.spread < maxSpread()) {
+    S.spread++;
+    render();
+    if (!fromTimer && S.timer.active) resetTimer();
+  } else if (fromTimer) {
+    S.spread = 0;
+    render();
+  }
+}
+
+function goPrev() {
+  if (S.spread > 0) {
+    S.spread--;
+    render();
+    if (S.timer.active) resetTimer();
+  }
+}
+
+function goNextSong() { if (S.songIdx < S.songs.length - 1) loadSong(S.songIdx + 1); }
+function goPrevSong() { if (S.songIdx > 0)                  loadSong(S.songIdx - 1); }
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.code === 'Space')      { e.preventDefault(); goNext(); }
+  if (e.code === 'ArrowRight') goNext();
+  if (e.code === 'ArrowLeft')  goPrev();
+  if (e.code === 'ArrowDown')  { e.preventDefault(); goNextSong(); }
+  if (e.code === 'ArrowUp')    { e.preventDefault(); goPrevSong(); }
+});
+
+panelL.addEventListener('click', goPrev);
+panelR.addEventListener('click', () => goNext());
+
+let tx0 = 0;
+spreadEl.addEventListener('touchstart', e => { tx0 = e.touches[0].clientX; }, { passive: true });
+spreadEl.addEventListener('touchend',   e => {
+  const dx = e.changedTouches[0].clientX - tx0;
+  if (Math.abs(dx) > 40) dx < 0 ? goNext() : goPrev();
+});
+
+// ── Timer ────────────────────────────────────────────────────────
+function startTimer() {
+  const secs = parseInt(tSecs.value) || 30;
+  S.timer.secs = secs;
+  S.timer.remaining = secs;
+  S.timer.active = true;
+  $('btn-timer').textContent = '⏸';
+  clearInterval(S.timer.id);
+  S.timer.id = setInterval(() => {
+    S.timer.remaining = Math.max(0, S.timer.remaining - 1);
+    updateTimerBar();
+    if (S.timer.remaining === 0) {
+      goNext(true);
+      S.timer.remaining = S.timer.secs;
+      tFill.style.transition = 'none';
+      tFill.style.width = '100%';
+      requestAnimationFrame(() => requestAnimationFrame(updateTimerBar));
+    }
+  }, 1000);
+  updateTimerBar();
+}
+
+function stopTimer() {
+  clearInterval(S.timer.id);
+  S.timer.active = false;
+  $('btn-timer').textContent = '▶';
+  tFill.style.transition = 'none';
+  tFill.style.width = '100%';
+  tFill.style.background = '#22c55e';
+  tCD.textContent = '';
+}
+
+function resetTimer() { if (S.timer.active) startTimer(); }
+
+function updateTimerBar() {
+  const pct = S.timer.remaining / S.timer.secs;
+  tFill.style.transition = 'width 1s linear, background 0.5s';
+  tFill.style.width      = (pct * 100) + '%';
+  tFill.style.background = pct > 0.3 ? '#22c55e' : pct > 0.1 ? '#eab308' : '#ef4444';
+  tCD.textContent = S.timer.remaining + 's';
+}
+
+$('btn-timer').addEventListener('click', () => S.timer.active ? stopTimer() : startTimer());
+
+// ── Font ─────────────────────────────────────────────────────────
+$('btn-fu').addEventListener('click', () => setFont(S.fontSize + 1));
+$('btn-fd').addEventListener('click', () => setFont(S.fontSize - 1));
+
+// ── Chord toggle ─────────────────────────────────────────────────
+$('btn-chords').addEventListener('click', () => {
+  S.showChords = !S.showChords;
+  $('btn-chords').classList.toggle('active', S.showChords);
+  const song = S.songs[S.songIdx];
+  if (song?._body) {
+    S.pages  = splitBody(song._body);
+    S.spread = 0;
+    renderPinnedHeader(song);
+  }
+  render();
+});
+
+// ── Fullscreen ───────────────────────────────────────────────────
+$('btn-fs').addEventListener('click', () =>
+  document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()
+);
+
+// ── Resize ───────────────────────────────────────────────────────
+let rTimer;
+window.addEventListener('resize', () => { clearTimeout(rTimer); rTimer = setTimeout(resplit, 150); });
+
+// ── Ukulele chord database [g, C, E, A] ──────────────────────────
+const UKE = {
+  'C':[0,0,0,3],'Cm':[0,3,3,3],'C7':[0,0,0,1],'Cmaj7':[0,0,0,2],'Cm7':[3,3,3,3],
+  'C#':[1,1,1,4],'C#m':[1,1,0,2],'C#7':[1,1,1,2],'Db':[1,1,1,4],'Dbm':[1,1,0,2],
+  'D':[2,2,2,0],'Dm':[2,2,1,0],'D7':[2,2,2,3],'Dmaj7':[2,2,2,4],'Dm7':[2,2,1,3],
+  'D#':[3,3,3,1],'D#m':[3,1,2,1],'Eb':[3,3,3,1],'Ebm':[3,1,2,1],'Eb7':[3,3,3,4],
+  'E':[1,4,0,2],'Em':[0,4,3,2],'E7':[1,2,0,2],'Emaj7':[1,3,0,2],'Em7':[0,2,0,2],
+  'F':[2,0,1,0],'Fm':[1,0,1,3],'F7':[2,3,1,0],'Fmaj7':[2,4,1,0],'Fm7':[1,0,1,1],
+  'F#':[3,1,2,1],'F#m':[2,1,2,0],'F#7':[3,4,2,1],'Gb':[3,1,2,1],'Gbm':[2,1,2,0],
+  'G':[0,2,3,2],'Gm':[0,2,3,1],'G7':[0,2,1,2],'Gmaj7':[0,2,2,2],'Gm7':[0,2,1,1],
+  'G#':[5,3,4,3],'G#m':[0,3,4,3],'Ab':[4,3,4,2],'Abm':[1,1,0,4],'Ab7':[1,2,1,2],
+  'A':[2,1,0,0],'Am':[2,0,0,0],'A7':[0,1,0,0],'Amaj7':[1,1,0,0],'Am7':[0,0,0,0],
+  'A#':[3,2,1,1],'A#m':[3,1,1,1],'Bb':[3,2,1,1],'Bbm':[3,1,1,1],'Bb7':[1,2,1,1],
+  'B':[4,3,2,2],'Bm':[4,2,2,2],'B7':[2,3,2,2],'Bmaj7':[3,3,2,2],'Bm7':[2,2,2,2],
+  'Asus2':[2,4,0,2],'Asus4':[2,2,0,0],'Dsus2':[2,2,0,0],'Dsus4':[0,2,3,0],
+  'Gsus4':[0,2,3,3],'Esus4':[2,4,0,2],'E7sus4':[0,2,0,0],
+  'Adim':[2,3,2,3],'Bdim':[0,1,0,1],'Cdim':[2,3,2,0],'Ddim':[1,2,1,2],
+  'Aaug':[2,1,1,0],'Caug':[1,0,0,3],'Daug':[2,2,2,1],'Eaug':[1,0,0,3],
+};
+
+// ── Chord SVG renderer ────────────────────────────────────────────
+// W, H: overall size. Use defaults for pinned strip; pass smaller values for inline.
+function renderChordSVG(name, frets, W = 62, H = 82) {
+  const STRINGS = 4, NFRETS = 4;
+  const PL = Math.round(W * 0.17), PT = Math.round(H * 0.27), PR = W - Math.round(W * 0.11);
+  const SX = (PR - PL) / (STRINGS - 1);
+  const FH = (H - PT - Math.round(H * 0.07)) / NFRETS;
+
+  const active = frets.filter(f => f > 0);
+  const minF   = active.length ? Math.min(...active) : 0;
+  const maxF   = active.length ? Math.max(...active) : 0;
+  const shifted = maxF > NFRETS;
+  const base   = shifted ? minF - 1 : 0;
+  const disp   = frets.map(f => f > 0 ? f - base : f);
+
+  let s = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">`;
+  s += `<text x="${W/2}" y="13" text-anchor="middle" font-size="11" font-weight="600" font-family="system-ui,sans-serif" fill="#c0c0c0">${name}</text>`;
+
+  if (shifted) {
+    s += `<line x1="${PL}" y1="${PT}" x2="${PR}" y2="${PT}" stroke="#555" stroke-width="1"/>`;
+    s += `<text x="${PR+2}" y="${PT+7}" font-size="8" font-family="system-ui" fill="#777">${minF}fr</text>`;
+  } else {
+    s += `<rect x="${PL}" y="${PT-2}" width="${PR-PL}" height="4" rx="1" fill="#777"/>`;
+  }
+
+  for (let f = shifted ? 0 : 1; f <= NFRETS; f++) {
+    s += `<line x1="${PL}" y1="${PT+f*FH}" x2="${PR}" y2="${PT+f*FH}" stroke="#333" stroke-width="1"/>`;
+  }
+  for (let i = 0; i < STRINGS; i++) {
+    const x = PL + i * SX;
+    s += `<line x1="${x}" y1="${PT}" x2="${x}" y2="${PT+NFRETS*FH}" stroke="#444" stroke-width="1"/>`;
+  }
+  for (let i = 0; i < STRINGS; i++) {
+    const x = PL + i * SX;
+    const f = frets[i], d = disp[i];
+    if (f < 0) {
+      s += `<text x="${x}" y="${PT-3}" text-anchor="middle" font-size="9" fill="#555" font-family="system-ui">✕</text>`;
+    } else if (f === 0) {
+      s += `<circle cx="${x}" cy="${PT-7}" r="3.5" fill="none" stroke="#555" stroke-width="1.5"/>`;
+    } else {
+      s += `<circle cx="${x}" cy="${PT+(d-0.5)*FH}" r="${FH*0.36}" fill="#3b82f6"/>`;
+    }
+  }
+  return s + '</svg>';
+}
+
+// ── Inline chord rendering ────────────────────────────────────────
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+const CHORD_RX = /^([A-G][b#]?(?:m(?:aj)?7?|maj7|7|9|6|sus[24]?|dim|aug)?)$/;
+
+function isChordLine(line) {
+  const tokens = line.trim().split(/\s+/).filter(Boolean);
+  if (!tokens.length) return false;
+  const chordCount = tokens.filter(t => CHORD_RX.test(t)).length;
+  return chordCount > 0 && chordCount / tokens.length >= 0.55;
+}
+
+function renderChordLineHTML(line) {
+  // Split the line preserving whitespace runs between chord tokens
+  const parts = line.split(/(\s+)/);
+  let html = '';
+  for (const p of parts) {
+    if (/^\s+$/.test(p)) {
+      html += escHtml(p);
+    } else if (CHORD_RX.test(p) && UKE[p]) {
+      // Chord token: SVG above, name below
+      const svg = renderChordSVG(p, UKE[p], 46, 58);
+      html += `<span class="ct"><span class="csv">${svg}</span>${escHtml(p)}</span>`;
+    } else if (CHORD_RX.test(p)) {
+      // Chord name we don't have in the DB — show name only in chord colour
+      html += `<span class="ct">${escHtml(p)}</span>`;
+    } else {
+      html += escHtml(p);
+    }
+  }
+  return `<span class="cline">${html}</span>`;
+}
+
+function renderPageContent(text) {
+  const lines = text.split('\n');
+  return lines.map((line, i) => {
+    if (!isChordLine(line)) return `<span class="tline">${escHtml(line)}</span>`;
+
+    // Only render SVG diagrams when this is a genuine chord-above-lyric line.
+    // Find the next non-empty line; it should be a lyric (not another chord line).
+    let nextIsLyric = false;
+    for (let j = i + 1; j < Math.min(i + 4, lines.length); j++) {
+      if (lines[j].trim() !== '') { nextIsLyric = !isChordLine(lines[j]); break; }
+    }
+
+    if (nextIsLyric) return renderChordLineHTML(line);
+
+    // Chord-like line but not in a chord-above-lyric context — show names only, no SVG
+    return `<span class="tline"><span style="color:#6a9fff">${escHtml(line)}</span></span>`;
+  }).join('');
+}
+
+// ── Chord / strum extractors ──────────────────────────────────────
+function extractChordNames(text) {
+  const seen = new Set(), out = [];
+  const add = n => { if (UKE[n] && !seen.has(n)) { seen.add(n); out.push(n); } };
+
+  // 1) [Chord] bracket notation (inline chords)
+  const bx = /\[([A-G][b#]?(?:m(?:aj)?7?|maj7|7|9|6|sus[24]?|dim|aug)?)\]/g;
+  let m;
+  while ((m = bx.exec(text)) !== null) add(m[1]);
+
+  // 2) Lines where the majority of tokens are chord names (chord-only lines)
+  for (const line of text.split('\n')) {
+    const tokens = line.trim().split(/[\s,/|]+/).filter(Boolean);
+    if (tokens.length >= 1 && tokens.filter(t => UKE[t]).length >= tokens.length * 0.6) {
+      tokens.forEach(add);
+    }
+  }
+  return out;
+}
+
+function extractStrumPattern(text) {
+  for (const line of text.split('\n')) {
+    const t = line.trim();
+    if (/^strum/i.test(t)) {
+      const p = t.replace(/^strumm?i?n?g?[:\s]*/i, '').trim();
+      if (p) return p.replace(/\bD\b/g,'↓').replace(/\bU\b/g,'↑').replace(/d/g,'↓').replace(/u/g,'↑');
+    }
+  }
+  return null;
+}
+
+// ── Populate pinned header ────────────────────────────────────────
+function renderPinnedHeader(song) {
+  if (!S.showChords) {
+    pinnedWrap.classList.add('hidden');
+    return;
+  }
+  // Scan the ENTIRE song (header + body) for all unique chords
+  const allText = (song._header || '') + '\n' + (song._body || '');
+  const chords  = extractChordNames(allText);
+  const strum   = extractStrumPattern(song._header || '');
+
+  if (chords.length > 0) {
+    const svgs     = chords.map(n => renderChordSVG(n, UKE[n])).join('');
+    const strumHtml = strum ? `<div class="strum-line">Strum: ${strum}</div>` : '';
+    pinnedPre.innerHTML = `<div class="chord-row">${svgs}</div>${strumHtml}`;
+    pinnedWrap.classList.remove('hidden');
+  } else {
+    pinnedWrap.classList.add('hidden');
+  }
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,296 @@
+[
+  {
+    "id": "alan-walker-sasha-alex-sloan-hero",
+    "title": "Hero",
+    "artist": "Alan Walker & Sasha Alex Sloan",
+    "file": "alan-walker-sasha-alex-sloan-hero.json",
+    "ugTabId": "4762436"
+  },
+  {
+    "id": "chris-isaak-wicked-game",
+    "title": "Wicked Game",
+    "artist": "Chris Isaak",
+    "file": "chris-isaak-wicked-game.json",
+    "ugTabId": "2043129"
+  },
+  {
+    "id": "coldplay-clocks",
+    "title": "CLOCKS",
+    "artist": "Coldplay",
+    "file": "coldplay-clocks.json",
+    "ugTabId": "1293454"
+  },
+  {
+    "id": "creedence-clearwater-revival-fortunate-son",
+    "title": "FORTUNATE SON",
+    "artist": "Creedence Clearwater Revival",
+    "file": "creedence-clearwater-revival-fortunate-son.json",
+    "ugTabId": "1274259"
+  },
+  {
+    "id": "eagles-hotel-california",
+    "title": "Hotel California",
+    "artist": "Eagles",
+    "file": "eagles-hotel-california.json",
+    "ugTabId": "1867783"
+  },
+  {
+    "id": "fleetwood-mac-dreams",
+    "title": "Dreams",
+    "artist": "Fleetwood Mac",
+    "file": "fleetwood-mac-dreams.json",
+    "ugTabId": "2171983"
+  },
+  {
+    "id": "fleetwood-mac-landslide",
+    "title": "LANDSLIDE",
+    "artist": "Fleetwood Mac",
+    "file": "fleetwood-mac-landslide.json",
+    "ugTabId": "1773362"
+  },
+  {
+    "id": "fun-some-nights",
+    "title": "SOME NIGHTS",
+    "artist": "Fun.",
+    "file": "fun-some-nights.json",
+    "ugTabId": "1898236"
+  },
+  {
+    "id": "gotye-somebody-that-i-used-to-know",
+    "title": "Somebody That I Used to Know",
+    "artist": "Gotye",
+    "file": "gotye-somebody-that-i-used-to-know.json",
+    "ugTabId": "1094597"
+  },
+  {
+    "id": "hozier-take-me-to-church",
+    "title": "TAKE ME TO CHURCH",
+    "artist": "Hozier",
+    "file": "hozier-take-me-to-church.json",
+    "ugTabId": "1499957"
+  },
+  {
+    "id": "lonestar-amazed",
+    "title": "AMAZED",
+    "artist": "Lonestar",
+    "file": "lonestar-amazed.json",
+    "ugTabId": "1277754"
+  },
+  {
+    "id": "lorde-royals",
+    "title": "Royals",
+    "artist": "Lorde",
+    "file": "lorde-royals.json",
+    "ugTabId": "2184129"
+  },
+  {
+    "id": "massive-attack-teardrop",
+    "title": "Teardrop",
+    "artist": "Massive Attack",
+    "file": "massive-attack-teardrop.json",
+    "ugTabId": "1256226"
+  },
+  {
+    "id": "misc-soundtrack-concerning-hobbits",
+    "title": "Concerning Hobbits",
+    "artist": "Misc Soundtrack",
+    "file": "misc-soundtrack-concerning-hobbits.json",
+    "ugTabId": "2816603"
+  },
+  {
+    "id": "misc-soundtrack-rohan",
+    "title": "Rohan",
+    "artist": "Misc Soundtrack",
+    "file": "misc-soundtrack-rohan.json",
+    "ugTabId": "2369165"
+  },
+  {
+    "id": "plain-white-t-s-hey-there-delilah",
+    "title": "HEY THERE DELILAH",
+    "artist": "Plain White T's",
+    "file": "plain-white-t-s-hey-there-delilah.json",
+    "ugTabId": "1282842"
+  },
+  {
+    "id": "ralph-mctell-streets-of-london",
+    "title": "Streets of London",
+    "artist": "Ralph McTell",
+    "file": "ralph-mctell-streets-of-london.json",
+    "ugTabId": "2137511"
+  },
+  {
+    "id": "red-hot-chili-peppers-californication",
+    "title": "Californication",
+    "artist": "Red Hot Chili Peppers",
+    "file": "red-hot-chili-peppers-californication.json",
+    "ugTabId": "1277925"
+  },
+  {
+    "id": "runrig-all-the-miles",
+    "title": "ALL THE MILES",
+    "artist": "Runrig",
+    "file": "runrig-all-the-miles.json",
+    "ugTabId": "1717470"
+  },
+  {
+    "id": "runrig-and-well-sing",
+    "title": "AND WELL SING",
+    "artist": "Runrig",
+    "file": "runrig-and-well-sing.json",
+    "ugTabId": "1717636"
+  },
+  {
+    "id": "runrig-big-sky",
+    "title": "BIG SKY",
+    "artist": "Runrig",
+    "file": "runrig-big-sky.json",
+    "ugTabId": "1389218"
+  },
+  {
+    "id": "runrig-book-of-golden-stories",
+    "title": "BOOK OF GOLDEN STORIES",
+    "artist": "Runrig",
+    "file": "runrig-book-of-golden-stories.json",
+    "ugTabId": "1458339"
+  },
+  {
+    "id": "runrig-every-river",
+    "title": "Every River",
+    "artist": "Runrig",
+    "file": "runrig-every-river.json",
+    "ugTabId": "805203"
+  },
+  {
+    "id": "runrig-going-home",
+    "title": "GOING HOME",
+    "artist": "Runrig",
+    "file": "runrig-going-home.json",
+    "ugTabId": "1142047"
+  },
+  {
+    "id": "runrig-hearts-of-olden-glory",
+    "title": "HEARTS OF OLDEN GLORY",
+    "artist": "Runrig",
+    "file": "runrig-hearts-of-olden-glory.json",
+    "ugTabId": "1275466"
+  },
+  {
+    "id": "runrig-in-search-of-angels",
+    "title": "IN SEARCH OF ANGELS",
+    "artist": "Runrig",
+    "file": "runrig-in-search-of-angels.json",
+    "ugTabId": "1267557"
+  },
+  {
+    "id": "runrig-life-is",
+    "title": "LIFE IS",
+    "artist": "Runrig",
+    "file": "runrig-life-is.json",
+    "ugTabId": "1389102"
+  },
+  {
+    "id": "runrig-loch-lomond",
+    "title": "LOCH LOMOND",
+    "artist": "Runrig",
+    "file": "runrig-loch-lomond.json",
+    "ugTabId": "1276306"
+  },
+  {
+    "id": "runrig-one-thing",
+    "title": "ONE THING",
+    "artist": "Runrig",
+    "file": "runrig-one-thing.json",
+    "ugTabId": "1389263"
+  },
+  {
+    "id": "runrig-pride-of-summer",
+    "title": "PRIDE OF SUMMER",
+    "artist": "Runrig",
+    "file": "runrig-pride-of-summer.json",
+    "ugTabId": "2151151"
+  },
+  {
+    "id": "runrig-protect-and-survive",
+    "title": "PROTECT AND SURVIVE",
+    "artist": "Runrig",
+    "file": "runrig-protect-and-survive.json",
+    "ugTabId": "1277221"
+  },
+  {
+    "id": "runrig-proterra",
+    "title": "PROTERRA",
+    "artist": "Runrig",
+    "file": "runrig-proterra.json",
+    "ugTabId": "1717396"
+  },
+  {
+    "id": "runrig-rocket-to-the-moon",
+    "title": "ROCKET TO THE MOON",
+    "artist": "Runrig",
+    "file": "runrig-rocket-to-the-moon.json",
+    "ugTabId": "1197713"
+  },
+  {
+    "id": "runrig-somewhere",
+    "title": "SOMEWHERE",
+    "artist": "Runrig",
+    "file": "runrig-somewhere.json",
+    "ugTabId": "1856919"
+  },
+  {
+    "id": "runrig-year-of-the-flood",
+    "title": "YEAR OF THE FLOOD",
+    "artist": "Runrig",
+    "file": "runrig-year-of-the-flood.json",
+    "ugTabId": "1382838"
+  },
+  {
+    "id": "sheryl-crow-sweet-child-o-mine",
+    "title": "SWEET CHILD O MINE",
+    "artist": "Sheryl Crow",
+    "file": "sheryl-crow-sweet-child-o-mine.json",
+    "ugTabId": "12649"
+  },
+  {
+    "id": "sonny-rhodes-firefly-theme",
+    "title": "FIREFLY THEME",
+    "artist": "Sonny Rhodes",
+    "file": "sonny-rhodes-firefly-theme.json",
+    "ugTabId": "988128"
+  },
+  {
+    "id": "sting-fields-of-gold",
+    "title": "Fields of Gold",
+    "artist": "Sting",
+    "file": "sting-fields-of-gold.json",
+    "ugTabId": "1692976"
+  },
+  {
+    "id": "tears-for-fears-mad-world",
+    "title": "MAD WORLD",
+    "artist": "Tears For Fears",
+    "file": "tears-for-fears-mad-world.json",
+    "ugTabId": "53816"
+  },
+  {
+    "id": "teddy-swims-lose-control",
+    "title": "LOSE CONTROL",
+    "artist": "Teddy Swims",
+    "file": "teddy-swims-lose-control.json",
+    "ugTabId": "4835888"
+  },
+  {
+    "id": "the-longest-johns-wellerman",
+    "title": "WELLERMAN",
+    "artist": "The Longest Johns",
+    "file": "the-longest-johns-wellerman.json",
+    "ugTabId": "3363590"
+  },
+  {
+    "id": "the-who-behind-blue-eyes",
+    "title": "BEHIND BLUE EYES",
+    "artist": "The Who",
+    "file": "the-who-behind-blue-eyes.json",
+    "ugTabId": "1324314"
+  }
+]

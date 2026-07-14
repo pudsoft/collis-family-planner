@@ -8,3 +8,4 @@ token.json
 term_dates.json
 logs/
 *.log
+tools/uketabs/ug_session.json

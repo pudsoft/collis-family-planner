@@ -869,6 +869,7 @@ from routes.smarthome     import bp as smarthome_bp
 from routes.energy        import bp as energy_bp
 from routes.email_manager import bp as email_manager_bp
 from routes.weather       import bp as weather_bp
+from routes.ukulele       import bp as ukulele_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(dashboard_bp)
@@ -883,6 +884,7 @@ app.register_blueprint(smarthome_bp)
 app.register_blueprint(energy_bp)
 app.register_blueprint(email_manager_bp)
 app.register_blueprint(weather_bp)
+app.register_blueprint(ukulele_bp)
 
 
 # ── Run ────────────────────────────────────────────────────────────────────────
