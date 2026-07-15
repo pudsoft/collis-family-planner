@@ -310,6 +310,20 @@ def _init_db_mysql(db):
             )
     db.commit()
 
+    # One-time cleanup: earlier calendar_sync bugs (OAuth->iCal migration, then
+    # an id-format change) left behind calendar_events rows wrongly marked
+    # cancelled=1 that duplicate still-live events. Purge them once; going
+    # forward the soft-cancel logic only touches genuinely-removed events.
+    if not db.execute(
+        "SELECT 1 FROM _migrations WHERE id=?",
+        ("calendar_events_purge_stale_cancelled_v1",),
+    ).fetchone():
+        db.execute("DELETE FROM calendar_events WHERE cancelled = 1")
+        db.execute(
+            "INSERT IGNORE INTO _migrations VALUES ('calendar_events_purge_stale_cancelled_v1')"
+        )
+        db.commit()
+
 
 def _init_db_sqlite(db):
     """Create schema for SQLite (local dev)."""
@@ -541,6 +555,20 @@ def _init_db_sqlite(db):
                 (ch, person),
             )
     db.commit()
+
+    # One-time cleanup: earlier calendar_sync bugs (OAuth->iCal migration, then
+    # an id-format change) left behind calendar_events rows wrongly marked
+    # cancelled=1 that duplicate still-live events. Purge them once; going
+    # forward the soft-cancel logic only touches genuinely-removed events.
+    if not db.execute(
+        "SELECT 1 FROM _migrations WHERE id=?",
+        ("calendar_events_purge_stale_cancelled_v1",),
+    ).fetchone():
+        db.execute("DELETE FROM calendar_events WHERE cancelled = 1")
+        db.execute(
+            "INSERT OR IGNORE INTO _migrations VALUES ('calendar_events_purge_stale_cancelled_v1')"
+        )
+        db.commit()
 
 
 def init_db():
