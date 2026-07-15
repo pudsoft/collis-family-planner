@@ -66,6 +66,20 @@ def fetch_events(db_conn) -> list[dict]:
         end = now + timedelta(days=14)
         now_ts = now.isoformat()
 
+        # Snapshot what we already had *before* this fetch touches the table —
+        # comparing against this (rather than re-reading rows we're about to
+        # upsert in the same pass) is what makes the soft-cancel check reliable.
+        window_start = now.isoformat()
+        window_end   = end.isoformat()
+        previously_live_ids = {
+            r["id"] for r in db_conn.execute(
+                """SELECT id FROM calendar_events
+                   WHERE cancelled = 0
+                     AND start_dt >= ? AND start_dt <= ?""",
+                (window_start, window_end),
+            ).fetchall()
+        }
+
         components = recurring_ical_events.of(cal).between(now, end)
 
         fetched_ids: set[str] = set()
@@ -88,10 +102,17 @@ def fetch_events(db_conn) -> list[dict]:
                 start_iso = start_val.isoformat()
                 end_iso   = end_val.isoformat()
             else:
+                # Normalise to UTC (rather than keeping the feed's own offset,
+                # e.g. BST +01:00) so start_dt strings sort/compare correctly
+                # against the UTC window bounds below.
                 if getattr(start_val, "tzinfo", None) is None:
                     start_val = start_val.replace(tzinfo=timezone.utc)
+                else:
+                    start_val = start_val.astimezone(timezone.utc)
                 if getattr(end_val, "tzinfo", None) is None:
                     end_val = end_val.replace(tzinfo=timezone.utc)
+                else:
+                    end_val = end_val.astimezone(timezone.utc)
                 start_iso = start_val.isoformat()
                 end_iso   = end_val.isoformat()
 
@@ -130,16 +151,10 @@ def fetch_events(db_conn) -> list[dict]:
                 upserts,
             )
 
-        # Soft-cancel events that were in our window but are no longer returned
-        window_start = now.isoformat()
-        window_end   = end.isoformat()
-        existing_in_window = db_conn.execute(
-            """SELECT id FROM calendar_events
-               WHERE cancelled = 0
-                 AND start_dt >= ? AND start_dt <= ?""",
-            (window_start, window_end),
-        ).fetchall()
-        to_cancel = [r["id"] for r in existing_in_window if r["id"] not in fetched_ids]
+        # Soft-cancel events that were in our window last time but are no
+        # longer returned this fetch (using the pre-fetch snapshot, not a
+        # re-read of the rows we just upserted above).
+        to_cancel = [eid for eid in previously_live_ids if eid not in fetched_ids]
         if to_cancel:
             db_conn.executemany(
                 "UPDATE calendar_events SET cancelled=1, cached_at=? WHERE id=?",
