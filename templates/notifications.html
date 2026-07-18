@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Notifications — {{ person_display[person].label if person in person_display else person.title() }}{% endblock %}
+
+{% block content %}
+<div class="page">
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title" style="margin-bottom:0">🔔 Notifications</span>
+    </div>
+
+    {% if notifications %}
+    <div class="notif-list">
+      {% for n in notifications %}
+      <div class="notif-card urgency-{{ n.urgency }}" data-notif-id="{{ n.id }}">
+        <div class="notif-top">
+          <span class="notif-time">{{ n.created_display }}</span>
+          <button class="notif-clear-btn" data-notif-id="{{ n.id }}" aria-label="Clear notification" title="Clear">✕</button>
+        </div>
+        <div class="notif-title">{{ n.title }}</div>
+        {% if n.body %}<div class="notif-body" data-notif-body>{{ n.body }}</div>{% endif %}
+        <div class="notif-actions">
+          {% if n.body %}
+          <button class="btn btn-secondary btn-sm notif-copy-btn" data-copy-text="{{ n.body }}">📋 Copy</button>
+          {% endif %}
+          {% if n.url %}
+          <a class="btn btn-secondary btn-sm" href="{{ n.url }}">Open</a>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">🔔</div>
+      <div class="empty-state-text">No notifications right now.</div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- ── Confirm-clear modal (shared by every card) ───────────────────────────── -->
+<div class="modal-backdrop" id="notif-clear-modal">
+  <div class="modal-sheet">
+    <span class="modal-close">✕</span>
+    <div class="modal-title">Clear this notification?</div>
+    <p style="color:var(--text-muted);font-size:.88rem;margin-bottom:16px">This can't be undone.</p>
+    <div style="display:flex;gap:8px">
+      <button type="button" class="btn btn-secondary btn-full modal-close">Cancel</button>
+      <button type="button" class="btn btn-danger btn-full" id="notif-clear-confirm">Clear</button>
+    </div>
+  </div>
+</div>
+{% endblock %}

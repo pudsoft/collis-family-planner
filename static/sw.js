@@ -1,5 +1,19 @@
-const CACHE_VER    = 'cfp-v3';
+const CACHE_VER    = 'cfp-v4';
 const STATIC_CACHE = CACHE_VER + '-static';
+
+// Per-urgency vibration pattern (ms on/off) and whether the notification
+// should stay on screen until dismissed. Custom OS notification *sounds*
+// aren't supported by the Web Push spec in any current browser — the best
+// we can do at the OS level is vibration + requireInteraction. When the app
+// is actually open in a tab (the common case for a wall-mounted kiosk), we
+// additionally postMessage the open clients so they can play a real sound
+// file per urgency — see the 'message' listener in base.html.
+const URGENCY = {
+  low:      { vibrate: [80],                          requireInteraction: false, silent: true  },
+  default:  { vibrate: [120, 60, 120],                 requireInteraction: false, silent: false },
+  high:     { vibrate: [200, 80, 200, 80, 200],        requireInteraction: true,  silent: false },
+  critical: { vibrate: [300, 100, 300, 100, 300, 100], requireInteraction: true,  silent: false },
+};
 
 const PRECACHE = [
   '/static/icons/icon-192.png',
@@ -28,16 +42,26 @@ self.addEventListener('activate', e => {
 
 // Push notifications
 self.addEventListener('push', e => {
-  let data = { title: '💊 Family Planner', body: 'You have a reminder', url: '/' };
+  let data = { title: '💊 Family Planner', body: 'You have a reminder', url: '/', urgency: 'default' };
   try { data = Object.assign(data, e.data.json()); } catch {}
-  e.waitUntil(
+  const cfg = URGENCY[data.urgency] || URGENCY.default;
+
+  e.waitUntil(Promise.all([
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: '/static/icons/icon-192.png',
       badge: '/static/icons/icon-192.png',
+      vibrate: cfg.vibrate,
+      requireInteraction: cfg.requireInteraction,
+      silent: cfg.silent,
       data: { url: data.url },
-    })
-  );
+    }),
+    // App open in a tab (kiosk tablet): tell it to play the matching sound —
+    // real per-urgency audio isn't reliable via the OS notification alone.
+    self.clients.matchAll({ type: 'window' }).then(wins => {
+      wins.forEach(w => w.postMessage({ type: 'cfp-play-sound', urgency: data.urgency }));
+    }),
+  ]));
 });
 
 self.addEventListener('notificationclick', e => {

@@ -255,6 +255,15 @@ def _init_db_mysql(db):
             notes                  TEXT,
             mot_last_reminded      VARCHAR(20)
         )""",
+        """CREATE TABLE IF NOT EXISTS notifications (
+            id         INT AUTO_INCREMENT PRIMARY KEY,
+            person     VARCHAR(50) NOT NULL,
+            title      VARCHAR(300) NOT NULL,
+            body       TEXT,
+            url        TEXT,
+            urgency    VARCHAR(20) NOT NULL DEFAULT 'default',
+            created_at VARCHAR(50) NOT NULL
+        )""",
     ]
     for stmt in statements:
         db.execute(stmt)
@@ -507,6 +516,15 @@ def _init_db_sqlite(db):
             notes                  TEXT,
             mot_last_reminded      TEXT
         );
+        CREATE TABLE IF NOT EXISTS notifications (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            person     TEXT NOT NULL,
+            title      TEXT NOT NULL,
+            body       TEXT,
+            url        TEXT,
+            urgency    TEXT NOT NULL DEFAULT 'default',
+            created_at TEXT NOT NULL
+        );
     """)
     db.commit()
 
@@ -587,6 +605,7 @@ def init_db():
 _LOGIN_EXEMPT = {
     "auth.login", "auth.login_pin", "auth.login_google", "auth.login_google_callback",
     "auth.logout", "static", "auth.service_worker", "auth.offline",
+    "notifications.api_notify",
 }
 
 
@@ -898,6 +917,7 @@ from routes.energy        import bp as energy_bp
 from routes.email_manager import bp as email_manager_bp
 from routes.weather       import bp as weather_bp
 from routes.ukulele       import bp as ukulele_bp
+from routes.notifications import bp as notifications_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(dashboard_bp)
@@ -913,6 +933,7 @@ app.register_blueprint(energy_bp)
 app.register_blueprint(email_manager_bp)
 app.register_blueprint(weather_bp)
 app.register_blueprint(ukulele_bp)
+app.register_blueprint(notifications_bp)
 
 
 # ── Run ────────────────────────────────────────────────────────────────────────

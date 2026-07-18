@@ -65,8 +65,13 @@ def get_public_key(db_conn) -> str:
     return pub
 
 
-def send_push(subscription: dict, title: str, body: str, url: str, db_conn) -> bool:
+def send_push(subscription: dict, title: str, body: str, url: str, db_conn,
+              urgency: str = "default") -> bool:
     """Send a Web Push to a single subscription dict {endpoint, p256dh, auth}.
+
+    `urgency` (low/default/high/critical) is passed through in the payload so
+    the service worker can pick a vibration pattern and tell open tabs which
+    sound to play — see static/sw.js and the message listener in base.html.
 
     Automatically removes the subscription from the DB if the push service
     returns 404/410 (expired or unregistered subscription).
@@ -84,7 +89,7 @@ def send_push(subscription: dict, title: str, body: str, url: str, db_conn) -> b
                 "endpoint": subscription["endpoint"],
                 "keys": {"p256dh": subscription["p256dh"], "auth": subscription["auth"]},
             },
-            data=json.dumps({"title": title, "body": body, "url": url}),
+            data=json.dumps({"title": title, "body": body, "url": url, "urgency": urgency}),
             vapid_private_key=vapid,
             vapid_claims={"sub": config.VAPID_SUBJECT},
         )
@@ -105,10 +110,11 @@ def send_push(subscription: dict, title: str, body: str, url: str, db_conn) -> b
         return False
 
 
-def send_push_to_person(db_conn, person: str, title: str, body: str, url: str = None) -> int:
+def send_push_to_person(db_conn, person: str, title: str, body: str, url: str = None,
+                        urgency: str = "default") -> int:
     """Send to all subscriptions for a person. Returns count sent."""
     rows = db_conn.execute(
         "SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE person=?", (person,)
     ).fetchall()
     dest = url or config.APP_BASE_URL
-    return sum(send_push(dict(r), title, body, dest, db_conn) for r in rows)
+    return sum(send_push(dict(r), title, body, dest, db_conn, urgency=urgency) for r in rows)

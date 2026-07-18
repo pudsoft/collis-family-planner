@@ -64,6 +64,15 @@ VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "")
 VAPID_PUBLIC_KEY  = os.getenv("VAPID_PUBLIC_KEY", "")
 VAPID_SUBJECT     = os.getenv("VAPID_SUBJECT", "mailto:admin@collisfamilyplanner.ddns.net")
 
+# ── Notification API (external trigger) ────────────────────────────────────────
+# Secret key required in the X-API-Key header on POST /api/notify.
+# Override in .env for production — this default is fine for local dev only.
+NOTIFY_API_KEY = os.getenv("NOTIFY_API_KEY", "cfp_notify_2475449bd26e0da48ff9d1b69146c14216be263e042fc8b7")
+
+# Urgency levels accepted by /api/notify and the notification feed.
+# Each maps to a vibration pattern (ms on/off) and a sound file under static/sounds/.
+NOTIFY_URGENCY_LEVELS = ("low", "default", "high", "critical")
+
 # ── NTFY ──────────────────────────────────────────────────────────────────────
 NTFY_BASE_URL = "https://ntfy.sh"
 # Channels are stored per-person in the DB (person_prefs.ntfy_channel).
@@ -143,6 +152,7 @@ HOME_TILES = [
     {"id": "meals",      "label": "Meal Plan",    "emoji": "🍽️",  "url": "/meals",             "admin_only": False},
     {"id": "medicines",  "label": "Medicines",    "emoji": "💊", "url": "/medicines",         "admin_only": False},
     {"id": "email",      "label": "Email",        "emoji": "📧", "url": "/email",             "admin_only": False},
+    {"id": "notifications", "label": "Notifications", "emoji": "🔔", "url": "/notifications",  "admin_only": False},
     {"id": "wifi",       "label": "WiFi",         "emoji": "📶", "url": "/network",           "admin_only": True},
     {"id": "temps",        "label": "Temperatures", "emoji": "🌡️",  "url": "/smarthome",        "admin_only": False},
     {"id": "energy",     "label": "Energy",       "emoji": "⚡", "url": "/energy",            "admin_only": False},

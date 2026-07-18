@@ -591,6 +591,31 @@ input, select, textarea { font: inherit; max-width: 100%; }
 .chip-violet { background: #FDF4FF; color: var(--violet); }
 .chip-anyone { background: #F3F4F6; color: var(--anyone); }
 
+/* ── Notifications ──────────────────────────────────────────────────────────── */
+.notif-list { display: flex; flex-direction: column; gap: 8px; }
+.notif-card {
+  padding: 10px 12px; background: var(--surface);
+  border-radius: 10px; box-shadow: var(--shadow);
+  border-left: 3px solid var(--border);
+}
+.notif-card.urgency-low      { border-left-color: var(--text-muted); }
+.notif-card.urgency-default  { border-left-color: var(--person-colour, var(--family)); }
+.notif-card.urgency-high     { border-left-color: #F59E0B; }
+.notif-card.urgency-critical { border-left-color: #EF4444; background: rgba(239,68,68,.06); }
+.notif-top {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 4px;
+}
+.notif-time { font-size: .72rem; color: var(--text-muted); }
+.notif-clear-btn {
+  font-size: .85rem; line-height: 1; color: var(--text-muted);
+  padding: 3px 6px; border-radius: 6px; transition: var(--transition);
+}
+.notif-clear-btn:hover { background: var(--border); color: var(--text); }
+.notif-title { font-size: .9rem; font-weight: 600; }
+.notif-body  { font-size: .85rem; color: var(--text-muted); margin-top: 3px; white-space: pre-wrap; }
+.notif-actions { display: flex; gap: 8px; margin-top: 8px; }
+
 /* ── Toast / flash ───────────────────────────────────────────────────────────── */
 .toast-container {
   position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);

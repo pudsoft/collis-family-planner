@@ -238,6 +238,41 @@ function toggleDeviceTheme() {
   location.reload();
 }
 
+// ── Notification copy-to-clipboard ───────────────────────────────────────── //
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".notif-copy-btn");
+  if (!btn) return;
+  const text = btn.dataset.copyText || "";
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("Copied to clipboard");
+  } catch (e) {
+    showToast("Couldn't copy — try again", "error");
+  }
+});
+
+// ── Notification clear (X → confirm modal → delete) ──────────────────────── //
+let _pendingClearNotifId = null;
+
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest(".notif-clear-btn");
+  if (!btn) return;
+  _pendingClearNotifId = btn.dataset.notifId;
+  document.getElementById("notif-clear-modal")?.classList.add("open");
+});
+
+document.addEventListener("click", async (e) => {
+  if (e.target.id !== "notif-clear-confirm") return;
+  if (!_pendingClearNotifId) return;
+  const notifId = _pendingClearNotifId;
+  const result = await postAction(`/notifications/${notifId}/clear`, new FormData());
+  document.getElementById("notif-clear-modal")?.classList.remove("open");
+  _pendingClearNotifId = null;
+  if (result) {
+    document.querySelector(`.notif-card[data-notif-id="${notifId}"]`)?.remove();
+  }
+});
+
 // ── NTFY test ─────────────────────────────────────────────────────────────── //
 document.addEventListener("click", async (e) => {
   const btn = e.target.closest("#ntfy-test-btn");

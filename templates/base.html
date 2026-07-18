@@ -91,6 +91,9 @@
   <a href="/email" class="side-nav-item {% if request.endpoint == 'email_manager.email_view' %}active{% endif %}">
     <span class="side-nav-icon">📧</span>Email
   </a>
+  <a href="/notifications" class="side-nav-item {% if request.endpoint == 'notifications.notifications_view' %}active{% endif %}">
+    <span class="side-nav-icon">🔔</span>Notifications
+  </a>
   <a href="/ukulele" class="side-nav-item {% if request.endpoint == 'ukulele.ukulele_view' %}active{% endif %}">
     <span class="side-nav-icon">🎸</span>Ukulele Songbook
   </a>
@@ -131,6 +134,14 @@
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.addEventListener('message', e => {
+      if (e.data && e.data.type === 'cfp-play-sound') {
+        const urgency = ['low', 'default', 'high', 'critical'].includes(e.data.urgency) ? e.data.urgency : 'default';
+        try {
+          new Audio(`/static/sounds/${urgency}.wav`).play().catch(() => {});
+        } catch {}
+      }
+    });
   }
 
   window._pwaPrompt = null;
