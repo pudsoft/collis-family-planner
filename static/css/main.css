@@ -602,6 +602,7 @@ input, select, textarea { font: inherit; max-width: 100%; }
 .notif-card.urgency-default  { border-left-color: var(--person-colour, var(--family)); }
 .notif-card.urgency-high     { border-left-color: #F59E0B; }
 .notif-card.urgency-critical { border-left-color: #EF4444; background: rgba(239,68,68,.06); }
+.notif-card.highlight { outline: 2px solid #6366F1; }
 .notif-top {
   display: flex; align-items: center; justify-content: space-between;
   gap: 8px; margin-bottom: 4px;

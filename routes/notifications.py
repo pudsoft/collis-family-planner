@@ -32,6 +32,7 @@ def notifications_view():
     db     = get_db()
     prefs  = get_prefs(db, person)
 
+    highlight_notif = request.args.get("notif", type=int)
     feed = notifications.get_notifications(db, person)
     for n in feed:
         n["created_display"] = _friendly_ts(n.get("created_at", ""))
@@ -41,6 +42,7 @@ def notifications_view():
         person=person,
         prefs=prefs,
         notifications=feed,
+        highlight_notif=highlight_notif,
         people=config.PEOPLE,
         person_display=config.PERSON_DISPLAY,
         is_admin=person in config.ADMINS,

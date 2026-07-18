@@ -12,7 +12,8 @@
     {% if notifications %}
     <div class="notif-list">
       {% for n in notifications %}
-      <div class="notif-card urgency-{{ n.urgency }}" data-notif-id="{{ n.id }}">
+      <div class="notif-card urgency-{{ n.urgency }} {% if highlight_notif == n.id %}highlight{% endif %}"
+           data-notif-id="{{ n.id }}" id="notif-{{ n.id }}">
         <div class="notif-top">
           <span class="notif-time">{{ n.created_display }}</span>
           <button class="notif-clear-btn" data-notif-id="{{ n.id }}" aria-label="Clear notification" title="Clear">✕</button>

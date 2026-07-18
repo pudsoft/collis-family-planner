@@ -20,6 +20,12 @@ def create_notification(db, person: str, title: str, body: str = "", url: str = 
                          urgency: str = "default", send_push: bool = True) -> int:
     """Log a notification for `person` (or 'family' to target everyone) and
     optionally deliver it as a Web Push. Returns the new notification id.
+
+    `url` is stored as given and drives the card's "Open" button — leave it
+    unset for a plain FYI notification. Either way, the push notification
+    itself always deep-links into /notifications?notif=<id> so tapping it
+    (when no more specific `url` was given) lands on and highlights the
+    matching card instead of just opening the app root.
     """
     if urgency not in config.NOTIFY_URGENCY_LEVELS:
         urgency = "default"
@@ -33,11 +39,12 @@ def create_notification(db, person: str, title: str, body: str = "", url: str = 
     db.commit()
     notif_id = cur.lastrowid
 
+    push_url = url or f"{config.APP_BASE_URL.rstrip('/')}/notifications?notif={notif_id}"
     if send_push:
         targets = config.PEOPLE if person == "family" else [person]
         for p in targets:
             try:
-                push_notif.send_push_to_person(db, p, title, body, url, urgency=urgency)
+                push_notif.send_push_to_person(db, p, title, body, push_url, urgency=urgency)
             except Exception:
                 log.exception("Failed to push notification %s to %s", notif_id, p)
 
