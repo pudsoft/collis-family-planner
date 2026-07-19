@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Claude{% endblock %}
+
+{% block content %}
+<div class="page">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div style="font-size:1.1rem;font-weight:700">🤖 Claude</div>
+  </div>
+
+  <div class="card admin-section">
+    <div class="admin-section-title">Open mobile-claude</div>
+    <div style="color:var(--text-muted);font-size:.85rem;margin-bottom:14px">
+      Only reachable from home WiFi or the tailnet — pick whichever this device is on.
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <a class="btn btn-primary btn-full" href="{{ lan_url }}" target="_blank" rel="noopener">
+        🏠 Open via LAN
+      </a>
+      <a class="btn btn-secondary btn-full" href="{{ tailscale_url }}" target="_blank" rel="noopener">
+        🔒 Open via Tailscale
+      </a>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

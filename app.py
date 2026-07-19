@@ -918,6 +918,7 @@ from routes.email_manager import bp as email_manager_bp
 from routes.weather       import bp as weather_bp
 from routes.ukulele       import bp as ukulele_bp
 from routes.notifications import bp as notifications_bp
+from routes.claude        import bp as claude_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(dashboard_bp)
@@ -934,6 +935,7 @@ app.register_blueprint(email_manager_bp)
 app.register_blueprint(weather_bp)
 app.register_blueprint(ukulele_bp)
 app.register_blueprint(notifications_bp)
+app.register_blueprint(claude_bp)
 
 
 # ── Run ────────────────────────────────────────────────────────────────────────

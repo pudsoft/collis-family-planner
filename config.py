@@ -133,6 +133,12 @@ for _p in ["katie", "paul", "joshua", "violet"]:
 PEOPLE = ["katie", "paul", "joshua", "violet"]
 ADMINS = ["katie", "paul"]
 
+# ── mobile-claude (Claude Code terminal web app) links ─────────────────────────
+# Reachable only from Paul's home LAN or tailnet -- these are just link targets
+# for the browser opening this page, not addresses the CFP server itself calls.
+CLAUDE_MOBILE_LAN_URL       = os.getenv("CLAUDE_MOBILE_LAN_URL", "http://192.168.1.183:5001")
+CLAUDE_MOBILE_TAILSCALE_URL = os.getenv("CLAUDE_MOBILE_TAILSCALE_URL", "http://100.97.229.32:5001")
+
 PERSON_DISPLAY = {
     "katie":  {"label": "Katie",  "colour": "#E8589F", "emoji": "💗"},
     "paul":   {"label": "Paul",   "colour": "#E05252", "emoji": "🔴"},
