@@ -133,6 +133,9 @@ for _p in ["katie", "paul", "joshua", "violet"]:
 PEOPLE = ["katie", "paul", "joshua", "violet"]
 ADMINS = ["katie", "paul"]
 
+# ── Wroxham investigation (unlisted kid's activity page) ───────────────────────
+WROXHAM_PASSWORD = os.getenv("WROXHAM_PASSWORD", "detective")
+
 # ── mobile-claude (Claude Code terminal web app) links ─────────────────────────
 # Reachable only from Paul's home LAN or tailnet -- these are just link targets
 # for the browser opening this page, not addresses the CFP server itself calls.

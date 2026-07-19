@@ -264,6 +264,11 @@ def _init_db_mysql(db):
             urgency    VARCHAR(20) NOT NULL DEFAULT 'default',
             created_at VARCHAR(50) NOT NULL
         )""",
+        """CREATE TABLE IF NOT EXISTS wroxham_progress (
+            item_id    VARCHAR(100) PRIMARY KEY,
+            value      TEXT NOT NULL DEFAULT '',
+            updated_at VARCHAR(50) NOT NULL
+        )""",
     ]
     for stmt in statements:
         db.execute(stmt)
@@ -525,6 +530,11 @@ def _init_db_sqlite(db):
             urgency    TEXT NOT NULL DEFAULT 'default',
             created_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS wroxham_progress (
+            item_id    TEXT PRIMARY KEY,
+            value      TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL
+        );
     """)
     db.commit()
 
@@ -606,6 +616,7 @@ _LOGIN_EXEMPT = {
     "auth.login", "auth.login_pin", "auth.login_google", "auth.login_google_callback",
     "auth.logout", "static", "auth.service_worker", "auth.offline",
     "notifications.api_notify",
+    "wroxham.wroxham_view", "wroxham.wroxham_unlock", "wroxham.wroxham_save",
 }
 
 
@@ -919,6 +930,7 @@ from routes.weather       import bp as weather_bp
 from routes.ukulele       import bp as ukulele_bp
 from routes.notifications import bp as notifications_bp
 from routes.claude        import bp as claude_bp
+from routes.wroxham       import bp as wroxham_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(dashboard_bp)
@@ -936,6 +948,7 @@ app.register_blueprint(weather_bp)
 app.register_blueprint(ukulele_bp)
 app.register_blueprint(notifications_bp)
 app.register_blueprint(claude_bp)
+app.register_blueprint(wroxham_bp)
 
 
 # ── Run ────────────────────────────────────────────────────────────────────────

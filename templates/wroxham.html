@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Great Wroxham Investigation</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: 'Segoe UI', 'Trebuchet MS', Verdana, sans-serif;
+    background: #fdfcf7;
+    color: #1c2b33;
+  }
+
+  /* ── Lock screen ─────────────────────────────────────────────────────── */
+  .lock-wrap {
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px;
+    text-align: center;
+  }
+  .lock-badge {
+    width: 100px; height: 100px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ffe9a8, #f4b942 70%, #d98e1e 100%);
+    border: 5px solid #1c2b33;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 44px;
+    margin-bottom: 20px;
+  }
+  .lock-wrap h1 { font-size: 22px; color: #1c4d5c; margin: 0 0 8px; }
+  .lock-wrap p { font-size: 14px; color: #55605f; margin: 0 0 22px; max-width: 300px; }
+  .lock-form { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 260px; }
+  .lock-form input {
+    font-size: 17px; padding: 12px 14px; border-radius: 10px;
+    border: 2px solid #dcd6c2; text-align: center;
+  }
+  .lock-form button {
+    font-size: 16px; font-weight: 700; padding: 12px 14px; border-radius: 10px;
+    border: 3px solid #1c2b33; background: #f4b942; color: #1c2b33; cursor: pointer;
+    box-shadow: 3px 3px 0 #1c2b33;
+  }
+  .lock-form button:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 #1c2b33; }
+  .lock-error { color: #b3492f; font-size: 13px; font-weight: 700; }
+
+  /* ── Main app ─────────────────────────────────────────────────────────── */
+  .wrap { max-width: 640px; margin: 0 auto; padding: 18px 16px 60px; }
+
+  .hero {
+    position: relative;
+    border-radius: 18px;
+    overflow: hidden;
+    padding: 22px 20px;
+    margin-bottom: 18px;
+    background: #1c4d5c;
+    color: #fdfcf7;
+    text-align: center;
+  }
+  .hero svg.map-bg { position: absolute; inset: 0; opacity: 0.14; }
+  .hero .content { position: relative; z-index: 1; }
+  .hero .eyebrow { letter-spacing: 3px; font-size: 11px; font-weight: 700; text-transform: uppercase; opacity: 0.8; margin-bottom: 8px; }
+  .hero h1 { font-size: 24px; margin: 0 0 6px; line-height: 1.2; }
+  .hero .sub { font-size: 13px; opacity: 0.9; margin-bottom: 14px; }
+  .hero .agents { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .hero .agent-chip {
+    background: rgba(255,255,255,0.15);
+    border: 2px solid rgba(255,255,255,0.5);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 12.5px; font-weight: 700;
+  }
+
+  .progress-bar-wrap { margin-bottom: 22px; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 700; color: #55605f; margin-bottom: 6px; }
+  .progress-track { height: 14px; background: #eee6d0; border-radius: 8px; overflow: hidden; border: 2px solid #1c2b33; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg,#2f9c86,#f4b942); width: 0%; transition: width .3s; }
+
+  .case {
+    background: #fff;
+    border: 2px solid #e4ded0;
+    border-radius: 16px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .case-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .case-icon {
+    width: 46px; height: 46px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; flex-shrink: 0;
+    border: 2.5px solid #1c2b33;
+  }
+  .case-title { flex: 1; }
+  .case-label { font-size: 10.5px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #7a6a3f; }
+  .case-name { font-size: 16px; font-weight: 700; color: #1c2b33; }
+  .case-count { font-size: 12px; font-weight: 700; color: #7a6a3f; white-space: nowrap; }
+  .case-chevron { font-size: 14px; color: #9aa3a6; transition: transform .2s; }
+  .case.open .case-chevron { transform: rotate(90deg); }
+  .case-body { display: none; padding: 0 16px 16px; }
+  .case.open .case-body { display: block; }
+
+  .fact-box {
+    border-radius: 10px; padding: 10px 12px; font-size: 12.5px; line-height: 1.5;
+    margin: 0 0 14px; display: flex; gap: 8px; background: #f4f1e6; border: 2px solid #e4ded0;
+  }
+
+  .task { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-bottom: 1px solid #f0ece0; }
+  .task:last-child { border-bottom: none; }
+  .task input[type=checkbox] {
+    width: 24px; height: 24px; flex-shrink: 0; margin-top: 1px;
+    accent-color: #2f9c86;
+  }
+  .task label { font-size: 14.5px; line-height: 1.4; }
+  .task.done label { text-decoration: line-through; color: #9aa3a6; }
+
+  .write-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
+  .write-row label { font-size: 13.5px; font-weight: 600; min-width: 150px; flex-shrink: 0; }
+  .write-row input[type=text] {
+    flex: 1; font-size: 14px; padding: 8px 10px; border-radius: 8px; border: 2px solid #dcd6c2;
+    min-width: 0;
+  }
+  .write-block { padding: 7px 0; }
+  .write-block label { display: block; font-size: 13.5px; font-weight: 600; margin-bottom: 5px; }
+  .write-block textarea {
+    width: 100%; font-size: 14px; padding: 8px 10px; border-radius: 8px; border: 2px solid #dcd6c2;
+    font-family: inherit; resize: vertical; min-height: 46px;
+  }
+
+  .save-pip {
+    position: fixed; bottom: 16px; right: 16px;
+    background: #1c2b33; color: #fff; font-size: 12px; font-weight: 700;
+    padding: 8px 14px; border-radius: 20px;
+    opacity: 0; transform: translateY(8px);
+    transition: opacity .25s, transform .25s, background .2s;
+    pointer-events: none;
+  }
+  .save-pip.show { opacity: 0.95; transform: translateY(0); }
+  .save-pip.pending { background: #b3492f; }
+
+  .cert-block {
+    text-align: center; padding: 20px 16px;
+    background: #fff8e8; border: 3px dashed #d98e1e; border-radius: 16px;
+    margin-top: 6px;
+  }
+  .cert-block.unlocked { background: #fff; border: 4px solid #1c2b33; border-style: solid; box-shadow: 4px 4px 0 rgba(28,43,51,0.2); }
+  .cert-block .cert-eyebrow { font-size: 10.5px; letter-spacing: 2px; text-transform: uppercase; color: #7a6a3f; font-weight: 700; margin-bottom: 6px; }
+  .cert-block h3 { font-size: 18px; margin: 0 0 10px; }
+  .cert-block .stars { font-size: 26px; letter-spacing: 6px; margin: 8px 0; }
+  .cert-block p { font-size: 12.5px; color: #55605f; }
+
+  /* section colour themes */
+  .t-teal   .case-icon{background:#cdeee6;}
+  .t-amber  .case-icon{background:#ffe3b0;}
+  .t-coral  .case-icon{background:#ffd2c4;}
+  .t-blue   .case-icon{background:#c9e1f5;}
+  .t-purple .case-icon{background:#e2d6f5;}
+  .t-green  .case-icon{background:#d9edb8;}
+  .t-pink   .case-icon{background:#f7cfe0;}
+</style>
+</head>
+<body>
+
+{% if not unlocked %}
+<div class="lock-wrap">
+  <div class="lock-badge">🕵️</div>
+  <h1>Norfolk Explorer Agency</h1>
+  <p>This file is classified. Enter the agency password to begin your mission.</p>
+  <form class="lock-form" method="POST" action="/wroxham/unlock">
+    <input type="password" name="password" placeholder="Password" autofocus required>
+    <button type="submit">Unlock Mission</button>
+  </form>
+  {% if error %}<p class="lock-error">{{ error }}</p>{% endif %}
+</div>
+
+{% else %}
+<div class="wrap">
+
+  <div class="hero">
+    <svg class="map-bg" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid slice">
+      <path d="M -20 320 C 60 280, 40 220, 120 200 C 210 175, 190 130, 270 110 C 350 90, 330 50, 410 30 C 470 10, 520 0, 620 -10"
+            fill="none" stroke="#fdfcf7" stroke-width="14" stroke-linecap="round"/>
+    </svg>
+    <div class="content">
+      <div class="eyebrow">Norfolk Explorer Agency · Confidential</div>
+      <h1>The Great Wroxham Investigation</h1>
+      <div class="sub">Boats, bridges, ice cream and one very old shop &mdash; only the sharpest detectives crack this case.</div>
+      <div class="agents"><span class="agent-chip">🧒 Joshua</span><span class="agent-chip">👴 Grandad</span></div>
+    </div>
+  </div>
+
+  <div class="progress-bar-wrap">
+    <div class="progress-label"><span>Mission Progress</span><span id="progress-pct">0%</span></div>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+
+  <!-- Case 1 -->
+  <div class="case t-teal" data-case>
+    <div class="case-head" data-toggle>
+      <div class="case-icon">🚤</div>
+      <div class="case-title"><div class="case-label">Case File 01</div><div class="case-name">River Detectives</div></div>
+      <div class="case-count" data-count>0/4</div>
+      <div class="case-chevron">▶</div>
+    </div>
+    <div class="case-body">
+      <div class="fact-box">💡 <span><b>Did you know?</b> The Norfolk Broads were created when medieval people dug peat for fuel. The pits later flooded to form today's Broads.</span></div>
+      <div class="task"><input type="checkbox" id="c1-boats3" data-item="c1-boats3"><label for="c1-boats3">Photograph <b>3 different kinds of boats</b>.</label></div>
+      <div class="task"><input type="checkbox" id="c1-oldest" data-item="c1-oldest"><label for="c1-oldest">Find the <b>oldest-looking boat</b>.</label></div>
+      <div class="task"><input type="checkbox" id="c1-reflection" data-item="c1-reflection"><label for="c1-reflection">Take the <b>best reflection</b> in the water.</label></div>
+      <div class="task"><input type="checkbox" id="c1-floats" data-item="c1-floats"><label for="c1-floats">Find something that <b>floats but isn't a boat</b>.</label></div>
+    </div>
+  </div>
+
+  <!-- Case 2 -->
+  <div class="case t-amber" data-case>
+    <div class="case-head" data-toggle>
+      <div class="case-icon">🌉</div>
+      <div class="case-title"><div class="case-label">Case File 02</div><div class="case-name">The Bridge Mystery</div></div>
+      <div class="case-count" data-count>0/4</div>
+      <div class="case-chevron">▶</div>
+    </div>
+    <div class="case-body">
+      <div class="fact-box">💡 <span><b>Fact:</b> Wroxham Bridge dates all the way back to <b>1619</b>.</span></div>
+      <div class="write-row"><label for="c2-north">🛥️ Boats going north</label><input type="text" inputmode="numeric" id="c2-north" data-item="c2-north"></div>
+      <div class="write-row"><label for="c2-south">🛥️ Boats going south</label><input type="text" inputmode="numeric" id="c2-south" data-item="c2-south"></div>
+      <div class="write-row"><label for="c2-ducks">🦆 Ducks under the bridge</label><input type="text" inputmode="numeric" id="c2-ducks" data-item="c2-ducks"></div>
+      <div class="write-block"><label for="c2-why">Why might some boats struggle to fit under the bridge?</label><textarea id="c2-why" data-item="c2-why"></textarea></div>
+      <div class="task"><input type="checkbox" id="c2-done" data-item="c2-done"><label for="c2-done">Case complete</label></div>
+    </div>
+  </div>
+
+  <!-- Case 3 -->
+  <div class="case t-coral" data-case>
+    <div class="case-head" data-toggle>
+      <div class="case-icon">🔍</div>
+      <div class="case-title"><div class="case-label">Case File 03</div><div class="case-name">Things Most People Miss</div></div>
+      <div class="case-count" data-count>0/8</div>
+      <div class="case-chevron">▶</div>
+    </div>
+    <div class="case-body">
+      <div class="fact-box">🕵️ <span>The best detectives notice what everyone else walks straight past. Slow down and look twice.</span></div>
+      <div class="task"><input type="checkbox" id="c3-heart" data-item="c3-heart"><label for="c3-heart">Something shaped like a <b>heart</b>.</label></div>
+      <div class="task"><input type="checkbox" id="c3-older" data-item="c3-older"><label for="c3-older">Something <b>older than Grandad</b>.</label></div>
+      <div class="task"><input type="checkbox" id="c3-w" data-item="c3-w"><label for="c3-w">Something beginning with <b>W</b>.</label></div>
+      <div class="task"><input type="checkbox" id="c3-j" data-item="c3-j"><label for="c3-j">Something beginning with <b>J</b>.</label></div>
+      <div class="task"><input type="checkbox" id="c3-bright" data-item="c3-bright"><label for="c3-bright">The <b>brightest colour</b> you can find.</label></div>
+      <div class="task"><input type="checkbox" id="c3-funny" data-item="c3-funny"><label for="c3-funny">The <b>funniest sign</b>.</label></div>
+      <div class="task"><input type="checkbox" id="c3-tree" data-item="c3-tree"><label for="c3-tree">The <b>biggest tree</b>.</label></div>
+      <div class="task"><input type="checkbox" id="c3-nobody" data-item="c3-nobody"><label for="c3-nobody">Something <b>nobody else is photographing</b>.</label></div>
+    </div>
+  </div>
+
+  <!-- Case 4 -->
+  <div class="case t-blue" data-case>
+    <div class="case-head" data-toggle>
+      <div class="case-icon">🐦</div>
+      <div class="case-title"><div class="case-label">Case File 04</div><div class="case-name">Nature Spotter</div></div>
+      <div class="case-count" data-count>0/6</div>
+      <div class="case-chevron">▶</div>
+    </div>
+    <div class="case-body">
+      <div class="fact-box">💡 <span>The river is full of wildlife if you know where to look &mdash; tick every bird you spot.</span></div>
+      <div class="task"><input type="checkbox" id="c4-duck" data-item="c4-duck"><label for="c4-duck">🦆 Duck</label></div>
+      <div class="task"><input type="checkbox" id="c4-swan" data-item="c4-swan"><label for="c4-swan">🦢 Swan</label></div>
+      <div class="task"><input type="checkbox" id="c4-goose" data-item="c4-goose"><label for="c4-goose">🪿 Goose</label></div>
+      <div class="task"><input type="checkbox" id="c4-gull" data-item="c4-gull"><label for="c4-gull">🐦 Gull</label></div>
+      <div class="task"><input type="checkbox" id="c4-moorhen" data-item="c4-moorhen"><label for="c4-moorhen">🐤 Moorhen or Coot</label></div>
+      <div class="write-row"><label for="c4-other">Another bird</label><input type="text" id="c4-other" data-item="c4-other"></div>
+    </div>
+  </div>
+
+  <!-- Case 5 -->
+  <div class="case t-pink" data-case>
+    <div class="case-head" data-toggle>
+      <div class="case-icon">🍦</div>
+      <div class="case-title"><div class="case-label">Case File 05</div><div class="case-name">Ice Cream Investigation</div></div>
+      <div class="case-count" data-count>0/5</div>
+      <div class="case-chevron">▶</div>
+    </div>
+    <div class="case-body">
+      <div class="fact-box">🍨 <span>Every good investigation deserves an ice cream break. This one is strictly business.</span></div>
+      <div class="write-row"><label for="c5-count">🍧 Flavours counted</label><input type="text" inputmode="numeric" id="c5-count" data-item="c5-count"></div>
+      <div class="write-row"><label for="c5-strange">😲 Strangest flavour</label><input type="text" id="c5-strange" data-item="c5-strange"></div>
+      <div class="write-row"><label for="c5-grandad">👴 Grandad's choice</label><input type="text" id="c5-grandad" data-item="c5-grandad"></div>
+      <div class="write-row"><label for="c5-joshua">🧒 Joshua's choice</label><input type="text" id="c5-joshua" data-item="c5-joshua"></div>
+      <div class="task"><input type="checkbox" id="c5-photo" data-item="c5-photo"><label for="c5-photo">Take the <b>happiest ice cream photo</b> you can.</label></div>
+    </div>
+  </div>
+
+  <!-- Case 6 -->
+  <div class="case t-purple" data-case>
+    <div class="case-head" data-toggle>
+      <div class="case-icon">🛍️</div>
+      <div class="case-title"><div class="case-label">Case File 06</div><div class="case-name">Roys Challenge</div></div>
+      <div class="case-count" data-count>0/7</div>
+      <div class="case-chevron">▶</div>
+    </div>
+    <div class="case-body">
+      <div class="fact-box">💡 <span><b>Clue:</b> Roys says it's "the largest village store in the world" &mdash; but can you spot the clue that it's actually in <b>Hoveton</b>, not Wroxham?</span></div>
+      <div class="task"><input type="checkbox" id="c6-hoveton" data-item="c6-hoveton"><label for="c6-hoveton">Spot the clue that Roys is really in <b>Hoveton</b>.</label></div>
+      <div class="task"><input type="checkbox" id="c6-never" data-item="c6-never"><label for="c6-never">Find a game you've <b>never played</b>.</label></div>
+      <div class="task"><input type="checkbox" id="c6-old" data-item="c6-old"><label for="c6-old">Find an <b>old-fashioned toy</b>.</label></div>
+      <div class="task"><input type="checkbox" id="c6-future" data-item="c6-future"><label for="c6-future">Find a <b>futuristic toy</b>.</label></div>
+      <div class="task"><input type="checkbox" id="c6-silly" data-item="c6-silly"><label for="c6-silly">Find the <b>silliest toy</b>.</label></div>
+      <div class="task"><input type="checkbox" id="c6-fidget" data-item="c6-fidget"><label for="c6-fidget">Find the <b>best fidget</b>.</label></div>
+      <div class="write-row"><label for="c6-tenner">What would you buy with £10?</label><input type="text" id="c6-tenner" data-item="c6-tenner"></div>
+    </div>
+  </div>
+
+  <!-- Secret missions + Grandad remembers -->
+  <div class="case t-green" data-case>
+    <div class="case-head" data-toggle>
+      <div class="case-icon">📸</div>
+      <div class="case-title"><div class="case-label">Top Secret</div><div class="case-name">Secret Missions &amp; Grandad Remembers</div></div>
+      <div class="case-count" data-count>0/6</div>
+      <div class="case-chevron">▶</div>
+    </div>
+    <div class="case-body">
+      <div class="fact-box">🤫 <span>Do these without the other agent noticing. Full marks for stealth.</span></div>
+      <div class="task"><input type="checkbox" id="s-photo-grandad" data-item="s-photo-grandad"><label for="s-photo-grandad">Joshua secretly photographs <b>Grandad</b>.</label></div>
+      <div class="task"><input type="checkbox" id="s-photo-joshua" data-item="s-photo-joshua"><label for="s-photo-joshua">Grandad secretly photographs <b>Joshua</b>.</label></div>
+      <div class="write-row"><label for="g-age10">🕐 What did you do at 10?</label><input type="text" id="g-age10" data-item="g-age10"></div>
+      <div class="write-row"><label for="g-toy">🧸 Favourite toy?</label><input type="text" id="g-toy" data-item="g-toy"></div>
+      <div class="write-row"><label for="g-sweet">🍬 Favourite sweet?</label><input type="text" id="g-sweet" data-item="g-sweet"></div>
+      <div class="write-row"><label for="g-diff">⏳ Biggest difference now?</label><input type="text" id="g-diff" data-item="g-diff"></div>
+    </div>
+  </div>
+
+  <!-- Bonus -->
+  <div class="case t-amber" data-case>
+    <div class="case-head" data-toggle>
+      <div class="case-icon">⭐</div>
+      <div class="case-title"><div class="case-label">Final Case</div><div class="case-name">Master Detective Bonus</div></div>
+      <div class="case-count" data-count>0/2</div>
+      <div class="case-chevron">▶</div>
+    </div>
+    <div class="case-body">
+      <div class="task"><input type="checkbox" id="b-photo" data-item="b-photo"><label for="b-photo">Photograph <b>one thing neither of you expected</b> to see.</label></div>
+      <div class="write-block"><label for="b-why">Why is it interesting?</label><textarea id="b-why" data-item="b-why"></textarea></div>
+    </div>
+  </div>
+
+  <div class="cert-block" id="cert-block">
+    <div class="cert-eyebrow">Norfolk Explorer Agency</div>
+    <h3>Certificate of Investigation</h3>
+    <p id="cert-status">Keep going, detective &mdash; solve every case to unlock your certificate!</p>
+    <div class="stars" id="cert-stars" style="display:none">⭐⭐⭐⭐⭐</div>
+  </div>
+
+</div>
+
+<div class="save-pip" id="save-pip">Saved ✓</div>
+
+<script>
+const PROGRESS = {{ progress | tojson }};
+const ALL_ITEMS = Array.from(document.querySelectorAll('[data-item]'));
+
+// ── Offline-safe save queue ─────────────────────────────────────────────────
+// Wroxham has patchy signal, so every change is written to localStorage first
+// (so nothing is lost if the tab is closed before it syncs), then a background
+// loop drains the queue whenever a request actually succeeds. The pip is
+// honest about state: amber "Saving…" while anything is queued, green
+// "Saved ✓" only once the queue is actually empty.
+const QUEUE_KEY = 'wroxham_pending_saves';
+const SYNC_INTERVAL_MS = 4000;
+let pipHideTimer = null;
+
+function loadQueue() {
+  try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '{}'); }
+  catch (e) { return {}; }
+}
+function saveQueue(q) {
+  try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); } catch (e) {}
+}
+
+function queueItem(itemId, value) {
+  const q = loadQueue();
+  q[itemId] = value;
+  saveQueue(q);
+  updatePip();
+  drainQueue();
+}
+
+let draining = false;
+async function drainQueue() {
+  if (draining) return;
+  draining = true;
+  try {
+    let q = loadQueue();
+    for (const itemId of Object.keys(q)) {
+      const value = q[itemId];
+      try {
+        const r = await fetch('/wroxham/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ item_id: itemId, value: value }),
+        });
+        if (!r.ok) throw new Error('bad status');
+        q = loadQueue();
+        if (q[itemId] === value) { delete q[itemId]; saveQueue(q); }
+      } catch (e) {
+        break; // signal's down — stop for now, the interval/online listener will retry
+      }
+    }
+  } finally {
+    draining = false;
+    updatePip();
+  }
+}
+
+function updatePip() {
+  const pip = document.getElementById('save-pip');
+  const pending = Object.keys(loadQueue()).length;
+  clearTimeout(pipHideTimer);
+  if (pending > 0) {
+    pip.textContent = navigator.onLine === false ? 'Offline — will save later' : 'Saving…';
+    pip.classList.add('show', 'pending');
+  } else {
+    pip.textContent = 'Saved ✓';
+    pip.classList.remove('pending');
+    pip.classList.add('show');
+    pipHideTimer = setTimeout(() => pip.classList.remove('show'), 1200);
+  }
+}
+
+function saveItem(itemId, value) {
+  queueItem(itemId, value);
+}
+
+window.addEventListener('online', drainQueue);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') drainQueue();
+});
+setInterval(drainQueue, SYNC_INTERVAL_MS);
+drainQueue(); // flush anything left over from a previous offline session
+
+function applyProgress() {
+  // Queued-but-unsent local edits win over the server snapshot, so a reload
+  // (e.g. after regaining signal) never looks like it "lost" a tick.
+  const merged = Object.assign({}, PROGRESS, loadQueue());
+  ALL_ITEMS.forEach(el => {
+    const id = el.dataset.item;
+    const val = merged[id];
+    if (val === undefined) return;
+    if (el.type === 'checkbox') {
+      el.checked = val === '1';
+    } else {
+      el.value = val;
+    }
+  });
+  updateAllCounts();
+}
+
+function updateAllCounts() {
+  document.querySelectorAll('[data-case]').forEach(caseEl => {
+    const checkboxes = caseEl.querySelectorAll('input[type=checkbox]');
+    const done = Array.from(checkboxes).filter(c => c.checked).length;
+    const countEl = caseEl.querySelector('[data-count]');
+    if (countEl) countEl.textContent = `${done}/${checkboxes.length}`;
+    caseEl.querySelectorAll('.task').forEach(t => {
+      const cb = t.querySelector('input[type=checkbox]');
+      if (cb) t.classList.toggle('done', cb.checked);
+    });
+  });
+  updateOverallProgress();
+}
+
+function updateOverallProgress() {
+  const allCheckboxes = document.querySelectorAll('input[type=checkbox]');
+  const total = allCheckboxes.length;
+  const done = Array.from(allCheckboxes).filter(c => c.checked).length;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-pct').textContent = pct + '%';
+
+  const certBlock = document.getElementById('cert-block');
+  const certStatus = document.getElementById('cert-status');
+  const certStars = document.getElementById('cert-stars');
+  if (pct >= 100) {
+    certBlock.classList.add('unlocked');
+    certStatus.textContent = 'Mission complete, Agent Joshua! Certificate unlocked.';
+    certStars.style.display = 'block';
+  } else {
+    certBlock.classList.remove('unlocked');
+    certStatus.textContent = `Keep going, detective — ${done}/${total} clues solved.`;
+    certStars.style.display = 'none';
+  }
+}
+
+document.querySelectorAll('[data-toggle]').forEach(head => {
+  head.addEventListener('click', () => {
+    head.closest('[data-case]').classList.toggle('open');
+  });
+});
+
+ALL_ITEMS.forEach(el => {
+  const evt = (el.type === 'checkbox') ? 'change' : 'input';
+  let debounce = null;
+  el.addEventListener(evt, () => {
+    updateAllCounts();
+    const value = el.type === 'checkbox' ? (el.checked ? '1' : '0') : el.value;
+    if (el.type === 'checkbox') {
+      saveItem(el.dataset.item, value);
+    } else {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => saveItem(el.dataset.item, value), 600);
+    }
+  });
+});
+
+applyProgress();
+// Open the first not-yet-complete case by default
+const firstOpen = Array.from(document.querySelectorAll('[data-case]')).find(c => {
+  const cbs = c.querySelectorAll('input[type=checkbox]');
+  return Array.from(cbs).some(c => !c.checked);
+}) || document.querySelector('[data-case]');
+if (firstOpen) firstOpen.classList.add('open');
+</script>
+{% endif %}
+
+</body>
+</html>
