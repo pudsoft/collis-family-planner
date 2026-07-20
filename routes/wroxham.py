@@ -8,7 +8,9 @@ instead.
 from __future__ import annotations
 
 import time as _time
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from flask import Blueprint, abort, jsonify, render_template, request, send_from_directory, session
 
@@ -19,6 +21,15 @@ bp = Blueprint("wroxham", __name__)
 
 MEDIA_ROOT = Path(__file__).resolve().parent.parent / "data" / "wroxham_media"
 BRIEFING_FILENAME = "handler_briefing.mp4"
+DEBRIEF_FILENAME = "handler_debrief.mp4"
+VIDEO_FILENAMES = {BRIEFING_FILENAME, DEBRIEF_FILENAME}
+
+# Debrief reveals regardless of progress once this UK time is reached.
+DEBRIEF_UNLOCK_AT = datetime(2026, 7, 21, 15, 0, tzinfo=ZoneInfo("Europe/London"))
+
+
+def _debrief_time_reached() -> bool:
+    return datetime.now(ZoneInfo("Europe/London")) >= DEBRIEF_UNLOCK_AT
 
 
 @bp.route("/wroxham")
@@ -29,12 +40,13 @@ def wroxham_view():
         db = get_db()
         rows = db.execute("SELECT item_id, value FROM wroxham_progress").fetchall()
         progress = {r["item_id"]: r["value"] for r in rows}
-    briefing_available = (MEDIA_ROOT / BRIEFING_FILENAME).is_file()
     return render_template(
         "wroxham.html",
         unlocked=unlocked,
         progress=progress,
-        briefing_available=briefing_available,
+        briefing_available=(MEDIA_ROOT / BRIEFING_FILENAME).is_file(),
+        debrief_available=(MEDIA_ROOT / DEBRIEF_FILENAME).is_file(),
+        debrief_time_reached=_debrief_time_reached(),
     )
 
 
@@ -47,12 +59,13 @@ def wroxham_unlock():
     db = get_db()
     rows = db.execute("SELECT item_id, value FROM wroxham_progress").fetchall()
     progress = {r["item_id"]: r["value"] for r in rows}
-    briefing_available = (MEDIA_ROOT / BRIEFING_FILENAME).is_file()
     return render_template(
         "wroxham.html",
         unlocked=True,
         progress=progress,
-        briefing_available=briefing_available,
+        briefing_available=(MEDIA_ROOT / BRIEFING_FILENAME).is_file(),
+        debrief_available=(MEDIA_ROOT / DEBRIEF_FILENAME).is_file(),
+        debrief_time_reached=_debrief_time_reached(),
     )
 
 
@@ -87,7 +100,7 @@ def wroxham_save():
 def wroxham_video(filename):
     if not session.get("wroxham_unlocked"):
         abort(403)
-    if filename != BRIEFING_FILENAME:
+    if filename not in VIDEO_FILENAMES:
         abort(404)
     if not (MEDIA_ROOT / filename).is_file():
         abort(404)

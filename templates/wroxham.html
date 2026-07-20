@@ -404,12 +404,29 @@
     <div class="stars" id="cert-stars" style="display:none">⭐⭐⭐⭐⭐</div>
   </div>
 
+  <div class="briefing" id="debrief-block" style="display:none">
+    <div class="briefing-label">📼 HQ Debrief &mdash; Mission Complete</div>
+    {% if debrief_available %}
+    <video controls preload="metadata" playsinline>
+      <source src="/wroxham/video/handler_debrief.mp4" type="video/mp4">
+      Your browser can't play this video.
+    </video>
+    {% else %}
+    <div class="briefing-placeholder">
+      <div class="icon">🎖️</div>
+      <div class="title">Debrief video not uploaded yet</div>
+      <div class="hint">Once the handler's congratulations message is recorded, drop it in as <code>handler_debrief.mp4</code> and it'll appear here automatically.</div>
+    </div>
+    {% endif %}
+  </div>
+
 </div>
 
 <div class="save-pip" id="save-pip">Saved ✓</div>
 
 <script>
 const PROGRESS = {{ progress | tojson }};
+const DEBRIEF_TIME_REACHED = {{ debrief_time_reached | tojson }};
 const ALL_ITEMS = Array.from(document.querySelectorAll('[data-item]'));
 
 // ── Offline-safe save queue ─────────────────────────────────────────────────
@@ -540,6 +557,7 @@ function updateOverallProgress() {
   const certBlock = document.getElementById('cert-block');
   const certStatus = document.getElementById('cert-status');
   const certStars = document.getElementById('cert-stars');
+  const debriefBlock = document.getElementById('debrief-block');
   if (pct >= 100) {
     certBlock.classList.add('unlocked');
     certStatus.textContent = 'Mission complete, Agent Joshua! Certificate unlocked.';
@@ -549,6 +567,9 @@ function updateOverallProgress() {
     certStatus.textContent = `Keep going, detective — ${done}/${total} clues solved.`;
     certStars.style.display = 'none';
   }
+  // Debrief video reveals on full completion, or unconditionally once the
+  // fixed HQ recall time has passed -- whichever comes first.
+  if (debriefBlock) debriefBlock.style.display = (pct >= 100 || DEBRIEF_TIME_REACHED) ? 'block' : 'none';
 }
 
 document.querySelectorAll('[data-toggle]').forEach(head => {
