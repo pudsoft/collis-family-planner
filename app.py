@@ -617,6 +617,7 @@ _LOGIN_EXEMPT = {
     "auth.logout", "static", "auth.service_worker", "auth.offline",
     "notifications.api_notify",
     "wroxham.wroxham_view", "wroxham.wroxham_unlock", "wroxham.wroxham_save",
+    "wroxham.wroxham_video",
 }
 
 

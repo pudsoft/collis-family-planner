@@ -8,13 +8,17 @@ instead.
 from __future__ import annotations
 
 import time as _time
+from pathlib import Path
 
-from flask import Blueprint, jsonify, render_template, request, session
+from flask import Blueprint, abort, jsonify, render_template, request, send_from_directory, session
 
 import config
 from routes.utils import get_db
 
 bp = Blueprint("wroxham", __name__)
+
+MEDIA_ROOT = Path(__file__).resolve().parent.parent / "data" / "wroxham_media"
+BRIEFING_FILENAME = "handler_briefing.mp4"
 
 
 @bp.route("/wroxham")
@@ -25,7 +29,13 @@ def wroxham_view():
         db = get_db()
         rows = db.execute("SELECT item_id, value FROM wroxham_progress").fetchall()
         progress = {r["item_id"]: r["value"] for r in rows}
-    return render_template("wroxham.html", unlocked=unlocked, progress=progress)
+    briefing_available = (MEDIA_ROOT / BRIEFING_FILENAME).is_file()
+    return render_template(
+        "wroxham.html",
+        unlocked=unlocked,
+        progress=progress,
+        briefing_available=briefing_available,
+    )
 
 
 @bp.route("/wroxham/unlock", methods=["POST"])
@@ -37,7 +47,13 @@ def wroxham_unlock():
     db = get_db()
     rows = db.execute("SELECT item_id, value FROM wroxham_progress").fetchall()
     progress = {r["item_id"]: r["value"] for r in rows}
-    return render_template("wroxham.html", unlocked=True, progress=progress)
+    briefing_available = (MEDIA_ROOT / BRIEFING_FILENAME).is_file()
+    return render_template(
+        "wroxham.html",
+        unlocked=True,
+        progress=progress,
+        briefing_available=briefing_available,
+    )
 
 
 @bp.route("/wroxham/save", methods=["POST"])
@@ -65,3 +81,16 @@ def wroxham_save():
         )
     db.commit()
     return jsonify({"ok": True})
+
+
+@bp.route("/wroxham/video/<path:filename>")
+def wroxham_video(filename):
+    if not session.get("wroxham_unlocked"):
+        abort(403)
+    if filename != BRIEFING_FILENAME:
+        abort(404)
+    if not (MEDIA_ROOT / filename).is_file():
+        abort(404)
+    # send_from_directory/Werkzeug handles Range requests for us, so the
+    # <video> tag can seek/stream instead of pulling the whole file up front.
+    return send_from_directory(MEDIA_ROOT, filename, conditional=True)

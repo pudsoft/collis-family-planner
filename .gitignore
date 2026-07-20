@@ -9,3 +9,4 @@ term_dates.json
 logs/
 *.log
 tools/uketabs/ug_session.json
+data/wroxham_media/*.mp4
