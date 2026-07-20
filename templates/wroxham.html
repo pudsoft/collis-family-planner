@@ -178,6 +178,17 @@
   .briefing-placeholder .title { font-size: 14px; font-weight: 700; color: #fdfcf7; }
   .briefing-placeholder .hint { font-size: 12px; color: #9aa8ac; max-width: 260px; }
 
+  .unlock-msg {
+    display: none;
+    margin-top: 6px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: #eaf7ee; border: 2px solid #2f9c86;
+    color: #1c4d5c; font-size: 14px; font-weight: 700; text-align: center;
+    line-height: 1.4;
+  }
+  .unlock-msg.show { display: block; }
+
   /* section colour themes */
   .t-teal   .case-icon{background:#cdeee6;}
   .t-amber  .case-icon{background:#ffe3b0;}
@@ -349,6 +360,7 @@
       <div class="task"><input type="checkbox" id="c6-silly" data-item="c6-silly"><label for="c6-silly">Find the <b>silliest toy</b>.</label></div>
       <div class="task"><input type="checkbox" id="c6-fidget" data-item="c6-fidget"><label for="c6-fidget">Find the <b>best fidget</b>.</label></div>
       <div class="write-row"><label for="c6-tenner">What would you buy with £10?</label><input type="text" id="c6-tenner" data-item="c6-tenner"></div>
+      <div class="unlock-msg" id="c6-unlock-msg">🎉 Well done, you are authorised to purchase 1 toy up to the value of &pound;30.</div>
     </div>
   </div>
 
@@ -507,7 +519,14 @@ function updateAllCounts() {
       if (cb) t.classList.toggle('done', cb.checked);
     });
   });
+  updateCase6Unlock();
   updateOverallProgress();
+}
+
+function updateCase6Unlock() {
+  const checkboxIds = ['c6-hoveton', 'c6-never', 'c6-old', 'c6-future', 'c6-silly', 'c6-fidget'];
+  const allTicked = checkboxIds.every(id => document.getElementById(id)?.checked);
+  document.getElementById('c6-unlock-msg')?.classList.toggle('show', allTicked);
 }
 
 function updateOverallProgress() {
