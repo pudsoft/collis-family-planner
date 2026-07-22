@@ -7,6 +7,9 @@
   <div class="card">
     <div class="card-header">
       <span class="card-title" style="margin-bottom:0">🔔 Notifications</span>
+      {% if notifications %}
+      <button type="button" class="btn btn-secondary btn-sm" id="notif-clear-all-btn">Clear all</button>
+      {% endif %}
     </div>
 
     {% if notifications %}
@@ -50,6 +53,19 @@
     <div style="display:flex;gap:8px">
       <button type="button" class="btn btn-secondary btn-full modal-close">Cancel</button>
       <button type="button" class="btn btn-danger btn-full" id="notif-clear-confirm">Clear</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Confirm-clear-all modal ───────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="notif-clear-all-modal">
+  <div class="modal-sheet">
+    <span class="modal-close">✕</span>
+    <div class="modal-title">Clear all notifications?</div>
+    <p style="color:var(--text-muted);font-size:.88rem;margin-bottom:16px">This can't be undone.</p>
+    <div style="display:flex;gap:8px">
+      <button type="button" class="btn btn-secondary btn-full modal-close">Cancel</button>
+      <button type="button" class="btn btn-danger btn-full" id="notif-clear-all-confirm">Clear all</button>
     </div>
   </div>
 </div>

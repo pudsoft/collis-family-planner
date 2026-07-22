@@ -69,3 +69,14 @@ def clear_notification(db, notif_id: int, person: str) -> bool:
     )
     db.commit()
     return cur.rowcount > 0
+
+
+def clear_all_notifications(db, person: str) -> int:
+    """Delete every notification visible to `person` (their own plus
+    family-wide ones). Returns the number of rows deleted."""
+    cur = db.execute(
+        "DELETE FROM notifications WHERE person=? OR person='family'",
+        (person,),
+    )
+    db.commit()
+    return cur.rowcount

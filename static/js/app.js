@@ -273,6 +273,31 @@ document.addEventListener("click", async (e) => {
   }
 });
 
+// ── Notification clear all ───────────────────────────────────────────────── //
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("#notif-clear-all-btn");
+  if (!btn) return;
+  document.getElementById("notif-clear-all-modal")?.classList.add("open");
+});
+
+document.addEventListener("click", async (e) => {
+  if (e.target.id !== "notif-clear-all-confirm") return;
+  const result = await postAction("/notifications/clear_all", new FormData());
+  document.getElementById("notif-clear-all-modal")?.classList.remove("open");
+  if (result) {
+    document.querySelectorAll(".notif-card").forEach((el) => el.remove());
+    document.getElementById("notif-clear-all-btn")?.remove();
+    const list = document.querySelector(".notif-list");
+    if (list) {
+      list.outerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">🔔</div>
+          <div class="empty-state-text">No notifications right now.</div>
+        </div>`;
+    }
+  }
+});
+
 // ── NTFY test ─────────────────────────────────────────────────────────────── //
 document.addEventListener("click", async (e) => {
   const btn = e.target.closest("#ntfy-test-btn");

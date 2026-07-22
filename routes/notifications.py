@@ -58,6 +58,13 @@ def notification_clear(notif_id: int):
     return jsonify({"ok": True})
 
 
+@bp.route("/notifications/clear_all", methods=["POST"])
+def notification_clear_all():
+    person = current_person()
+    count = notifications.clear_all_notifications(get_db(), person)
+    return jsonify({"ok": True, "count": count})
+
+
 # ── External trigger API ────────────────────────────────────────────────────
 #
 # POST /api/notify
