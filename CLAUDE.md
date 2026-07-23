@@ -2,35 +2,31 @@
 
 ## Deployment
 
-The app runs on an OCI server at `100.111.136.33`. SSH access requires Tailscale VPN.
+The app runs on an OCI server at `100.111.136.33` (SSH alias `cfp` in `~/.ssh/config`). SSH access requires Tailscale VPN. This machine is Ubuntu-only — the old Windows dev machine was retired during the 2026-07 migration; do not reference PowerShell/`.ps1` paths.
 
 ### Two Tailscale accounts in use on this machine
 
-- `pudsoft@` — Rythm OCI (wrong one for this project)
-- `tcnskynet@` — CCFP OCI at `100.111.136.33` (correct one)
+- `pudsoft@gmail.com` — Rythm OCI (wrong one for this project)
+- `tcnskynet@gmail.com` — CCFP OCI at `100.111.136.33` (correct one)
 
 ### SSH helper script
 
-Use `C:\Claude_Helpers\claude-helpers\cfp_ssh.ps1` for all connections.
-Always pass `-Force` so it auto-switches Tailscale without prompting.
+Use `~/projects/claude-helpers/claude-helpers/cfp_ssh.sh` for all connections.
+Always pass `--force` so it auto-switches Tailscale without prompting.
 
-```powershell
+```bash
 # Deploy (git pull + restart service)
-& "C:\Claude_Helpers\claude-helpers\cfp_ssh.ps1" deploy -Force
+~/projects/claude-helpers/claude-helpers/cfp_ssh.sh deploy --force
 
 # Run a single remote command
-& "C:\Claude_Helpers\claude-helpers\cfp_ssh.ps1" run "sudo journalctl -u collis-family-planner -n 50" -Force
+~/projects/claude-helpers/claude-helpers/cfp_ssh.sh run "sudo journalctl -u collis-family-planner -n 50" --force
 
 # Check service status
-& "C:\Claude_Helpers\claude-helpers\cfp_ssh.ps1" status -Force
+~/projects/claude-helpers/claude-helpers/cfp_ssh.sh status --force
 ```
 
-The `-Force` flag auto-switches Tailscale to `tcnskynet@gmail.com`, deploys, then restores the previous account. Never attempt raw SSH manually as a workaround.
+The `--force` flag auto-switches Tailscale to `tcnskynet@gmail.com`, deploys, then restores the previous account. Never attempt raw SSH manually as a workaround. Always commit + push before deploying — the server only does a `git pull`.
 
 ### SSH key
 
-The script looks for the key at `$env:USERPROFILE\.ssh\CCFP_HelpersOraclecfp-prod1.key` (i.e. the current Windows user's `.ssh` folder). The authorised key on the server lives under `C:\Users\TCN\.ssh\` — if running as a different Windows user, copy it once:
-
-```powershell
-Copy-Item "C:\Users\TCN\.ssh\CCFP_HelpersOraclecfp-prod1.key" "$env:USERPROFILE\.ssh\CCFP_HelpersOraclecfp-prod1.key" -Force
-```
+The script looks for the key at `~/.ssh/CCFP_HelpersOraclecfp-prod1.key`, already in place on this machine.

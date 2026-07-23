@@ -65,12 +65,12 @@ async function lookupPrices(productIds) {
     '/1/indexes/*/queries',
     { 'x-algolia-application-id': ALGOLIA_APP, 'x-algolia-api-key': ALGOLIA_KEY },
     { requests: [{ indexName: 'ASDA_PRODUCTS', query: '',
-        params: `hitsPerPage=${productIds.length}&attributesToRetrieve=["CIN","PRICES.EN"]&filters=(${filter}) AND STOCK.${STORE_ID}>0` }] }
+        params: `hitsPerPage=${productIds.length}&attributesToRetrieve=["CIN","PRICES"]&filters=(${filter}) AND STOCK.${STORE_ID}>0` }] }
   );
   const prices = {};
   for (const hit of (result.results?.[0]?.hits || [])) {
-    const p = hit['PRICES.EN'];
-    if (hit.CIN && p != null) prices[String(hit.CIN)] = typeof p === 'object' ? Object.values(p)[0] : p;
+    const p = hit.PRICES?.EN?.PRICE;
+    if (hit.CIN && p != null) prices[String(hit.CIN)] = p;
   }
   return prices;
 }
