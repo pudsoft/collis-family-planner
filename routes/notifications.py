@@ -6,6 +6,7 @@ from __future__ import annotations
 import hmac
 import logging
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from flask import Blueprint, jsonify, render_template, request
 
@@ -17,10 +18,12 @@ log = logging.getLogger(__name__)
 
 bp = Blueprint("notifications", __name__)
 
+LOCAL_TZ = ZoneInfo("Europe/London")
+
 
 def _friendly_ts(iso_str: str) -> str:
     try:
-        dt = datetime.fromisoformat(iso_str)
+        dt = datetime.fromisoformat(iso_str).astimezone(LOCAL_TZ)
         return dt.strftime("%a %-d %b, %H:%M")
     except Exception:
         return iso_str or ""
